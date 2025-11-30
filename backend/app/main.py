@@ -4,6 +4,11 @@ from typing import List, Optional
 from datetime import datetime
 from uuid import UUID, uuid4
 from fastapi.middleware.cors import CORSMiddleware
+from .db import engine
+from .models import Base
+
+Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(
     title="Car Deal Finder API",
