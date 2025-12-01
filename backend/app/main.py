@@ -1,19 +1,23 @@
+# backend/app/main.py
+
 from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID, uuid4
-from uuid import uuid4
 from fastapi.middleware.cors import CORSMiddleware
+
 from .db import engine
-from .models import Base
+from .models import Base, Listing          # 👈 Listing is safe now
 from .scraper_craigslist import search_craigslist_cars
 
+# Create tables
 Base.metadata.create_all(bind=engine)
 
+
 def get_db():
-    # local import to avoid any circular import problems
+    # local import to avoid any chance of circular import
     from .db import SessionLocal
 
     db = SessionLocal()
@@ -28,6 +32,7 @@ app = FastAPI(
     version="0.1.0",
     description="Backend for Car Deal Finder AI Agent (v1 with mock data).",
 )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
@@ -39,15 +44,14 @@ app.add_middleware(
 
 class Deal(BaseModel):
     id: UUID
-    source: str  # "craigslist", "fb_marketplace", etc.
+    source: str
     url: HttpUrl
-
     title: str
     description: str
 
     listed_price: int
     predicted_price: int
-    undervalue_percent: float  # (pred - listed)/pred * 100
+    undervalue_percent: float
 
     year: int
     make: str
@@ -58,66 +62,13 @@ class Deal(BaseModel):
     created_at: datetime
     posted_at: datetime
 
-
-def _mock_deals() -> List[Deal]:
-    now = datetime.utcnow()
-    return [
-        Deal(
-            id=uuid4(),
-            source="craigslist",
-            url="https://example.com/listing/1",
-            title="2016 Honda Civic LX",
-            description="Single owner, clean title, no accidents. Great condition.",
-            listed_price=10500,
-            predicted_price=13000,
-            undervalue_percent=(13000 - 10500) / 13000 * 100,
-            year=2016,
-            make="Honda",
-            model="Civic",
-            mileage=78000,
-            location="Austin, TX",
-            created_at=now,
-            posted_at=now,
-        ),
-        Deal(
-            id=uuid4(),
-            source="craigslist",
-            url="https://example.com/listing/2",
-            title="2015 Toyota Camry SE",
-            description="Some cosmetic scratches, mechanically sound, new tires.",
-            listed_price=9500,
-            predicted_price=11500,
-            undervalue_percent=(11500 - 9500) / 11500 * 100,
-            year=2015,
-            make="Toyota",
-            model="Camry",
-            mileage=98000,
-            location="Dallas, TX",
-            created_at=now,
-            posted_at=now,
-        ),
-        Deal(
-            id=uuid4(),
-            source="fb_marketplace",
-            url="https://example.com/listing/3",
-            title="2018 Mazda 3 Touring",
-            description="Low mileage, dealer serviced, no issues.",
-            listed_price=15000,
-            predicted_price=17000,
-            undervalue_percent=(17000 - 15000) / 17000 * 100,
-            year=2018,
-            make="Mazda",
-            model="3",
-            mileage=45000,
-            location="Houston, TX",
-            created_at=now,
-            posted_at=now,
-        ),
-    ]
+    class Config:
+        orm_mode = True
 
 
-DEALS_DB: List[Deal] = _mock_deals()
-
+# ─────────────────────────────
+#  ENDPOINTS
+# ─────────────────────────────
 
 @app.get("/health", tags=["meta"])
 def health_check():
@@ -130,49 +81,45 @@ def list_deals(
     make: Optional[str] = None,
     model: Optional[str] = None,
     location: Optional[str] = None,
+    db: Session = Depends(get_db),
 ):
-    results = []
+    q = db.query(Listing)
 
-    for deal in DEALS_DB:
-        if deal.undervalue_percent < min_undervalue_percent:
-            continue
+    q = q.filter(Listing.undervalue_percent >= min_undervalue_percent)
 
-        if make and deal.make.lower() != make.lower():
-            continue
+    if make:
+        q = q.filter(Listing.make.ilike(make))
+    if model:
+        q = q.filter(Listing.model.ilike(model))
+    if location:
+        q = q.filter(Listing.location.ilike(f"%{location}%"))
 
-        if model and deal.model.lower() != model.lower():
-            continue
-
-        if location and location.lower() not in deal.location.lower():
-            continue
-
-        results.append(deal)
-
-    results.sort(key=lambda d: d.undervalue_percent, reverse=True)
-    return results
+    q = q.order_by(Listing.undervalue_percent.desc())
+    return q.all()
 
 
 @app.get("/deals/{deal_id}", response_model=Deal, tags=["deals"])
-def get_deal(deal_id: UUID):
-    for deal in DEALS_DB:
-        if deal.id == deal_id:
-            return deal
-    raise HTTPException(status_code=404, detail="Deal not found")
+def get_deal(deal_id: UUID, db: Session = Depends(get_db)):
+    deal = db.query(Listing).filter(Listing.id == str(deal_id)).first()
+    if not deal:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return deal
 
-from uuid import uuid4
+
+from uuid import uuid4  # keep this near the top if not already
 
 @app.post("/scrape/craigslist", tags=["scraper"])
 def scrape_craigslist(
     city: str = "austin",
     query: str = "honda civic",
     max_results: int = 10,
+    db: Session = Depends(get_db),  # 👈 now uses DB
 ):
     """
     TEMP STUB:
     - Does NOT hit Craigslist
-    - Does NOT touch the DB
-    - Just generates some fake deals and returns them
-    so the rest of the app can be built safely.
+    - Generates fake deals
+    - ALSO inserts them into the SQLite DB (Listing table)
     """
 
     now = datetime.utcnow()
@@ -185,25 +132,57 @@ def scrape_craigslist(
             (predicted_price - listed_price) / predicted_price * 100
         )
 
+        deal_id = str(uuid4())
+        url = f"https://example.com/{city}/{query.replace(' ', '-')}/{i}"
+
+        # 👇 skip if this URL already exists in DB
+        existing = db.query(Listing).filter(Listing.url == url).first()
+        if existing:
+            continue
+
+        # create DB row
+        row = Listing(
+            id=deal_id,
+            source="stubbed_craigslist",
+            url=url,
+            title=f"201{5 + i} Honda Civic LX",
+            description="Stubbed listing for local testing",
+            listed_price=listed_price,
+            predicted_price=predicted_price,
+            undervalue_percent=undervalue_percent,
+            year=2015 + i,
+            make="Honda",
+            model="Civic",
+            mileage=70000 + i * 4000,
+            location=f"{city}, TX",
+            created_at=now,
+            posted_at=now,
+        )
+
+        db.add(row)
+
+        # also keep a JSON version to return
         deals.append(
             {
-                "id": str(uuid4()),
-                "source": "stubbed_craigslist",
-                "url": f"https://example.com/{city}/{query.replace(' ', '-')}/{i}",
-                "title": f"201{5 + i} Honda Civic LX",
-                "description": "Stubbed listing for local testing",
-                "listed_price": listed_price,
-                "predicted_price": predicted_price,
-                "undervalue_percent": undervalue_percent,
-                "year": 2015 + i,
-                "make": "Honda",
-                "model": "Civic",
-                "mileage": 70000 + i * 4000,
-                "location": f"{city}, TX",
-                "created_at": now,
-                "posted_at": now,
+                "id": deal_id,
+                "source": row.source,
+                "url": row.url,
+                "title": row.title,
+                "description": row.description,
+                "listed_price": row.listed_price,
+                "predicted_price": row.predicted_price,
+                "undervalue_percent": row.undervalue_percent,
+                "year": row.year,
+                "make": row.make,
+                "model": row.model,
+                "mileage": row.mileage,
+                "location": row.location,
+                "created_at": row.created_at,
+                "posted_at": row.posted_at,
             }
         )
+
+    db.commit()
 
     return {
         "inserted": len(deals),
