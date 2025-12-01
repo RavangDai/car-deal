@@ -1,13 +1,26 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID, uuid4
+from uuid import uuid4
 from fastapi.middleware.cors import CORSMiddleware
 from .db import engine
 from .models import Base
+from .scraper_craigslist import search_craigslist_cars
 
 Base.metadata.create_all(bind=engine)
+
+def get_db():
+    # local import to avoid any circular import problems
+    from .db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 app = FastAPI(
@@ -145,3 +158,56 @@ def get_deal(deal_id: UUID):
         if deal.id == deal_id:
             return deal
     raise HTTPException(status_code=404, detail="Deal not found")
+
+from uuid import uuid4
+
+@app.post("/scrape/craigslist", tags=["scraper"])
+def scrape_craigslist(
+    city: str = "austin",
+    query: str = "honda civic",
+    max_results: int = 10,
+):
+    """
+    TEMP STUB:
+    - Does NOT hit Craigslist
+    - Does NOT touch the DB
+    - Just generates some fake deals and returns them
+    so the rest of the app can be built safely.
+    """
+
+    now = datetime.utcnow()
+    deals = []
+
+    for i in range(max_results):
+        listed_price = 8000 + i * 500
+        predicted_price = int(listed_price * 1.2)
+        undervalue_percent = (
+            (predicted_price - listed_price) / predicted_price * 100
+        )
+
+        deals.append(
+            {
+                "id": str(uuid4()),
+                "source": "stubbed_craigslist",
+                "url": f"https://example.com/{city}/{query.replace(' ', '-')}/{i}",
+                "title": f"201{5 + i} Honda Civic LX",
+                "description": "Stubbed listing for local testing",
+                "listed_price": listed_price,
+                "predicted_price": predicted_price,
+                "undervalue_percent": undervalue_percent,
+                "year": 2015 + i,
+                "make": "Honda",
+                "model": "Civic",
+                "mileage": 70000 + i * 4000,
+                "location": f"{city}, TX",
+                "created_at": now,
+                "posted_at": now,
+            }
+        )
+
+    return {
+        "inserted": len(deals),
+        "city": city,
+        "query": query,
+        "deals": deals,
+    }
