@@ -19,7 +19,7 @@ type Deal = {
   posted_at: string;
 };
 
-function App() {
+export default function App() {
   const [city, setCity] = useState("austin");
   const [query, setQuery] = useState("honda civic");
   const [maxResults, setMaxResults] = useState(10);
@@ -29,137 +29,126 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleFindDeals() {
+  async function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      // 1) run scraper to populate DB
       await runCraigslistScrape(city, query, maxResults);
-
-      // 2) fetch filtered deals from DB
-      const data = await fetchDeals(minUndervalue);
-      setDeals(data);
+      const results = await fetchDeals(minUndervalue);
+      setDeals(results);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message ?? "Something went wrong");
+      setError(err?.message ?? "Something went wrong.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center p-6">
-      <header className="max-w-4xl w-full mb-6">
-        <h1 className="text-3xl font-bold mb-2">🚗 Car Deal Finder AI</h1>
-        <p className="text-slate-300">
-          Find undervalued car listings using your FastAPI + SQLite backend.
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      {/* HEADER */}
+      <header className="px-6 py-8 border-b border-slate-800 bg-slate-900/70 backdrop-blur">
+        <h1 className="text-4xl font-bold tracking-tight">
+          🚗 Car Deal Finder <span className="text-emerald-400">AI</span>
+        </h1>
+        <p className="text-slate-400 mt-1 text-sm">
+          Search undervalued used cars using FastAPI + SQLite.
         </p>
       </header>
 
-      <main className="max-w-4xl w-full space-y-6">
-        {/* Controls */}
-        <section className="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="block text-sm mb-1">City</label>
-              <input
-                className="w-full rounded-md bg-slate-950 border border-slate-700 px-2 py-1"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-              />
-            </div>
+      {/* MAIN CONTENT */}
+      <main className="max-w-5xl mx-auto px-6 py-10 space-y-10">
 
-            <div>
-              <label className="block text-sm mb-1">Query</label>
-              <input
-                className="w-full rounded-md bg-slate-950 border border-slate-700 px-2 py-1"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1">Max results</label>
-              <input
-                type="number"
-                className="w-full rounded-md bg-slate-950 border border-slate-700 px-2 py-1"
-                value={maxResults}
-                onChange={(e) => setMaxResults(Number(e.target.value))}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1">
-                Min undervalue % (deal score)
-              </label>
-              <input
-                type="number"
-                className="w-full rounded-md bg-slate-950 border border-slate-700 px-2 py-1"
-                value={minUndervalue}
-                onChange={(e) => setMinUndervalue(Number(e.target.value))}
-              />
-            </div>
+        {/* SEARCH BOX */}
+        <form
+          onSubmit={handleSearch}
+          className="grid gap-4 bg-slate-900/50 border border-slate-800 p-5 rounded-xl"
+        >
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Input
+              label="City"
+              value={city}
+              onChange={setCity}
+              placeholder="austin"
+            />
+            <Input
+              label="Search Query"
+              value={query}
+              onChange={setQuery}
+              placeholder="honda civic"
+            />
+            <Input
+              label="Max Results"
+              value={maxResults}
+              type="number"
+              onChange={(v) => setMaxResults(Number(v))}
+            />
+            <Input
+              label="Min Undervalue %"
+              value={minUndervalue}
+              type="number"
+              onChange={(v) => setMinUndervalue(Number(v))}
+            />
           </div>
 
           <button
-            onClick={handleFindDeals}
+            type="submit"
             disabled={loading}
-            className="mt-2 inline-flex items-center px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60"
+            className="mt-3 w-fit px-4 py-2 bg-emerald-500 text-slate-900 font-semibold rounded-lg shadow-md hover:bg-emerald-400 disabled:opacity-50"
           >
-            {loading ? "Finding deals…" : "Find Deals"}
+            {loading ? "Searching…" : "🔍 Find Deals"}
           </button>
 
-          {error && (
-            <p className="text-sm text-red-400 mt-2">Error: {error}</p>
-          )}
-        </section>
+          {error && <p className="text-red-400 text-sm">Error: {error}</p>}
+        </form>
 
-        {/* Results */}
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">
-            Results ({deals.length} deals)
-          </h2>
+        {/* RESULTS */}
+        <section>
+          <h2 className="text-2xl font-semibold mb-4">Best Deals</h2>
 
-          {deals.length === 0 && !loading && (
-            <p className="text-slate-400 text-sm">
-              No deals yet. Try running a search.
-            </p>
+          {!loading && deals.length === 0 && (
+            <p className="text-slate-500">No deals yet. Try running a search.</p>
           )}
 
-          <div className="space-y-3">
+          {loading && <p className="text-slate-400">Loading results…</p>}
+
+          <div className="grid md:grid-cols-2 gap-5">
             {deals.map((deal) => (
               <a
                 key={deal.id}
                 href={deal.url}
                 target="_blank"
-                rel="noreferrer"
-                className="block rounded-2xl border border-slate-800 bg-slate-900/70 p-4 hover:border-emerald-500 transition"
+                className="block bg-slate-900/60 border border-slate-800 rounded-xl p-5 hover:border-emerald-400 transition"
               >
-                <div className="flex justify-between items-start gap-4">
+                <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-semibold">
+                    <h3 className="font-semibold text-lg">
                       {deal.year} {deal.make} {deal.model}
                     </h3>
-                    <p className="text-sm text-slate-300">{deal.title}</p>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                      {deal.description}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {deal.location} • mileage:{" "}
-                      {deal.mileage ? `${deal.mileage.toLocaleString()} mi` : "—"}
+                    <p className="text-slate-400 text-sm">{deal.title}</p>
+                    <p className="text-slate-500 text-xs mt-1">
+                      {deal.location} •{" "}
+                      {deal.mileage
+                        ? `${deal.mileage.toLocaleString()} mi`
+                        : "Mileage N/A"}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-emerald-400">
-                      ${deal.listed_price.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Predicted: ${deal.predicted_price.toLocaleString()}
-                    </p>
-                    <p className="text-xs mt-1 text-amber-300 font-semibold">
-                      {deal.undervalue_percent.toFixed(1)}% undervalued
-                    </p>
+
+                  <span className="text-xs px-2 py-1 bg-slate-800 rounded-full">
+                    {deal.source}
+                  </span>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-emerald-400 font-bold text-xl">
+                    ${deal.listed_price.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Est. fair: ${deal.predicted_price.toLocaleString()}
+                  </p>
+                  <div className="mt-2 text-emerald-300 text-sm font-semibold">
+                    {deal.undervalue_percent.toFixed(1)}% undervalued
                   </div>
                 </div>
               </a>
@@ -171,4 +160,30 @@ function App() {
   );
 }
 
-export default App;
+/* SMALL INPUT COMPONENT FOR CLEANER UI */
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: any;
+  onChange: (v: any) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs text-slate-400">{label}</label>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm outline-none focus:border-emerald-400"
+      />
+    </div>
+  );
+}
