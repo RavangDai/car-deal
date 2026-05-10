@@ -3,13 +3,39 @@ import { useState, useEffect, useRef } from "react";
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
   const [scrolled, setScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [navTheme, setNavTheme] = useState<"light" | "dark">("light");
   const heroRef = useRef<HTMLDivElement>(null);
   const stackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
-    const onScroll = () => setScrolled(window.scrollY > 20);
+
+    const checkScroll = () => setScrolled(window.scrollY > 20);
+
+    const checkNavTheme = () => {
+      const x = window.innerWidth / 2;
+      const y = 30; // middle of nav strip
+      const elements = document.elementsFromPoint(x, y);
+      const isDark = elements.some(el =>
+        el.getAttribute("data-nav-theme") === "dark" ||
+        el.closest('[data-nav-theme="dark"]') !== null
+      );
+      setNavTheme(prev => {
+        const next = isDark ? "dark" : "light";
+        return prev === next ? prev : next;
+      });
+    };
+
+    let rafId = 0;
+    const onScroll = () => {
+      checkScroll();
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(checkNavTheme);
+    };
+
+    checkNavTheme();
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", checkNavTheme);
 
     const onMove = (e: MouseEvent) => {
       if (!heroRef.current || !stackRef.current) return;
@@ -23,7 +49,9 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
 
     return () => {
       clearTimeout(t);
+      cancelAnimationFrame(rafId);
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", checkNavTheme);
       window.removeEventListener("mousemove", onMove);
     };
   }, []);
@@ -38,23 +66,23 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       <div className="grain pointer-events-none fixed inset-0 z-[1]" />
 
       {/* ── NAV ─────────────────────────────────────────────────── */}
-      <nav className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled ? "border-b border-[var(--rule)] bg-[var(--bone)]/92 backdrop-blur" : ""}`}>
+      <nav className={`adaptive-nav fixed top-0 inset-x-0 z-50 nav-theme-${navTheme} ${scrolled ? "nav-scrolled" : ""}`}>
         <div className="px-6 md:px-10 py-4 flex items-center justify-between">
           <Wordmark />
-          <div className="hidden md:flex items-center gap-9 text-[13px] text-[var(--ink-soft)]">
+          <div className="hidden md:flex items-center gap-9 text-[13px]">
             {[["The Method", "method"], ["Index", "index"], ["For Dealers", "dealers"]].map(([l, h]) => (
-              <a key={h} href={`#${h}`} className="link-line">{l}</a>
+              <a key={h} href={`#${h}`} className="nav-link link-line">{l}</a>
             ))}
           </div>
           <div className="flex items-center gap-5">
-            <button onClick={onGetStarted} className="text-[13px] text-[var(--ink-soft)] link-line">Sign in</button>
-            <button onClick={onGetStarted} className="btn-primary">Get started</button>
+            <button onClick={onGetStarted} className="nav-link link-line text-[13px]">Sign in</button>
+            <button onClick={onGetStarted} className="nav-pill">Get started</button>
           </div>
         </div>
       </nav>
 
       {/* ── LIVE TICKER ─────────────────────────────────────────── */}
-      <div className="ticker-bar mt-[68px] border-y border-[var(--rule-strong)] bg-[var(--ink)] text-[var(--bone)] py-2.5 overflow-hidden relative z-10">
+      <div data-nav-theme="dark" className="ticker-bar mt-[68px] border-y border-[var(--rule-strong)] bg-[var(--ink)] text-[var(--bone)] py-2.5 overflow-hidden relative z-10">
         <div className="flex items-center gap-2 px-6 md:px-10 mb-1.5">
           <span className="font-mono text-[10px] tracking-[0.25em] uppercase opacity-60">Form 01</span>
           <span className="opacity-30">/</span>
@@ -227,7 +255,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </section>
 
       {/* ── EDITORIAL CALLOUT ───────────────────────────────────── */}
-      <section className="relative z-10 px-6 md:px-10 py-28 bg-[var(--ink)] text-[var(--bone)] overflow-hidden">
+      <section data-nav-theme="dark" className="relative z-10 px-6 md:px-10 py-28 bg-[var(--ink)] text-[var(--bone)] overflow-hidden">
         <div className="absolute -left-20 top-0 display text-[24rem] leading-none text-[var(--red)] opacity-15 select-none pointer-events-none">"</div>
         <div className="max-w-[1280px] mx-auto grid md:grid-cols-12 gap-8 items-start relative">
           <div className="md:col-span-9 md:col-start-3">
@@ -363,7 +391,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────────── */}
-      <footer className="relative z-10 border-t border-[var(--rule-strong)] px-6 md:px-10 py-12 bg-[var(--ink)] text-[var(--bone)]">
+      <footer data-nav-theme="dark" className="relative z-10 border-t border-[var(--rule-strong)] px-6 md:px-10 py-12 bg-[var(--ink)] text-[var(--bone)]">
         <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-6">
           <div className="flex items-center gap-6">
             <a href="#" className="flex items-baseline gap-1">
@@ -578,7 +606,7 @@ function FeaturedCard({ deal, idx }: { deal: typeof FEATURED[0]; idx: number }) 
 function Wordmark() {
   return (
     <a href="#" className="flex items-baseline gap-1 group">
-      <span className="display text-[1.4rem] leading-none tracking-[-0.02em]">Revveal</span>
+      <span className="display nav-wordmark text-[1.4rem] leading-none tracking-[-0.02em]">Revveal</span>
       <span className="w-[7px] h-[7px] bg-[var(--red)] inline-block translate-y-[-2px]" />
     </a>
   );
@@ -693,9 +721,52 @@ const STYLES = `
     mix-blend-mode: multiply;
   }
 
-  /* Buttons */
-  .btn-primary { background: var(--ink); color: var(--bone); padding: 10px 18px; font-size: 13px; font-weight: 500; border-radius: 999px; transition: background 0.15s ease; }
-  .btn-primary:hover { background: var(--red); }
+  /* Adaptive nav — inverts over dark sections so it stays readable */
+  .adaptive-nav {
+    transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+    background: transparent;
+  }
+  .adaptive-nav .nav-wordmark,
+  .adaptive-nav .nav-link,
+  .adaptive-nav .nav-pill {
+    transition: color 0.35s ease, background-color 0.2s ease, opacity 0.35s ease;
+  }
+
+  .nav-pill {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 999px;
+    line-height: 1;
+  }
+
+  /* Light theme — over cream sections */
+  .nav-theme-light .nav-wordmark { color: var(--ink); }
+  .nav-theme-light .nav-link     { color: var(--ink-soft); }
+  .nav-theme-light .nav-link:hover { color: var(--ink); }
+  .nav-theme-light .nav-pill     { background: var(--ink); color: var(--bone); }
+  .nav-theme-light .nav-pill:hover { background: var(--red); color: var(--bone); }
+
+  /* Dark theme — over ink sections (ticker / callout / footer) */
+  .nav-theme-dark .nav-wordmark  { color: var(--bone); }
+  .nav-theme-dark .nav-link      { color: rgba(239,233,221,0.65); }
+  .nav-theme-dark .nav-link:hover { color: var(--bone); }
+  .nav-theme-dark .nav-pill      { background: var(--bone); color: var(--ink); }
+  .nav-theme-dark .nav-pill:hover { background: var(--red); color: var(--bone); }
+
+  /* Solid backdrop only when scrolled — guarantees readability */
+  .adaptive-nav.nav-scrolled.nav-theme-light {
+    background: rgba(239, 233, 221, 0.96);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--rule);
+  }
+  .adaptive-nav.nav-scrolled.nav-theme-dark {
+    background: rgba(19, 19, 16, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(239,233,221,0.10);
+  }
 
   .btn-primary-lg {
     display: inline-flex; align-items: center; gap: 14px;
