@@ -1,53 +1,60 @@
-# backend/app/main.py
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import List, Optional
+from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Depends
-from sqlalchemy.orm import Session
-from pydantic import BaseModel, HttpUrl
-from typing import List, Optional
-from datetime import datetime
-from uuid import UUID, uuid4
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .db import engine
-from .models import Base, Listing          # 👈 Listing is safe now
+from .db import engine, AsyncSessionLocal
+from .models import Listing
 from .scraper_craigslist import search_craigslist_cars
-
-# Create tables
-Base.metadata.create_all(bind=engine)
+from .settings import settings
 
 
-def get_db():
-    # local import to avoid any chance of circular import
-    from .db import SessionLocal
-
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await engine.dispose()
 
 
 app = FastAPI(
     title="Car Deal Finder API",
-    version="0.1.0",
-    description="Backend for Car Deal Finder AI Agent (v1 with mock data).",
+    version="0.3.0",
+    description="Finds undervalued used cars via async scraping + PostgreSQL.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+# ── Dependency ────────────────────────────────────────────────────────────────
+
+async def get_db() -> AsyncSession:
+    async with AsyncSessionLocal() as session:
+        yield session
+
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
+
 class Deal(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     source: str
-    url: HttpUrl
+    url: str
+
     title: str
-    description: str
+    description: Optional[str] = None
 
     listed_price: int
     predicted_price: int
@@ -62,131 +69,91 @@ class Deal(BaseModel):
     created_at: datetime
     posted_at: datetime
 
-    class Config:
-        orm_mode = True
 
-
-# ─────────────────────────────
-#  ENDPOINTS
-# ─────────────────────────────
+# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["meta"])
-def health_check():
+async def health_check():
     return {"status": "ok", "service": "car-deal-finder-api"}
 
 
 @app.get("/deals", response_model=List[Deal], tags=["deals"])
-def list_deals(
+async def list_deals(
     min_undervalue_percent: float = 15.0,
     make: Optional[str] = None,
     model: Optional[str] = None,
     location: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    q = db.query(Listing)
-
-    q = q.filter(Listing.undervalue_percent >= min_undervalue_percent)
+    stmt = select(Listing).where(Listing.undervalue_percent >= min_undervalue_percent)
 
     if make:
-        q = q.filter(Listing.make.ilike(make))
+        stmt = stmt.where(Listing.make.ilike(make))
     if model:
-        q = q.filter(Listing.model.ilike(model))
+        stmt = stmt.where(Listing.model.ilike(model))
     if location:
-        q = q.filter(Listing.location.ilike(f"%{location}%"))
+        stmt = stmt.where(Listing.location.ilike(f"%{location}%"))
 
-    q = q.order_by(Listing.undervalue_percent.desc())
-    return q.all()
+    stmt = stmt.order_by(Listing.undervalue_percent.desc())
+
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 
 @app.get("/deals/{deal_id}", response_model=Deal, tags=["deals"])
-def get_deal(deal_id: UUID, db: Session = Depends(get_db)):
-    deal = db.query(Listing).filter(Listing.id == str(deal_id)).first()
-    if not deal:
+async def get_deal(deal_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Listing).where(Listing.id == deal_id))
+    listing = result.scalar_one_or_none()
+    if not listing:
         raise HTTPException(status_code=404, detail="Deal not found")
-    return deal
+    return listing
 
-
-from uuid import uuid4  # keep this near the top if not already
 
 @app.post("/scrape/craigslist", tags=["scraper"])
-def scrape_craigslist(
-    city: str = "austin",
-    query: str = "honda civic",
+async def scrape_craigslist(
+    city: str,
+    query: str,
     max_results: int = 10,
-    db: Session = Depends(get_db),  # 👈 now uses DB
+    db: AsyncSession = Depends(get_db),
 ):
-    """
-    TEMP STUB:
-    - Does NOT hit Craigslist
-    - Generates fake deals
-    - ALSO inserts them into the SQLite DB (Listing table)
-    """
+    try:
+        raw_listings = search_craigslist_cars(city=city, query=query, max_results=max_results)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Scraper error: {e}")
 
-    now = datetime.utcnow()
-    deals = []
+    inserted = 0
 
-    for i in range(max_results):
-        listed_price = 8000 + i * 500
-        predicted_price = int(listed_price * 1.2)
-        undervalue_percent = (
-            (predicted_price - listed_price) / predicted_price * 100
-        )
-
-        deal_id = str(uuid4())
-        url = f"https://example.com/{city}/{query.replace(' ', '-')}/{i}"
-
-        # 👇 skip if this URL already exists in DB
-        existing = db.query(Listing).filter(Listing.url == url).first()
-        if existing:
+    for item in raw_listings:
+        if not item.get("listed_price"):
             continue
 
-        # create DB row
-        row = Listing(
-            id=deal_id,
-            source="stubbed_craigslist",
-            url=url,
-            title=f"201{5 + i} Honda Civic LX",
-            description="Stubbed listing for local testing",
-            listed_price=listed_price,
+        existing = await db.execute(select(Listing).where(Listing.url == item["url"]))
+        if existing.scalar_one_or_none():
+            continue
+
+        predicted_price = int(item["listed_price"] * 1.15)
+        undervalue_percent = (predicted_price - item["listed_price"]) / predicted_price * 100
+
+        listing = Listing(
+            source=item["source"],
+            url=item["url"],
+            title=item["title"],
+            description=item.get("description"),
+            listed_price=item["listed_price"],
             predicted_price=predicted_price,
             undervalue_percent=undervalue_percent,
-            year=2015 + i,
-            make="Honda",
-            model="Civic",
-            mileage=70000 + i * 4000,
-            location=f"{city}, TX",
-            created_at=now,
-            posted_at=now,
+            year=item.get("year") or 0,
+            make=item["make"],
+            model=item["model"],
+            mileage=item.get("mileage"),
+            location=item["location"],
+            created_at=datetime.now(timezone.utc),
+            posted_at=item["posted_at"],
         )
 
-        db.add(row)
+        db.add(listing)
+        inserted += 1
 
-        # also keep a JSON version to return
-        deals.append(
-            {
-                "id": deal_id,
-                "source": row.source,
-                "url": row.url,
-                "title": row.title,
-                "description": row.description,
-                "listed_price": row.listed_price,
-                "predicted_price": row.predicted_price,
-                "undervalue_percent": row.undervalue_percent,
-                "year": row.year,
-                "make": row.make,
-                "model": row.model,
-                "mileage": row.mileage,
-                "location": row.location,
-                "created_at": row.created_at,
-                "posted_at": row.posted_at,
-            }
-        )
+    await db.commit()
 
-    db.commit()
-
-    return {
-        "inserted": len(deals),
-        "city": city,
-        "query": query,
-        "deals": deals,
-    }
+    return {"inserted": inserted, "city": city, "query": query}

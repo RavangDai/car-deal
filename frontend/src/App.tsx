@@ -53,7 +53,7 @@ export default function App() {
           🚗 Car Deal Finder <span className="text-emerald-400">AI</span>
         </h1>
         <p className="text-slate-400 mt-1 text-sm">
-          Search undervalued used cars using FastAPI + SQLite.
+          Search undervalued used cars using FastAPI + PostgreSQL + Redis.
         </p>
       </header>
 

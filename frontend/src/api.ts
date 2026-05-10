@@ -1,37 +1,30 @@
-// frontend/src/api.ts
-
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export async function runCraigslistScrape(
   city: string,
   query: string,
   maxResults: number
 ) {
-  const url =
-    `${API_BASE}/scrape/craigslist?` +
-    `city=${encodeURIComponent(city)}` +
-    `&query=${encodeURIComponent(query)}` +
-    `&max_results=${maxResults}`;
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const params = new URLSearchParams({
+    city,
+    query,
+    max_results: String(maxResults),
   });
 
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
-  return res.json(); // { inserted, city, query, deals: [...] }
+  const res = await fetch(`${API_BASE}/scrape/craigslist?${params}`, {
+    method: "POST",
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 export async function fetchDeals(minUndervaluePercent: number) {
-  const url =
-    `${API_BASE}/deals?` +
-    `min_undervalue_percent=${encodeURIComponent(minUndervaluePercent)}`;
+  const params = new URLSearchParams({
+    min_undervalue_percent: String(minUndervaluePercent),
+  });
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(await res.text());
-  }
-  return res.json(); // array of deals
+  const res = await fetch(`${API_BASE}/deals?${params}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\bibek\\\\Personal Projects\\\\car catch ai\\\\car-deal-finder\" -Recurse -Force | Select-Object -Property FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\Users\\\\bibek\\\\Personal Projects\\\\car catch ai\\\\car-deal-finder\"\\), \".\" } | Sort-Object)"
+    ]
+  }
+}
