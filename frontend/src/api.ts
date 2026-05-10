@@ -168,44 +168,6 @@ export async function getScrapeJob(jobId: string): Promise<ScrapeJobStatus> {
   return res.json();
 }
 
-export type WaitOptions = {
-  pollIntervalMs?: number;
-  timeoutMs?: number;
-  onUpdate?: (status: ScrapeJobStatus) => void;
-  signal?: AbortSignal;
-};
-
-export async function waitForScrapeJob(
-  jobId: string,
-  options: WaitOptions = {}
-): Promise<ScrapeJobStatus> {
-  const {
-    pollIntervalMs = 1500,
-    timeoutMs = 60_000,
-    onUpdate,
-    signal,
-  } = options;
-
-  const deadline = Date.now() + timeoutMs;
-
-  while (true) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-
-    const status = await getScrapeJob(jobId);
-    onUpdate?.(status);
-
-    if (status.state === "SUCCESS" || status.state === "FAILURE") {
-      return status;
-    }
-
-    if (Date.now() > deadline) {
-      throw new Error(`Scrape job ${jobId} timed out after ${timeoutMs}ms`);
-    }
-
-    await new Promise((r) => setTimeout(r, pollIntervalMs));
-  }
-}
-
 export async function fetchDeals(minUndervaluePercent: number) {
   const params = new URLSearchParams({
     min_undervalue_percent: String(minUndervaluePercent),
