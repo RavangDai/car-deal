@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
+import { login as apiLogin, register as apiRegister } from "./api";
 
 interface Props {
   onLogin: () => void;
 }
 
+type Mode = "login" | "register";
+
 export default function LoginPage({ onLogin }: Props) {
+  const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +17,9 @@ export default function LoginPage({ onLogin }: Props) {
   const [fading, setFading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const isRegister = mode === "register";
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
@@ -24,7 +31,8 @@ export default function LoginPage({ onLogin }: Props) {
     if (!email) e.email = "Email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Enter a valid email";
     if (!password) e.password = "Password is required";
-    else if (password.length < 6) e.password = "Minimum 6 characters";
+    else if (password.length < (isRegister ? 8 : 6))
+      e.password = `Minimum ${isRegister ? 8 : 6} characters`;
     return e;
   }
 
@@ -33,16 +41,32 @@ export default function LoginPage({ onLogin }: Props) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
+    setFormError(null);
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setLoading(false);
-    setFading(true);
-    await new Promise(r => setTimeout(r, 400));
-    onLogin();
+    try {
+      if (isRegister) {
+        await apiRegister(email, password);
+      }
+      await apiLogin(email, password);
+      setFading(true);
+      await new Promise(r => setTimeout(r, 400));
+      onLogin();
+    } catch (err: any) {
+      setFormError(parseAuthError(err?.message ?? "Something went wrong."));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function clearErr(key: "email" | "password") {
     setErrors(p => { const n = { ...p }; delete n[key]; return n; });
+    setFormError(null);
+  }
+
+  function toggleMode() {
+    setMode(m => (m === "login" ? "register" : "login"));
+    setErrors({});
+    setFormError(null);
   }
 
   return (
