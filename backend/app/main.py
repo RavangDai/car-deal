@@ -4,15 +4,20 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from celery.result import AsyncResult
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .auth import get_current_user, router as auth_router
 from .celery_app import celery_app
-from .db import engine, AsyncSessionLocal
-from .models import Listing
+from .db import engine, get_db
+from .limiter import limiter
+from .models import Listing, User
 from .settings import settings
 from .tasks import scrape_craigslist_task
 
@@ -25,10 +30,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Car Deal Finder API",
-    version="0.4.0",
-    description="Finds undervalued used cars via async scraping + PostgreSQL + Celery.",
+    version="0.5.0",
+    description="Undervalued used cars — async scraping (Celery) + JWT auth + rate limiting.",
     lifespan=lifespan,
 )
+
+# ── Middleware ────────────────────────────────────────────────────────────────
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,12 +49,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Routers ───────────────────────────────────────────────────────────────────
 
-# ── Dependency ────────────────────────────────────────────────────────────────
-
-async def get_db() -> AsyncSession:
-    async with AsyncSessionLocal() as session:
-        yield session
+app.include_router(auth_router)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -96,7 +104,9 @@ async def health_check():
 
 
 @app.get("/deals", response_model=List[Deal], tags=["deals"])
+@limiter.limit("60/minute")
 async def list_deals(
+    request: Request,
     min_undervalue_percent: float = 15.0,
     make: Optional[str] = None,
     model: Optional[str] = None,
@@ -133,10 +143,13 @@ async def get_deal(deal_id: UUID, db: AsyncSession = Depends(get_db)):
     status_code=status.HTTP_202_ACCEPTED,
     tags=["scraper"],
 )
+@limiter.limit("5/minute")
 async def enqueue_craigslist_scrape(
+    request: Request,
     city: str,
     query: str,
     max_results: int = 10,
+    user: User = Depends(get_current_user),
 ):
     async_result = scrape_craigslist_task.delay(
         city=city, query=query, max_results=max_results
@@ -154,7 +167,12 @@ async def enqueue_craigslist_scrape(
     response_model=ScrapeJobStatus,
     tags=["scraper"],
 )
-async def get_scrape_job(job_id: str):
+@limiter.limit("120/minute")
+async def get_scrape_job(
+    request: Request,
+    job_id: str,
+    user: User = Depends(get_current_user),
+):
     result = AsyncResult(job_id, app=celery_app)
     state = result.state
 
