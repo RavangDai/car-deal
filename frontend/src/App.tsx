@@ -1,14 +1,12 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import { getToken } from "./api";
 import {
-  runCraigslistScrape,
-  fetchDeals,
-  waitForScrapeJob,
-  getMe,
-  getToken,
-  logout as apiLogout,
-  UnauthorizedError,
-  type ScrapeJobStatus,
-} from "./api";
+  useDeals,
+  useLogoutMutation,
+  useMe,
+  useScrapeJob,
+  useScrapeMutation,
+} from "./hooks";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import {
@@ -20,8 +18,6 @@ import {
   sourceCode,
   extractStateCode,
 } from "./CarGlyphs";
-
-type Page = "home" | "login" | "dashboard";
 
 type Deal = {
   id: string;
@@ -41,39 +37,26 @@ type Deal = {
   posted_at: string;
 };
 
-export default function App() {
-  const [page, setPage] = useState<Page>("home");
-  const [bootstrapping, setBootstrapping] = useState(true);
+const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      if (!getToken()) {
-        if (!cancelled) setBootstrapping(false);
-        return;
-      }
-      try {
-        await getMe();
-        if (!cancelled) setPage("dashboard");
-      } catch {
-        apiLogout();
-      } finally {
-        if (!cancelled) setBootstrapping(false);
-      }
-    }
-    check();
-    return () => { cancelled = true; };
-  }, []);
+export default function App() {
+  const me = useMe();
+  const [showLogin, setShowLogin] = useState(false);
+  const logoutMut = useLogoutMutation();
+
+  // Bootstrapping: we have a stored token but haven't validated it yet.
+  // Without a token, useMe is disabled and resolves immediately.
+  const bootstrapping = !!getToken() && me.isLoading;
 
   function handleLogout() {
-    apiLogout();
-    setPage("home");
+    logoutMut.mutate();
+    setShowLogin(false);
   }
 
   if (bootstrapping) return <BootSplash />;
-  if (page === "home")  return <HomePage  onGetStarted={() => setPage("login")} />;
-  if (page === "login") return <LoginPage onLogin={() => setPage("dashboard")} />;
-  return <Dashboard onLogout={handleLogout} />;
+  if (me.data) return <Dashboard onLogout={handleLogout} />;
+  if (showLogin) return <LoginPage onLogin={() => setShowLogin(false)} />;
+  return <HomePage onGetStarted={() => setShowLogin(true)} />;
 }
 
 function BootSplash() {
@@ -100,59 +83,55 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [query, setQuery] = useState("honda civic");
   const [maxResults, setMaxResults] = useState(10);
   const [minUndervalue, setMinUndervalue] = useState(10);
+  const [jobId, setJobId] = useState<string | null>(null);
 
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState<string | null>(null);
-  const [jobSummary, setJobSummary] = useState<ScrapeJobStatus["result"]>(null);
-  const [error, setError] = useState<string | null>(null);
+  const scrapeMutation = useScrapeMutation();
+  const scrapeJob = useScrapeJob(jobId);
+  const dealsQuery = useDeals(minUndervalue);
 
-  async function handleSearch(e: React.FormEvent) {
+  function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setJobSummary(null);
-    setStage("queueing job");
-    try {
-      const job = await runCraigslistScrape(city, query, maxResults);
-      setStage("queued");
-
-      const finalStatus = await waitForScrapeJob(job.job_id, {
-        pollIntervalMs: 1200,
-        timeoutMs: 90_000,
-        onUpdate: (s) => {
-          if (s.state === "PROGRESS" && s.progress?.stage) {
-            setStage(String(s.progress.stage));
-          } else if (s.state === "STARTED") {
-            setStage("started");
-          } else if (s.state === "PENDING") {
-            setStage("queued");
-          } else if (s.state === "RETRY") {
-            setStage("retrying");
-          }
-        },
-      });
-
-      if (finalStatus.state === "FAILURE") {
-        throw new Error(finalStatus.error ?? "Scrape job failed");
-      }
-
-      setJobSummary(finalStatus.result);
-      setStage("loading deals");
-      const results = await fetchDeals(minUndervalue);
-      setDeals(results);
-      setStage(null);
-    } catch (err: any) {
-      if (err instanceof UnauthorizedError) {
-        onLogout();
-        return;
-      }
-      setError(err?.message ?? "Something went wrong.");
-      setStage(null);
-    } finally {
-      setLoading(false);
-    }
+    scrapeMutation.mutate(
+      { city, query, maxResults },
+      {
+        onSuccess: (data) => setJobId(data.job_id),
+      },
+    );
   }
+
+  // ── Derived UI state ─────────────────────────────────────────
+  const stage = useMemo<string | null>(() => {
+    if (scrapeMutation.isPending) return "queueing job";
+    const s = scrapeJob.data;
+    if (!s) return null;
+    if (TERMINAL_STATES.has(s.state)) {
+      // Brief "loading deals" stage between scrape success and the
+      // dealsQuery refetch landing.
+      if (s.state === "SUCCESS" && dealsQuery.isFetching) return "loading deals";
+      return null;
+    }
+    if (s.state === "PROGRESS" && typeof s.progress?.stage === "string") {
+      return s.progress.stage;
+    }
+    if (s.state === "STARTED") return "started";
+    if (s.state === "PENDING") return "queued";
+    if (s.state === "RETRY") return "retrying";
+    return "running";
+  }, [scrapeMutation.isPending, scrapeJob.data, dealsQuery.isFetching]);
+
+  const loading = stage !== null;
+
+  const error =
+    scrapeMutation.error?.message ??
+    (scrapeJob.data?.state === "FAILURE" ? scrapeJob.data.error : null) ??
+    scrapeJob.error?.message ??
+    dealsQuery.error?.message ??
+    null;
+
+  const jobSummary =
+    scrapeJob.data?.state === "SUCCESS" ? scrapeJob.data.result : null;
+
+  const deals: Deal[] = (dealsQuery.data as Deal[] | undefined) ?? [];
 
   return (
     <div className="min-h-screen" style={{ background: "var(--bone)", color: "var(--ink)", fontFamily: "'DM Sans', sans-serif" }}>
@@ -236,7 +215,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               disabled={loading}
               className="inline-flex items-center gap-3 px-7 py-3 bg-[var(--ink)] text-[var(--bone)] text-[14px] font-medium rounded-full hover:bg-[var(--red)] disabled:opacity-60 disabled:hover:bg-[var(--ink)] transition-all duration-200 group"
             >
-              <span>{loading ? (stage ? stage : "Querying") : "Run search"}</span>
+              <span>{loading ? (stage ?? "Querying") : "Run search"}</span>
               {loading ? (
                 <Tire size={14} />
               ) : (

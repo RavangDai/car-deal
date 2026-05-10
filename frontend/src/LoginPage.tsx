@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { login as apiLogin, register as apiRegister } from "./api";
+import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 
 interface Props {
   onLogin: () => void;
@@ -13,13 +13,16 @@ export default function LoginPage({ onLogin }: Props) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [fading, setFading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
 
+  const loginMut = useLoginMutation();
+  const registerMut = useRegisterAndLoginMutation();
+
   const isRegister = mode === "register";
+  const loading = loginMut.isPending || registerMut.isPending;
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
@@ -42,19 +45,15 @@ export default function LoginPage({ onLogin }: Props) {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
     setFormError(null);
-    setLoading(true);
+
+    const mutation = isRegister ? registerMut : loginMut;
     try {
-      if (isRegister) {
-        await apiRegister(email, password);
-      }
-      await apiLogin(email, password);
+      await mutation.mutateAsync({ email, password });
       setFading(true);
       await new Promise(r => setTimeout(r, 400));
       onLogin();
     } catch (err: any) {
       setFormError(parseAuthError(err?.message ?? "Something went wrong."));
-    } finally {
-      setLoading(false);
     }
   }
 

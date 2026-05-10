@@ -38,12 +38,16 @@ car-deal-finder/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx                    Top-level router (home → login → dashboard)
+│   │   ├── App.tsx                    Auth-derived page selection + Dashboard
 │   │   ├── HomePage.tsx               Landing page w/ adaptive nav theme
-│   │   ├── LoginPage.tsx              Login UI (UI-only — no real auth wired)
-│   │   ├── api.ts                     HTTP client: scrape enqueue + job polling + deals
+│   │   ├── LoginPage.tsx              Real login/register form via TanStack mutations
+│   │   ├── CarGlyphs.tsx              Car-themed SVG primitives (gauge, odometer, plate, tire, silhouette)
+│   │   ├── api.ts                     Raw fetchers + token storage + UnauthorizedError
+│   │   ├── queryClient.ts             Shared QueryClient + global 401 handler
+│   │   ├── queryKeys.ts               Central query-key factory
+│   │   ├── hooks.ts                   useMe / useLogin* / useDeals / useScrape* hooks
 │   │   ├── api/deals.ts               Deprecated duplicate, unused
-│   │   ├── main.tsx                   React root entry
+│   │   ├── main.tsx                   React root + QueryClientProvider + Devtools (dev only)
 │   │   ├── App.css                    Component styles (mostly unused, Tailwind primary)
 │   │   ├── index.css                  Global Tailwind directives
 │   │   └── assets/                    Static assets
@@ -70,7 +74,9 @@ car-deal-finder/
 | Build tool | Vite | 7.2.4 | Dev server + bundler |
 | Language (frontend) | TypeScript | 5.9.3 | Types |
 | Styling | Tailwind CSS | 3.4.18 | Utility-first CSS |
-| HTTP (frontend) | Native Fetch API | — | API calls + polling |
+| HTTP (frontend) | Native Fetch API | — | Wrapped in `apiFetch` for auth + 401 |
+| Server-state | @tanstack/react-query | 5.62 | Caching, polling, invalidations, mutations |
+| React Query Devtools | @tanstack/react-query-devtools | 5.62 | Dev-only; toggled in `main.tsx` via `import.meta.env.DEV` |
 | Backend framework | FastAPI | 0.122.0 | REST API |
 | ASGI server | Uvicorn | 0.38.0 | Hot-reload dev server |
 | ORM | SQLAlchemy | 2.0.44 | Async + sync engines |
@@ -231,18 +237,22 @@ Protected request
 
 slowapi is wired with `SlowAPIMiddleware` + the standard `RateLimitExceeded` handler; per-endpoint limits use the `@limiter.limit("N/minute")` decorator (which requires `request: Request` as the first non-self parameter). The `Limiter` instance lives in its own module (`app/limiter.py`) so both `main.py` and `auth.py` can decorate handlers without circular imports.
 
-### Async Scrape Flow (Phase 3)
+### Async Scrape Flow (Phase 3 + Phase 5 polling)
 
 ```
 User submits search (city + query)
+  → useScrapeMutation.mutate({ city, query, maxResults })
   → POST /scrape/craigslist             (FastAPI handler)
      → scrape_craigslist_task.delay()   (push to Redis broker, db 0)
      → return 202 { job_id }            (immediate)
+  → onSuccess: setJobId(data.job_id)    (kicks off useScrapeJob)
 
-Frontend
-  → polls GET /scrape/jobs/{job_id} every ~1.2s
-  → renders worker stage (queued → scraping → persisting)
-  → on SUCCESS, renders summary + GET /deals to refresh
+Frontend (useScrapeJob, refetchInterval=1500ms while non-terminal)
+  → GET /scrape/jobs/{job_id}           (polled by React Query)
+  → renders worker stage from data.progress.stage (queued → scraping → persisting)
+  → on SUCCESS, useEffect inside the hook invalidates ["deals"]
+     → useDeals refetches automatically → new rows render
+  → polling stops (refetchInterval returns false on terminal state)
 
 Celery worker (separate container)
   → picks up task from Redis queue
@@ -279,12 +289,27 @@ User sets filters
 
 ## Frontend Key Details
 
-- **Routing**: `App.tsx` is a 3-state state machine (`home` → `login` → `dashboard`); no router library
+- **Routing**: `App.tsx` derives the page from auth state, not from a hand-rolled state machine:
+  - `bootstrapping` (token present, `useMe` still loading) → `BootSplash`
+  - `me.data` truthy → `Dashboard`
+  - `showLogin` (set when user clicks "Get started") → `LoginPage`
+  - else → `HomePage`
 - **Pages**:
   - `HomePage.tsx` — landing page, adaptive nav theme based on scroll position
-  - `LoginPage.tsx` — UI only, fakes auth with a 1.2s setTimeout (no `/auth` endpoint exists yet)
-  - `Dashboard` (in `App.tsx`) — search form + async job polling + deal grid
-- **Auth state**: `App.tsx` runs a session-restore effect on mount — if a token exists in localStorage, it calls `getMe()`; success → jump straight to dashboard, failure → clear token and stay on home. While checking, a minimal `BootSplash` (Revveal wordmark) is shown to avoid a "home → dashboard" flash
+  - `LoginPage.tsx` — `useLoginMutation` / `useRegisterAndLoginMutation`, login/register toggle, friendly error mapping
+  - `Dashboard` (in `App.tsx`) — search form + scrape mutation + polling job query + auto-fetched deals
+- **Server state via TanStack Query**:
+  - **`queryClient.ts`** — single shared `QueryClient` with `QueryCache.onError` + `MutationCache.onError` that detect `UnauthorizedError` and reset `auth.me` to `null`. That null value flows into `App.tsx` and re-renders the unauthed branch — no manual "kick to login" event plumbing.
+  - **`queryKeys.ts`** — central key factory: `queryKeys.auth.me`, `queryKeys.deals.list(minPct)`, `queryKeys.scrape.job(id)`. All invalidations reference these keys to avoid string drift.
+  - **`hooks.ts`** — every server-state read or write goes through a hook here:
+    - `useMe()` — `staleTime: 5min`, `enabled: !!getToken()`
+    - `useLoginMutation()` / `useRegisterAndLoginMutation()` — invalidate `auth.me` on success
+    - `useLogoutMutation()` — clears token, sets `auth.me=null`, removes deals + scrape caches
+    - `useDeals(minUndervaluePercent)` — auto-fetches on mount; runs in the background; cached 30s
+    - `useScrapeMutation()` — POSTs to `/scrape/craigslist`, returns `{ job_id }`
+    - `useScrapeJob(jobId)` — polls `/scrape/jobs/{id}` via `refetchInterval` (1500ms) until state ∈ {SUCCESS, FAILURE}; on SUCCESS, the hook itself invalidates `["deals"]`
+  - **Default options**: `retry: false` (auth + scrape errors are not transient), `refetchOnWindowFocus: true`, `staleTime: 30s`
+  - **Devtools**: `@tanstack/react-query-devtools` mounted in `main.tsx` only when `import.meta.env.DEV`
 - **API client** (`api.ts`):
   - Centralized `apiFetch` wrapper attaches `Authorization: Bearer <token>` when `auth: true`, sets JSON content-type, and on 401 clears the token + throws `UnauthorizedError`
   - Token lives in `localStorage["revveal_access_token"]`; `getToken`/`setToken`/`logout` exposed
@@ -292,11 +317,18 @@ User sets filters
   - `login(email, password)` → `POST /auth/login`, stores token on success
   - `getMe()` → `GET /auth/me` (auth required)
   - `runCraigslistScrape(city, query, max)` → enqueues, returns `{ job_id, ... }` (auth required)
-  - `getScrapeJob(id)` / `waitForScrapeJob(id, opts)` (auth required)
+  - `getScrapeJob(id)` (auth required)
   - `fetchDeals(minPct)` → list deals (currently public, just rate-limited)
-- **Dashboard auth handling**: catches `UnauthorizedError` from any scrape call and triggers `onLogout` (clears token + returns to home)
-- **LoginPage**: real backend wiring with a login/register toggle (the "Create an account" link flips `mode`); per-field validation + `parseAuthError` helper that maps backend status codes to friendly copy (`409` → "That email is already registered", `429` → "Too many attempts", etc.)
+  - These raw fetchers exist *only* to be wrapped by hooks; consumers should always go through `hooks.ts`
+- **Dashboard derived state**: `loading` and `stage` are `useMemo` derivations of `scrapeMutation.isPending`, `scrapeJob.data`, and `dealsQuery.isFetching`. There is no `setLoading`, no `setStage`, no `useState` for deals — TanStack Query owns all of it.
+- **LoginPage**: real backend wiring with a login/register toggle (the "Create an account" link flips `mode`); `mutation.isPending` drives the spinner state; per-field validation + `parseAuthError` helper that maps backend status codes to friendly copy (`409` → "That email is already registered", `429` → "Too many attempts", etc.)
 - **API base**: `import.meta.env.VITE_API_URL ?? "http://localhost:8000"`
+- **Car-themed glyphs (`CarGlyphs.tsx`)** — instrument-cluster motifs used across the dashboard:
+  - `GaugeDial` — semicircle tachometer with redline arc; needle position maps undervalue %, redline triggers above 25%
+  - `LicensePlate` — bordered mono pill (state · index · source code) styled like a real plate
+  - `Odometer` — bordered tabular-mono digit cells with leading zeros
+  - `CarSilhouette` — minimal sedan side profile (used in header, empty state, success summary)
+  - `Tire` — `animate-spin` wheel with spokes (loading states)
 - **Dashboard worker UX**: button label and results subtitle reflect live `stage` (`queued` → `scraping` → `persisting` → `loading deals`); job summary line shows `N fetched · N inserted · N skipped` after success
 - **Dead code**: `src/api/deals.ts` is an older duplicate, unreferenced — leave for now / delete in cleanup pass
 
@@ -384,6 +416,18 @@ cd frontend && npm run build   # output in dist/
 - `worker` service in docker-compose (concurrency=2)
 - Frontend: `waitForScrapeJob` polling helper; Dashboard shows live worker stage + final summary
 
+### Done (Phase 5 — TanStack Query)
+- `@tanstack/react-query` 5.62 + devtools (dev only) installed
+- `queryClient.ts` — shared instance with `QueryCache` + `MutationCache` `onError` handlers that null `auth.me` on `UnauthorizedError`
+- `queryKeys.ts` — central key factory; no raw string keys anywhere
+- `hooks.ts` — `useMe`, `useLoginMutation`, `useRegisterAndLoginMutation`, `useLogoutMutation`, `useDeals`, `useScrapeMutation`, `useScrapeJob` (the last one uses `refetchInterval` for live polling and self-invalidates `["deals"]` on SUCCESS)
+- `App.tsx` rewritten — page selection derives from `me.data` instead of a hand-rolled state machine; `bootstrapping = !!getToken() && me.isLoading`
+- Dashboard rewritten — no more local `useState` for `deals`/`loading`/`stage`/`error`/`jobSummary`; everything is a `useMemo` over query/mutation status
+- LoginPage rewritten — `mutation.isPending` drives the loading spinner; mutations report errors via `mutation.error`
+- `waitForScrapeJob` removed from `api.ts` (replaced by `useScrapeJob` with `refetchInterval`)
+- After successful scrape, deals refetch is automatic via cache invalidation rather than an explicit `fetchDeals(...)` call
+- Car-themed instrument-cluster glyphs (`CarGlyphs.tsx`) used across Dashboard: `GaugeDial`, `LicensePlate`, `Odometer`, `CarSilhouette`, `Tire`
+
 ### Done (Phase 4 — JWT auth + rate limiting)
 - `users` table + Alembic migration 002
 - `app/security.py` — bcrypt password hashing + JWT (HS256) encode/decode
@@ -399,8 +443,8 @@ cd frontend && npm run build   # output in dist/
 
 ### Not Yet Implemented
 - **Real Craigslist scraper** — `scraper_craigslist.py` still returns mock listings; BeautifulSoup logic TBD
-- **Phase 5 — TanStack Query on frontend** — not installed; manual `useState` + `fetch` everywhere
 - **Phase 6 — Real ML pricing model** — still `listed_price × 1.15` heuristic
+- **GitHub Actions CI** — no automated test/build/lint pipeline yet
 - **Refresh tokens** — only access tokens are issued (24h); no rotation, no token blacklist on logout
 - **Email verification / password reset** — registration trusts the email; no confirmation flow
 - **Per-user rate limits / quotas** — limits are per IP, not per user identity
@@ -428,6 +472,10 @@ cd frontend && npm run build   # output in dist/
 | `backend/app/scraper_craigslist.py` | Where real scraping logic will go (currently stubbed) |
 | `backend/alembic/versions/` | Migration history (001 listings, 002 users) |
 | `docker-compose.yml` | Full local stack — db, redis, backend, worker |
-| `frontend/src/App.tsx` | Dashboard + page-state machine |
-| `frontend/src/api.ts` | The only file talking to the backend; defines polling helper |
+| `frontend/src/App.tsx` | Auth-derived page selection + Dashboard (mostly derived state) |
+| `frontend/src/queryClient.ts` | QueryClient with global 401 → reset auth.me handler |
+| `frontend/src/queryKeys.ts` | Central key factory for queries + invalidations |
+| `frontend/src/hooks.ts` | All `useQuery` / `useMutation` consumers — single source of server-state truth |
+| `frontend/src/api.ts` | Raw fetchers + token storage; called only from `hooks.ts` |
+| `frontend/src/CarGlyphs.tsx` | Instrument-cluster SVG primitives (gauge, plate, odometer, tire, silhouette) |
 | `frontend/src/HomePage.tsx` / `LoginPage.tsx` | Editorial landing + login UI |
