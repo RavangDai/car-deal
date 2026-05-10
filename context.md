@@ -135,10 +135,22 @@ Indexes: `undervalue_percent`, `make`, `created_at`. Unique constraint on `url`.
 
 Base URL (dev): `http://localhost:8000`
 
+All endpoints below are rate-limited per IP via slowapi. Limits are enforced via `SlowAPIMiddleware`; `RateLimitExceeded` returns HTTP 429 with `Retry-After`. Default limit (when not overridden): **200/minute**.
+
+### Auth (public except `/me`)
+
+| Method + path | Limit | Body | Returns |
+|---|---|---|---|
+| `POST /auth/register` | **5/minute** | `{ email, password }` (password ≥ 8 chars) | `UserOut` (201). 409 if email exists |
+| `POST /auth/login` | **10/minute** | `{ email, password }` | `{ access_token, token_type: "bearer" }`. 401 on bad creds |
+| `GET /auth/me` | default | — | `UserOut` (requires `Authorization: Bearer ...`) |
+
+JWT details: HS256, 24h expiry (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`), `sub` = user UUID. Login uses a lazy "dummy hash" to equalize bcrypt timing between "user not found" and "wrong password" — mitigates email enumeration via response timing.
+
 ### `GET /health`
 Health check. Returns `{ "status": "ok", "service": "car-deal-finder-api" }`.
 
-### `GET /deals`
+### `GET /deals` — limit **60/minute**
 Fetch filtered deals from DB, sorted by `undervalue_percent DESC`.
 
 | Query param | Type | Default | Description |
@@ -153,8 +165,8 @@ Returns: JSON array of `Deal` objects.
 ### `GET /deals/{deal_id}`
 Get a single listing by UUID. Returns 404 if not found.
 
-### `POST /scrape/craigslist`  →  HTTP **202 Accepted**
-**Enqueues** a Celery scrape task; returns immediately with a job id. Does NOT wait for the scrape to complete.
+### `POST /scrape/craigslist`  →  HTTP **202 Accepted** — limit **5/minute**, **auth required**
+**Enqueues** a Celery scrape task; returns immediately with a job id. Does NOT wait for the scrape to complete. Requires `Authorization: Bearer ...`.
 
 | Query param | Type | Default | Description |
 |-------------|------|---------|-------------|
@@ -167,7 +179,7 @@ Returns:
 { "job_id": "uuid", "status": "queued", "city": "austin", "query": "honda civic", "max_results": 10 }
 ```
 
-### `GET /scrape/jobs/{job_id}`
+### `GET /scrape/jobs/{job_id}` — limit **120/minute**, **auth required**
 Poll Celery task state. Returns one of:
 
 ```json
@@ -182,6 +194,42 @@ Custom `PROGRESS` state is emitted by `scrape_craigslist_task.update_state(...)`
 ---
 
 ## Core Business Logic
+
+### Auth Flow (Phase 4)
+
+```
+Register
+  → POST /auth/register { email, password ≥ 8 }
+  → bcrypt hash (passlib) → INSERT into users
+  → 201 with UserOut
+
+Login
+  → POST /auth/login { email, password }
+  → SELECT users WHERE email = ?
+  → verify_password (bcrypt); on miss, run dummy hash to equalize timing
+  → jose.jwt.encode { sub: user.id, exp: now+24h } HS256
+  → 200 { access_token, token_type: "bearer" }
+
+Protected request
+  → Authorization: Bearer <jwt>
+  → OAuth2PasswordBearer extracts → decode_access_token
+  → load User by sub → check is_active
+  → inject as Depends(get_current_user)
+  → 401 on missing/expired/invalid → frontend clears token, kicks to login
+```
+
+### Rate Limiting
+
+| Concern | Endpoint | Limit | Why |
+|---|---|---|---|
+| Brute force | `/auth/login` | 10/min | Slow credential stuffing |
+| Spam accounts | `/auth/register` | 5/min | Slow throwaway-account creation |
+| Worker abuse | `/scrape/craigslist` | 5/min | Celery is the expensive surface; cap enqueues |
+| Polling | `/scrape/jobs/{id}` | 120/min | Allow ~2 polls/sec, comfortably above default 1.5s interval |
+| Browse | `/deals` | 60/min | Generous; primary read path |
+| Default | everything else | 200/min | Catch-all |
+
+slowapi is wired with `SlowAPIMiddleware` + the standard `RateLimitExceeded` handler; per-endpoint limits use the `@limiter.limit("N/minute")` decorator (which requires `request: Request` as the first non-self parameter). The `Limiter` instance lives in its own module (`app/limiter.py`) so both `main.py` and `auth.py` can decorate handlers without circular imports.
 
 ### Async Scrape Flow (Phase 3)
 
@@ -236,11 +284,18 @@ User sets filters
   - `HomePage.tsx` — landing page, adaptive nav theme based on scroll position
   - `LoginPage.tsx` — UI only, fakes auth with a 1.2s setTimeout (no `/auth` endpoint exists yet)
   - `Dashboard` (in `App.tsx`) — search form + async job polling + deal grid
+- **Auth state**: `App.tsx` runs a session-restore effect on mount — if a token exists in localStorage, it calls `getMe()`; success → jump straight to dashboard, failure → clear token and stay on home. While checking, a minimal `BootSplash` (Revveal wordmark) is shown to avoid a "home → dashboard" flash
 - **API client** (`api.ts`):
-  - `runCraigslistScrape(city, query, max)` → enqueues, returns `{ job_id, ... }`
-  - `getScrapeJob(id)` → one-shot status fetch
-  - `waitForScrapeJob(id, opts)` → polling helper with `onUpdate` callback, abort signal, 90s default timeout
-  - `fetchDeals(minPct)` → list deals
+  - Centralized `apiFetch` wrapper attaches `Authorization: Bearer <token>` when `auth: true`, sets JSON content-type, and on 401 clears the token + throws `UnauthorizedError`
+  - Token lives in `localStorage["revveal_access_token"]`; `getToken`/`setToken`/`logout` exposed
+  - `register(email, password)` → `POST /auth/register`
+  - `login(email, password)` → `POST /auth/login`, stores token on success
+  - `getMe()` → `GET /auth/me` (auth required)
+  - `runCraigslistScrape(city, query, max)` → enqueues, returns `{ job_id, ... }` (auth required)
+  - `getScrapeJob(id)` / `waitForScrapeJob(id, opts)` (auth required)
+  - `fetchDeals(minPct)` → list deals (currently public, just rate-limited)
+- **Dashboard auth handling**: catches `UnauthorizedError` from any scrape call and triggers `onLogout` (clears token + returns to home)
+- **LoginPage**: real backend wiring with a login/register toggle (the "Create an account" link flips `mode`); per-field validation + `parseAuthError` helper that maps backend status codes to friendly copy (`409` → "That email is already registered", `429` → "Too many attempts", etc.)
 - **API base**: `import.meta.env.VITE_API_URL ?? "http://localhost:8000"`
 - **Dashboard worker UX**: button label and results subtitle reflect live `stage` (`queued` → `scraping` → `persisting` → `loading deals`); job summary line shows `N fetched · N inserted · N skipped` after success
 - **Dead code**: `src/api/deals.ts` is an older duplicate, unreferenced — leave for now / delete in cleanup pass
@@ -255,7 +310,9 @@ User sets filters
 |---------|---------|-------|
 | `database_url` | `postgresql+asyncpg://postgres:postgres@localhost:5432/cardeals` | Async URL; sync URL derived |
 | `redis_url` | `redis://localhost:6379` | Celery uses `/0` (broker) + `/1` (results) |
-| `secret_key` | `"changeme"` | Reserved for JWT (Phase 4) |
+| `secret_key` | `"changeme-please-set-in-env"` | JWT signing key — **MUST be overridden in prod** |
+| `jwt_algorithm` | `"HS256"` | JWT alg |
+| `access_token_expire_minutes` | `60 * 24` (24h) | Token lifetime |
 | `allowed_origins` | `["http://localhost:5173", "http://127.0.0.1:5173"]` | CORS |
 
 Inside Docker Compose, `DATABASE_URL` and `REDIS_URL` are overridden to point at the `db` and `redis` service names.
@@ -327,11 +384,26 @@ cd frontend && npm run build   # output in dist/
 - `worker` service in docker-compose (concurrency=2)
 - Frontend: `waitForScrapeJob` polling helper; Dashboard shows live worker stage + final summary
 
+### Done (Phase 4 — JWT auth + rate limiting)
+- `users` table + Alembic migration 002
+- `app/security.py` — bcrypt password hashing + JWT (HS256) encode/decode
+- `app/auth.py` — `/auth/register`, `/auth/login`, `/auth/me` + `get_current_user` dependency
+- Lazy "dummy hash" pattern in `/auth/login` to mitigate timing-based email enumeration
+- `app/limiter.py` — shared slowapi `Limiter` instance (per-IP via `get_remote_address`)
+- Per-endpoint rate limits: 5/min register & scrape enqueue, 10/min login, 60/min `/deals`, 120/min job polling, 200/min default
+- `/scrape/*` now requires `Authorization: Bearer ...`
+- Frontend `apiFetch` wrapper handles token, auth-header injection, and 401 → `UnauthorizedError` → auto-logout
+- `LoginPage` wired to real backend with login/register toggle and friendly error mapping (`parseAuthError`)
+- `App.tsx` session restore on mount (calls `/auth/me` if token present); `BootSplash` covers the bootstrap window
+- API version bumped to 0.5.0
+
 ### Not Yet Implemented
 - **Real Craigslist scraper** — `scraper_craigslist.py` still returns mock listings; BeautifulSoup logic TBD
-- **Phase 4 — JWT auth + rate limiting** — libraries (`python-jose`, `passlib`, `slowapi`) are in `requirements.txt` but NOT wired in code; `LoginPage` is UI-only
 - **Phase 5 — TanStack Query on frontend** — not installed; manual `useState` + `fetch` everywhere
 - **Phase 6 — Real ML pricing model** — still `listed_price × 1.15` heuristic
+- **Refresh tokens** — only access tokens are issued (24h); no rotation, no token blacklist on logout
+- **Email verification / password reset** — registration trusts the email; no confirmation flow
+- **Per-user rate limits / quotas** — limits are per IP, not per user identity
 - Additional marketplaces (Facebook Marketplace, AutoTrader, etc.)
 - Pagination on `/deals`
 - Real-time alerts / notifications
@@ -344,14 +416,17 @@ cd frontend && npm run build   # output in dist/
 
 | File | Why it matters |
 |------|---------------|
-| `backend/app/main.py` | FastAPI endpoints, Pydantic schemas, the enqueue + status surface |
+| `backend/app/main.py` | FastAPI endpoints, Pydantic schemas, middleware wiring |
+| `backend/app/auth.py` | `/auth/*` router + `get_current_user` dependency |
+| `backend/app/security.py` | Password hashing + JWT — single point of auth-crypto truth |
+| `backend/app/limiter.py` | Shared slowapi Limiter — both `main.py` and `auth.py` import it |
 | `backend/app/celery_app.py` | Celery instance config — Redis URLs, serialization, time limits |
 | `backend/app/tasks.py` | The `scrape_craigslist_task` — only place sync DB session is used |
-| `backend/app/db.py` | Both engines (async + sync) and the sync-URL derivation helper |
-| `backend/app/models.py` | Source of truth for ORM models |
-| `backend/app/settings.py` | All env-driven config |
+| `backend/app/db.py` | Both engines (async + sync), `get_db` dep, sync-URL derivation |
+| `backend/app/models.py` | Source of truth for ORM models (Listing, User) |
+| `backend/app/settings.py` | All env-driven config including JWT settings |
 | `backend/app/scraper_craigslist.py` | Where real scraping logic will go (currently stubbed) |
-| `backend/alembic/versions/` | Migration history |
+| `backend/alembic/versions/` | Migration history (001 listings, 002 users) |
 | `docker-compose.yml` | Full local stack — db, redis, backend, worker |
 | `frontend/src/App.tsx` | Dashboard + page-state machine |
 | `frontend/src/api.ts` | The only file talking to the backend; defines polling helper |
