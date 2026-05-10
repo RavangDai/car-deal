@@ -4,7 +4,7 @@
 
 A full-stack web application that finds undervalued used car deals. It scrapes marketplace listings (starting with Craigslist), predicts fair market prices, calculates discount percentages, and surfaces the best deals through a filtered, sortable UI.
 
-The scraping pipeline runs **asynchronously** on Celery workers backed by Redis, so the API stays responsive while a background worker fetches and persists listings to PostgreSQL.
+The scraping pipeline runs **asynchronously** on Celery workers backed by Redis, so the API stays responsive while a background worker fetches and persists listings to PostgreSQL. Authenticated users (JWT, bcrypt-hashed passwords) hit rate-limited endpoints; the worker is fronted by a 5/minute limit per IP.
 
 ---
 
@@ -18,14 +18,18 @@ car-deal-finder/
 │   │   ├── env.py                     Alembic env — async engine + autogenerate setup
 │   │   ├── script.py.mako             Migration script template
 │   │   └── versions/
-│   │       └── 001_initial_schema.py  Initial `listings` table migration
+│   │       ├── 001_initial_schema.py  Initial `listings` table migration
+│   │       └── 002_users_table.py     `users` table migration
 │   ├── alembic.ini                    Alembic config
 │   ├── app/
 │   │   ├── __init__.py                Empty package marker
 │   │   ├── main.py                    FastAPI app, endpoints, Pydantic schemas
 │   │   ├── settings.py                Pydantic Settings — env-driven config
-│   │   ├── db.py                      Async + sync SQLAlchemy engines, Base class
-│   │   ├── models.py                  SQLAlchemy ORM (Listing table, UUID PK)
+│   │   ├── db.py                      Async + sync SQLAlchemy engines, get_db dep
+│   │   ├── models.py                  SQLAlchemy ORM (Listing, User)
+│   │   ├── auth.py                    /auth router + get_current_user dependency
+│   │   ├── security.py                Password hashing (bcrypt) + JWT encode/decode
+│   │   ├── limiter.py                 slowapi Limiter instance (shared)
 │   │   ├── celery_app.py              Celery instance — Redis broker + result backend
 │   │   ├── tasks.py                   Celery tasks (scrape_craigslist_task)
 │   │   └── scraper_craigslist.py      Craigslist scraper (currently stubbed w/ mock data)
@@ -80,7 +84,9 @@ car-deal-finder/
 | Task queue | Celery | 5.4.0 | Background scrape jobs |
 | Broker / result backend | Redis | 7-alpine (image) / redis-py 5.2.1 | Celery transport |
 | Database | PostgreSQL | 16-alpine (image) | Primary store |
-| Auth libs (not yet wired) | python-jose, passlib[bcrypt], slowapi | — | Reserved for Phase 4 (JWT + rate limit) |
+| Auth | python-jose 3.5.0, passlib[bcrypt] 1.7.4 | — | JWT (HS256) + bcrypt password hashing |
+| Rate limiting | slowapi 0.1.9 | — | IP-based limits per endpoint, headers exposed |
+| Email validation | pydantic[email] / email-validator | 2.12.5 | EmailStr validation on register/login |
 | Config (frontend) | `VITE_API_URL` env var | — | Switch API base between dev / prod |
 
 Planned deployment: **Vercel** (frontend) + **Railway** or **Fly.io** (backend + worker + Postgres + Redis).
@@ -89,7 +95,9 @@ Planned deployment: **Vercel** (frontend) + **Railway** or **Fly.io** (backend +
 
 ## Database Schema
 
-Single table: **`listings`**, managed by **Alembic** (no more `Base.metadata.create_all` at startup — `alembic upgrade head` runs in the backend container's entrypoint).
+Two tables, both managed by **Alembic** (no `Base.metadata.create_all` at startup — `alembic upgrade head` runs in the backend container's entrypoint).
+
+### `listings`
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -110,6 +118,16 @@ Single table: **`listings`**, managed by **Alembic** (no more `Base.metadata.cre
 | `posted_at` | DateTime(tz) | Listing publication |
 
 Indexes: `undervalue_percent`, `make`, `created_at`. Unique constraint on `url`.
+
+### `users`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID | Primary key, auto-generated |
+| `email` | String | UNIQUE, indexed |
+| `hashed_password` | String | bcrypt hash via passlib |
+| `is_active` | Boolean | Defaults to `true` |
+| `created_at` | DateTime(tz) | Row insertion |
 
 ---
 
