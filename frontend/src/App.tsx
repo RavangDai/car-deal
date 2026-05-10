@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   runCraigslistScrape,
   fetchDeals,
   waitForScrapeJob,
+  getMe,
+  getToken,
+  logout as apiLogout,
   type ScrapeJobStatus,
 } from "./api";
 import LoginPage from "./LoginPage";
@@ -30,10 +33,53 @@ type Deal = {
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
+  const [bootstrapping, setBootstrapping] = useState(true);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      if (!getToken()) {
+        if (!cancelled) setBootstrapping(false);
+        return;
+      }
+      try {
+        await getMe();
+        if (!cancelled) setPage("dashboard");
+      } catch {
+        apiLogout();
+      } finally {
+        if (!cancelled) setBootstrapping(false);
+      }
+    }
+    check();
+    return () => { cancelled = true; };
+  }, []);
+
+  function handleLogout() {
+    apiLogout();
+    setPage("home");
+  }
+
+  if (bootstrapping) return <BootSplash />;
   if (page === "home")  return <HomePage  onGetStarted={() => setPage("login")} />;
   if (page === "login") return <LoginPage onLogin={() => setPage("dashboard")} />;
-  return <Dashboard onLogout={() => setPage("home")} />;
+  return <Dashboard onLogout={handleLogout} />;
+}
+
+function BootSplash() {
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center"
+      style={{ background: "var(--bone, #efe9dd)", color: "var(--ink, #131310)", fontFamily: "'DM Sans', sans-serif" }}
+    >
+      <div className="flex items-baseline gap-1 opacity-60">
+        <span className="display text-[1.4rem] leading-none tracking-tight" style={{ fontFamily: "'Fraunces', serif" }}>
+          Revveal
+        </span>
+        <span className="w-[7px] h-[7px] inline-block translate-y-[-2px]" style={{ background: "var(--red, #c41e3a)" }} />
+      </div>
+    </div>
+  );
 }
 
 function Dashboard({ onLogout }: { onLogout: () => void }) {
