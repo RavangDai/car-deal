@@ -6,6 +6,7 @@ import {
   getMe,
   getToken,
   logout as apiLogout,
+  UnauthorizedError,
   type ScrapeJobStatus,
 } from "./api";
 import LoginPage from "./LoginPage";
@@ -130,6 +131,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       setDeals(results);
       setStage(null);
     } catch (err: any) {
+      if (err instanceof UnauthorizedError) {
+        onLogout();
+        return;
+      }
       setError(err?.message ?? "Something went wrong.");
       setStage(null);
     } finally {
