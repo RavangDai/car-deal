@@ -11,6 +11,15 @@ import {
 } from "./api";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
+import {
+  CarSilhouette,
+  GaugeDial,
+  LicensePlate,
+  Odometer,
+  Tire,
+  sourceCode,
+  extractStateCode,
+} from "./CarGlyphs";
 
 type Page = "home" | "login" | "dashboard";
 
@@ -73,11 +82,14 @@ function BootSplash() {
       className="min-h-screen flex items-center justify-center"
       style={{ background: "var(--bone, #efe9dd)", color: "var(--ink, #131310)", fontFamily: "'DM Sans', sans-serif" }}
     >
-      <div className="flex items-baseline gap-1 opacity-60">
-        <span className="display text-[1.4rem] leading-none tracking-tight" style={{ fontFamily: "'Fraunces', serif" }}>
-          Revveal
-        </span>
-        <span className="w-[7px] h-[7px] inline-block translate-y-[-2px]" style={{ background: "var(--red, #c41e3a)" }} />
+      <div className="flex flex-col items-center gap-5 opacity-70">
+        <div className="flex items-baseline gap-1">
+          <span className="display text-[1.4rem] leading-none tracking-tight" style={{ fontFamily: "'Fraunces', serif" }}>
+            Revveal
+          </span>
+          <span className="w-[7px] h-[7px] inline-block translate-y-[-2px]" style={{ background: "var(--red, #c41e3a)" }} />
+        </div>
+        <Tire size={18} />
       </div>
     </div>
   );
@@ -169,8 +181,10 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <span className="display text-[1.4rem] leading-none tracking-tight">Revveal</span>
               <span className="w-[7px] h-[7px] bg-[var(--red)] inline-block translate-y-[-2px]" />
             </a>
-            <span className="hidden md:inline font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
-              Buyer's Console / v3.2
+            <span className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
+              <span>Buyer's Console</span>
+              <CarSilhouette size={14} className="opacity-55" />
+              <span>v3.2</span>
             </span>
           </div>
           <button
@@ -203,8 +217,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           onSubmit={handleSearch}
           className="bg-[var(--paper)] border border-[var(--rule-strong)] p-7 md:p-9"
         >
-          <div className="flex items-center gap-3 mb-7">
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">Form 02 — Parameters</span>
+          <div className="flex items-center gap-3 mb-7 text-[var(--ink-muted)]">
+            <GaugeDial value={28} max={50} redlineFrom={35} size={28} />
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em]">Cluster 02 — Parameters</span>
             <span className="h-px flex-1 bg-[var(--rule)]" />
           </div>
 
@@ -222,7 +237,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               className="inline-flex items-center gap-3 px-7 py-3 bg-[var(--ink)] text-[var(--bone)] text-[14px] font-medium rounded-full hover:bg-[var(--red)] disabled:opacity-60 disabled:hover:bg-[var(--ink)] transition-all duration-200 group"
             >
               <span>{loading ? (stage ? stage : "Querying") : "Run search"}</span>
-              <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              {loading ? (
+                <Tire size={14} />
+              ) : (
+                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              )}
             </button>
             {error && (
               <p className="text-[13px] text-[var(--red)] flex items-center gap-2">
@@ -232,9 +251,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
 
           {jobSummary && !loading && (
-            <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-              Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
-            </p>
+            <div className="mt-5 flex items-center gap-2.5 text-[var(--ink-muted)]">
+              <CarSilhouette size={22} />
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em]">
+                Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
+              </p>
+            </div>
           )}
         </form>
       </section>
@@ -252,15 +274,22 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
         {!loading && deals.length === 0 && (
           <div className="border border-dashed border-[var(--rule-strong)]/30 p-16 text-center">
+            <CarSilhouette
+              size={72}
+              className="text-[var(--ink-muted)] opacity-25 mx-auto mb-6 block"
+            />
             <p className="display text-[1.6rem] mb-2 italic text-[var(--ink-muted)]">No results yet.</p>
             <p className="text-[13px] text-[var(--ink-muted)]">Run a search to populate the index.</p>
           </div>
         )}
 
         {loading && (
-          <p className="font-mono text-[13px] text-[var(--ink-muted)]">
-            worker · {stage ?? "starting"}…
-          </p>
+          <div className="flex items-center gap-2.5 text-[var(--ink-muted)]">
+            <Tire size={14} />
+            <p className="font-mono text-[13px]">
+              worker · {stage ?? "starting"}…
+            </p>
+          </div>
         )}
 
         <div className="grid md:grid-cols-2 gap-px bg-[var(--rule-strong)] border border-[var(--rule-strong)]">
@@ -272,22 +301,32 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               rel="noreferrer"
               className="block bg-[var(--bone)] hover:bg-[var(--paper)] p-7 transition-colors group"
             >
-              <div className="flex items-start justify-between mb-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
-                  № {String(i + 1).padStart(4, "0")}
-                </span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
-                  {deal.source}
-                </span>
+              <div className="flex items-start justify-between mb-3 gap-3">
+                <LicensePlate>
+                  {extractStateCode(deal.location) ?? sourceCode(deal.source)}
+                  {" · "}
+                  {String(i + 1).padStart(4, "0")}
+                  {" · "}
+                  {sourceCode(deal.source)}
+                </LicensePlate>
+                <GaugeDial value={deal.undervalue_percent} size={40} />
               </div>
               <div className="border-b border-[var(--ink)] mb-5" />
 
-              <h3 className="display text-[1.5rem] leading-tight tracking-tight mb-1">
+              <h3 className="display text-[1.5rem] leading-tight tracking-tight mb-2">
                 {deal.year} {deal.make} {deal.model}
               </h3>
-              <p className="text-[13px] text-[var(--ink-muted)] mb-5">
-                {deal.location} · {deal.mileage ? `${deal.mileage.toLocaleString()} mi` : "Mileage N/A"}
-              </p>
+              <div className="flex items-center gap-2 mb-5 flex-wrap text-[13px] text-[var(--ink-muted)]">
+                <span>{deal.location}</span>
+                <span className="opacity-50">·</span>
+                {deal.mileage ? (
+                  <Odometer value={deal.mileage} />
+                ) : (
+                  <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-70">
+                    mileage n/a
+                  </span>
+                )}
+              </div>
 
               <div className="border-t border-dashed border-[var(--rule-strong)]/30 pt-4 space-y-2 font-mono text-[13px]">
                 <div className="flex items-baseline gap-3">
