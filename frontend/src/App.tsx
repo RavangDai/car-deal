@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { runCraigslistScrape, fetchDeals } from "./api";
+import {
+  runCraigslistScrape,
+  fetchDeals,
+  waitForScrapeJob,
+  type ScrapeJobStatus,
+} from "./api";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 
@@ -39,18 +44,48 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
+  const [jobSummary, setJobSummary] = useState<ScrapeJobStatus["result"]>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setJobSummary(null);
+    setStage("queueing job");
     try {
-      await runCraigslistScrape(city, query, maxResults);
+      const job = await runCraigslistScrape(city, query, maxResults);
+      setStage("queued");
+
+      const finalStatus = await waitForScrapeJob(job.job_id, {
+        pollIntervalMs: 1200,
+        timeoutMs: 90_000,
+        onUpdate: (s) => {
+          if (s.state === "PROGRESS" && s.progress?.stage) {
+            setStage(String(s.progress.stage));
+          } else if (s.state === "STARTED") {
+            setStage("started");
+          } else if (s.state === "PENDING") {
+            setStage("queued");
+          } else if (s.state === "RETRY") {
+            setStage("retrying");
+          }
+        },
+      });
+
+      if (finalStatus.state === "FAILURE") {
+        throw new Error(finalStatus.error ?? "Scrape job failed");
+      }
+
+      setJobSummary(finalStatus.result);
+      setStage("loading deals");
       const results = await fetchDeals(minUndervalue);
       setDeals(results);
+      setStage(null);
     } catch (err: any) {
       setError(err?.message ?? "Something went wrong.");
+      setStage(null);
     } finally {
       setLoading(false);
     }
@@ -135,7 +170,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               disabled={loading}
               className="inline-flex items-center gap-3 px-7 py-3 bg-[var(--ink)] text-[var(--bone)] text-[14px] font-medium rounded-full hover:bg-[var(--red)] disabled:opacity-60 disabled:hover:bg-[var(--ink)] transition-all duration-200 group"
             >
-              <span>{loading ? "Querying" : "Run search"}</span>
+              <span>{loading ? (stage ? stage : "Querying") : "Run search"}</span>
               <span className="transition-transform group-hover:translate-x-0.5">→</span>
             </button>
             {error && (
@@ -144,6 +179,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               </p>
             )}
           </div>
+
+          {jobSummary && !loading && (
+            <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
+              Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
+            </p>
+          )}
         </form>
       </section>
 
@@ -154,7 +195,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             Index <span className="italic">— results</span>
           </h2>
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-            {loading ? "fetching..." : `${deals.length} listings`}
+            {loading ? (stage ?? "fetching...") : `${deals.length} listings`}
           </span>
         </div>
 
@@ -166,7 +207,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         )}
 
         {loading && (
-          <p className="font-mono text-[13px] text-[var(--ink-muted)]">querying sources...</p>
+          <p className="font-mono text-[13px] text-[var(--ink-muted)]">
+            worker · {stage ?? "starting"}…
+          </p>
         )}
 
         <div className="grid md:grid-cols-2 gap-px bg-[var(--rule-strong)] border border-[var(--rule-strong)]">

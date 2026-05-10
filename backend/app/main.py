@@ -1,18 +1,20 @@
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Depends
+from celery.result import AsyncResult
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .celery_app import celery_app
 from .db import engine, AsyncSessionLocal
 from .models import Listing
-from .scraper_craigslist import search_craigslist_cars
 from .settings import settings
+from .tasks import scrape_craigslist_task
 
 
 @asynccontextmanager
@@ -23,8 +25,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Car Deal Finder API",
-    version="0.3.0",
-    description="Finds undervalued used cars via async scraping + PostgreSQL.",
+    version="0.4.0",
+    description="Finds undervalued used cars via async scraping + PostgreSQL + Celery.",
     lifespan=lifespan,
 )
 
@@ -70,6 +72,22 @@ class Deal(BaseModel):
     posted_at: datetime
 
 
+class ScrapeJobAccepted(BaseModel):
+    job_id: str
+    status: str = "queued"
+    city: str
+    query: str
+    max_results: int
+
+
+class ScrapeJobStatus(BaseModel):
+    job_id: str
+    state: str
+    progress: Optional[dict[str, Any]] = None
+    result: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["meta"])
@@ -109,51 +127,45 @@ async def get_deal(deal_id: UUID, db: AsyncSession = Depends(get_db)):
     return listing
 
 
-@app.post("/scrape/craigslist", tags=["scraper"])
-async def scrape_craigslist(
+@app.post(
+    "/scrape/craigslist",
+    response_model=ScrapeJobAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    tags=["scraper"],
+)
+async def enqueue_craigslist_scrape(
     city: str,
     query: str,
     max_results: int = 10,
-    db: AsyncSession = Depends(get_db),
 ):
-    try:
-        raw_listings = search_craigslist_cars(city=city, query=query, max_results=max_results)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Scraper error: {e}")
+    async_result = scrape_craigslist_task.delay(
+        city=city, query=query, max_results=max_results
+    )
+    return ScrapeJobAccepted(
+        job_id=async_result.id,
+        city=city,
+        query=query,
+        max_results=max_results,
+    )
 
-    inserted = 0
 
-    for item in raw_listings:
-        if not item.get("listed_price"):
-            continue
+@app.get(
+    "/scrape/jobs/{job_id}",
+    response_model=ScrapeJobStatus,
+    tags=["scraper"],
+)
+async def get_scrape_job(job_id: str):
+    result = AsyncResult(job_id, app=celery_app)
+    state = result.state
 
-        existing = await db.execute(select(Listing).where(Listing.url == item["url"]))
-        if existing.scalar_one_or_none():
-            continue
+    payload = ScrapeJobStatus(job_id=job_id, state=state)
 
-        predicted_price = int(item["listed_price"] * 1.15)
-        undervalue_percent = (predicted_price - item["listed_price"]) / predicted_price * 100
+    if state == "PROGRESS":
+        info = result.info if isinstance(result.info, dict) else None
+        payload.progress = info
+    elif state == "SUCCESS":
+        payload.result = result.result
+    elif state == "FAILURE":
+        payload.error = str(result.info) if result.info else "Task failed"
 
-        listing = Listing(
-            source=item["source"],
-            url=item["url"],
-            title=item["title"],
-            description=item.get("description"),
-            listed_price=item["listed_price"],
-            predicted_price=predicted_price,
-            undervalue_percent=undervalue_percent,
-            year=item.get("year") or 0,
-            make=item["make"],
-            model=item["model"],
-            mileage=item.get("mileage"),
-            location=item["location"],
-            created_at=datetime.now(timezone.utc),
-            posted_at=item["posted_at"],
-        )
-
-        db.add(listing)
-        inserted += 1
-
-    await db.commit()
-
-    return {"inserted": inserted, "city": city, "query": query}
+    return payload
