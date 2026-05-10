@@ -163,15 +163,21 @@ export default function LoginPage({ onLogin }: Props) {
           </div>
 
           <div className="flex items-baseline gap-3 mb-8">
-            <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[var(--ink-muted)]">§ 01 — Returning</span>
+            <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[var(--ink-muted)]">
+              § 01 — {isRegister ? "New buyer" : "Returning"}
+            </span>
             <span className="h-px flex-1 bg-[var(--rule-strong)] translate-y-[-3px]" />
           </div>
 
           <h1 className="display text-[2.6rem] leading-[1] tracking-[-0.02em] mb-3">
-            Welcome <span className="italic">back</span>.
+            {isRegister ? (
+              <>Create your <span className="italic">account</span>.</>
+            ) : (
+              <>Welcome <span className="italic">back</span>.</>
+            )}
           </h1>
           <p className="text-[14px] text-[var(--ink-muted)] mb-10">
-            Continue to your deal feed.
+            {isRegister ? "Start tracking deals before they go." : "Continue to your deal feed."}
           </p>
 
           {/* Social row */}
@@ -248,21 +254,31 @@ export default function LoginPage({ onLogin }: Props) {
                     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
                     <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  <span>Signing in</span>
+                  <span>{isRegister ? "Creating account" : "Signing in"}</span>
                 </>
               ) : (
                 <>
-                  <span>Sign in</span>
+                  <span>{isRegister ? "Create account" : "Sign in"}</span>
                   <span className="transition-transform group-hover:translate-x-0.5">→</span>
                 </>
               )}
             </button>
+
+            {formError && (
+              <p className="mt-3 text-[12px] text-[var(--red)] flex items-center gap-1.5">
+                <span className="font-bold">!</span> {formError}
+              </p>
+            )}
           </form>
 
           <p className="mt-10 text-center text-[13px] text-[var(--ink-muted)]">
-            New here?{" "}
-            <button type="button" className="text-[var(--ink)] underline underline-offset-4 decoration-[var(--red)] decoration-2 hover:decoration-[var(--ink)] transition-colors">
-              Create an account
+            {isRegister ? "Already have an account? " : "New here? "}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="text-[var(--ink)] underline underline-offset-4 decoration-[var(--red)] decoration-2 hover:decoration-[var(--ink)] transition-colors"
+            >
+              {isRegister ? "Sign in instead" : "Create an account"}
             </button>
           </p>
         </div>
@@ -288,6 +304,17 @@ export default function LoginPage({ onLogin }: Props) {
       </main>
     </div>
   );
+}
+
+function parseAuthError(raw: string): string {
+  // Map common backend errors to friendlier copy.
+  if (/409/.test(raw) || /already registered/i.test(raw)) return "That email is already registered.";
+  if (/401/.test(raw) || /Invalid email or password/i.test(raw)) return "Invalid email or password.";
+  if (/429/.test(raw)) return "Too many attempts — please try again in a minute.";
+  // Pydantic validation errors come back as JSON arrays
+  if (/value is not a valid email/i.test(raw)) return "Enter a valid email.";
+  if (/string_too_short/i.test(raw)) return "Password must be at least 8 characters.";
+  return raw.length > 120 ? "Something went wrong." : raw;
 }
 
 const TICKER = [
