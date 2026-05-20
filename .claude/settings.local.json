@@ -15,7 +15,26 @@
       "Bash(node -e \"const a = require\\('animejs/package.json'\\); console.log\\(a.name, a.version, a.main || a.module\\);\")",
       "Bash(node -e \"const a = require\\('animejs'\\); console.log\\(Object.keys\\(a\\).slice\\(0,30\\).join\\(', '\\)\\);\")",
       "Bash(node -e \"const a = require\\('animejs'\\); console.log\\('stagger:', typeof a.stagger, 'eases:', Object.keys\\(a.eases || {}\\).slice\\(0,8\\).join\\(','\\)\\);\")",
-      "Bash(node -e \"const a = require\\('framer-motion/package.json'\\); console.log\\(a.name, a.version\\);\")"
+      "Bash(node -e \"const a = require\\('framer-motion/package.json'\\); console.log\\(a.name, a.version\\);\")",
+      "Bash(where chromium *)",
+      "Bash(where chrome *)",
+      "Bash(where msedge *)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\(x86\\)/Microsoft/Edge/Application/**)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5174/)",
+      "Bash(node verify-anim.mjs)",
+      "Bash(npm i *)",
+      "Bash(npx playwright *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/docs)",
+      "Bash(node verify-dashboard.mjs)",
+      "Bash(jobs -l)",
+      "Bash(pkill -f \"vite$\")",
+      "Bash(curl -s -o /dev/null -w \"5174:%{http_code}\\\\n\" http://localhost:5174/)",
+      "Bash(kill %1)"
     ]
   }
 }
