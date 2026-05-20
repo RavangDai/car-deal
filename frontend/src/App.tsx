@@ -9,15 +9,7 @@ import {
 } from "./hooks";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
-import {
-  CarSilhouette,
-  GaugeDial,
-  LicensePlate,
-  Odometer,
-  Tire,
-  sourceCode,
-  extractStateCode,
-} from "./CarGlyphs";
+import { Tire, sourceCode, extractStateCode } from "./CarGlyphs";
 
 type Deal = {
   id: string;
@@ -44,8 +36,6 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const logoutMut = useLogoutMutation();
 
-  // Bootstrapping: we have a stored token but haven't validated it yet.
-  // Without a token, useMe is disabled and resolves immediately.
   const bootstrapping = !!getToken() && me.isLoading;
 
   function handleLogout() {
@@ -63,14 +53,20 @@ function BootSplash() {
   return (
     <div
       className="min-h-screen flex items-center justify-center"
-      style={{ background: "var(--bone, #efe9dd)", color: "var(--ink, #131310)", fontFamily: "'DM Sans', sans-serif" }}
+      style={{ background: "#ffffff", color: "#0a1530", fontFamily: "'Geist', system-ui, sans-serif" }}
     >
-      <div className="flex flex-col items-center gap-5 opacity-70">
-        <div className="flex items-baseline gap-1">
-          <span className="display text-[1.4rem] leading-none tracking-tight" style={{ fontFamily: "'Fraunces', serif" }}>
+      <style>{SHARED_STYLES}</style>
+      <div className="flex flex-col items-center gap-5 opacity-90">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/assets/revveal-icon.png"
+            alt=""
+            aria-hidden
+            className="w-9 h-9 rounded-[9px] shadow-[0_4px_14px_rgba(31,95,255,0.22)]"
+          />
+          <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">
             Revveal
           </span>
-          <span className="w-[7px] h-[7px] inline-block translate-y-[-2px]" style={{ background: "var(--red, #c41e3a)" }} />
         </div>
         <Tire size={18} />
       </div>
@@ -93,26 +89,19 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     e.preventDefault();
     scrapeMutation.mutate(
       { city, query, maxResults },
-      {
-        onSuccess: (data) => setJobId(data.job_id),
-      },
+      { onSuccess: (data) => setJobId(data.job_id) },
     );
   }
 
-  // ── Derived UI state ─────────────────────────────────────────
   const stage = useMemo<string | null>(() => {
     if (scrapeMutation.isPending) return "queueing job";
     const s = scrapeJob.data;
     if (!s) return null;
     if (TERMINAL_STATES.has(s.state)) {
-      // Brief "loading deals" stage between scrape success and the
-      // dealsQuery refetch landing.
       if (s.state === "SUCCESS" && dealsQuery.isFetching) return "loading deals";
       return null;
     }
-    if (s.state === "PROGRESS" && typeof s.progress?.stage === "string") {
-      return s.progress.stage;
-    }
+    if (s.state === "PROGRESS" && typeof s.progress?.stage === "string") return s.progress.stage;
     if (s.state === "STARTED") return "started";
     if (s.state === "PENDING") return "queued";
     if (s.state === "RETRY") return "retrying";
@@ -134,71 +123,65 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const deals: Deal[] = (dealsQuery.data as Deal[] | undefined) ?? [];
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--bone)", color: "var(--ink)", fontFamily: "'DM Sans', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400..800,0..100,0..1;1,9..144,400..800,0..100,0..1&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        :root {
-          --bone:#efe9dd; --paper:#f7f1e3;
-          --ink:#131310; --ink-soft:#3a3a36; --ink-muted:#7a756c;
-          --rule:#ddd6c7; --rule-strong:#131310;
-          --red:#c41e3a; --red-deep:#a01a30;
-        }
-        .display { font-family:'Fraunces',serif; font-weight:500; font-variation-settings:"WONK" 1,"SOFT" 30,"opsz" 144; }
-        .field-input {
-          width:100%; padding:11px 14px; background:transparent; border:1px solid var(--rule-strong);
-          font-size:14px; color:var(--ink); outline:none; transition:background-color .15s;
-          font-family:'DM Sans',sans-serif;
-        }
-        .field-input:focus { background:var(--paper); }
-      `}</style>
+    <div className="min-h-screen bg-[var(--paper-warm)] text-[var(--ink)]" style={{ fontFamily: "'Geist', system-ui, sans-serif" }}>
+      <style>{SHARED_STYLES}</style>
 
-      {/* ── HEADER ──────────────────────────────────────────── */}
-      <header className="border-b border-[var(--rule-strong)] bg-[var(--bone)]">
-        <div className="px-6 md:px-10 py-5 flex items-center justify-between max-w-[1280px] mx-auto">
+      {/* ── HEADER ───────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[var(--rule)]">
+        <div className="px-6 md:px-10 h-[68px] flex items-center justify-between max-w-[1280px] mx-auto">
           <div className="flex items-center gap-8">
-            <a href="#" className="flex items-baseline gap-1">
-              <span className="display text-[1.4rem] leading-none tracking-tight">Revveal</span>
-              <span className="w-[7px] h-[7px] bg-[var(--red)] inline-block translate-y-[-2px]" />
+            <a href="#" className="flex items-center gap-2.5 group">
+              <img
+                src="/assets/revveal-icon.png"
+                alt=""
+                aria-hidden
+                className="w-8 h-8 rounded-[8px] shadow-[0_4px_14px_rgba(31,95,255,0.20)] transition-transform duration-300 group-hover:rotate-[-4deg]"
+              />
+              <span className="display text-[1.4rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
             </a>
-            <span className="hidden md:flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">
-              <span>Buyer's Console</span>
-              <CarSilhouette size={14} className="opacity-55" />
-              <span>v3.2</span>
+            <span className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--blue-tint)] text-[var(--blue-deep)] font-mono text-[10px] uppercase tracking-[0.18em]">
+              <span className="rv-live-dot" /> Buyer's Console · v3.2
             </span>
           </div>
           <button
             onClick={onLogout}
-            className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex items-center gap-2"
+            className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex items-center gap-1.5"
           >
-            <span>Sign out</span> <span className="text-[var(--red)]">↗</span>
+            <span>Sign out</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
           </button>
         </div>
       </header>
 
-      {/* ── PAGE TITLE ───────────────────────────────────────── */}
-      <section className="px-6 md:px-10 py-16 max-w-[1280px] mx-auto">
-        <div className="flex items-baseline gap-3 mb-8">
-          <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-[var(--ink-muted)]">§ Search</span>
-          <span className="h-px flex-1 max-w-[80px] bg-[var(--rule-strong)] translate-y-[-3px]" />
-          <span className="font-mono text-[11px] tracking-[0.2em] uppercase text-[var(--ink-soft)]">Live Index</span>
+      {/* ── PAGE TITLE ────────────────────────────────────── */}
+      <section className="px-6 md:px-10 pt-14 pb-10 max-w-[1280px] mx-auto">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-6">
+          <span className="rv-sparkle">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.39 8.61L23 11l-8.61 2.39L12 22l-2.39-8.61L1 11l8.61-2.39z"/></svg>
+          </span>
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--blue-deep)] font-medium">Run a Search</span>
         </div>
-        <h1 className="display text-[clamp(2.5rem,5vw,4rem)] leading-[0.95] tracking-[-0.02em] mb-3">
-          Find a deal <span className="italic text-[var(--red)]">worth</span> the drive.
+        <h1 className="display text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.98] tracking-[-0.025em] mb-3 font-semibold">
+          Find a deal <span className="text-[var(--blue)] italic">worth</span> the drive.
         </h1>
-        <p className="text-[15px] text-[var(--ink-soft)] max-w-[40ch]">
-          Set your parameters. The model returns ranked, scored, and explained.
+        <p className="text-[15.5px] text-[var(--ink-soft)] max-w-[48ch]">
+          Set your parameters. The model returns each car ranked, scored, and explained.
         </p>
       </section>
 
-      {/* ── SEARCH FORM ──────────────────────────────────────── */}
-      <section className="px-6 md:px-10 mb-16 max-w-[1280px] mx-auto">
+      {/* ── SEARCH FORM ──────────────────────────────────── */}
+      <section className="px-6 md:px-10 mb-12 max-w-[1280px] mx-auto">
         <form
           onSubmit={handleSearch}
-          className="bg-[var(--paper)] border border-[var(--rule-strong)] p-7 md:p-9"
+          className="bg-white border border-[var(--rule)] rounded-[20px] p-7 md:p-9 shadow-soft"
         >
-          <div className="flex items-center gap-3 mb-7 text-[var(--ink-muted)]">
-            <GaugeDial value={28} max={50} redlineFrom={35} size={28} />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em]">Cluster 02 — Parameters</span>
+          <div className="flex items-center gap-3 mb-7">
+            <span className="rv-tag rv-tag-blue">Parameters</span>
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Cluster 02 · live index</span>
             <span className="h-px flex-1 bg-[var(--rule)]" />
           </div>
 
@@ -209,30 +192,31 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             <Input label="Min undervalue %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} />
           </div>
 
-          <div className="mt-7 flex items-center gap-6">
+          <div className="mt-7 flex items-center gap-6 flex-wrap">
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-3 px-7 py-3 bg-[var(--ink)] text-[var(--bone)] text-[14px] font-medium rounded-full hover:bg-[var(--red)] disabled:opacity-60 disabled:hover:bg-[var(--ink)] transition-all duration-200 group"
+              className="rv-primary group"
             >
               <span>{loading ? (stage ?? "Querying") : "Run search"}</span>
               {loading ? (
                 <Tire size={14} />
               ) : (
-                <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               )}
             </button>
             {error && (
-              <p className="text-[13px] text-[var(--red)] flex items-center gap-2">
-                <span className="font-bold">!</span> {error}
+              <p className="text-[13px] text-[#dc2626] flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] font-bold text-[10px]">!</span>
+                {error}
               </p>
             )}
           </div>
 
           {jobSummary && !loading && (
-            <div className="mt-5 flex items-center gap-2.5 text-[var(--ink-muted)]">
-              <CarSilhouette size={22} />
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em]">
+            <div className="mt-5 flex items-center gap-2 text-[var(--ink-muted)]">
+              <span className="rv-live-dot rv-live-dot-green" />
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em]">
                 Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
               </p>
             </div>
@@ -240,11 +224,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </form>
       </section>
 
-      {/* ── RESULTS ─────────────────────────────────────────── */}
+      {/* ── RESULTS ──────────────────────────────────────── */}
       <section className="px-6 md:px-10 pb-24 max-w-[1280px] mx-auto">
-        <div className="flex items-baseline justify-between mb-8 border-b border-[var(--rule-strong)] pb-4">
-          <h2 className="display text-[1.8rem] tracking-[-0.02em]">
-            Index <span className="italic">— results</span>
+        <div className="flex items-end justify-between mb-8 border-b border-[var(--rule)] pb-4">
+          <h2 className="display text-[1.7rem] leading-tight tracking-[-0.02em] font-semibold">
+            Results <span className="text-[var(--blue)] italic">— this run</span>
           </h2>
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
             {loading ? (stage ?? "fetching...") : `${deals.length} listings`}
@@ -252,91 +236,82 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
 
         {!loading && deals.length === 0 && (
-          <div className="border border-dashed border-[var(--rule-strong)]/30 p-16 text-center">
-            <CarSilhouette
-              size={72}
-              className="text-[var(--ink-muted)] opacity-25 mx-auto mb-6 block"
-            />
-            <p className="display text-[1.6rem] mb-2 italic text-[var(--ink-muted)]">No results yet.</p>
-            <p className="text-[13px] text-[var(--ink-muted)]">Run a search to populate the index.</p>
+          <div className="border border-dashed border-[var(--rule-strong)] rounded-[20px] p-16 text-center bg-white">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--blue-tint)] text-[var(--blue)] mb-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+              </svg>
+            </div>
+            <p className="display text-[1.4rem] mb-2 text-[var(--ink)] font-semibold">No results yet.</p>
+            <p className="text-[13.5px] text-[var(--ink-muted)]">Run a search to populate your index.</p>
           </div>
         )}
 
         {loading && (
-          <div className="flex items-center gap-2.5 text-[var(--ink-muted)]">
+          <div className="flex items-center gap-2.5 text-[var(--ink-soft)] mb-6">
             <Tire size={14} />
-            <p className="font-mono text-[13px]">
-              worker · {stage ?? "starting"}…
-            </p>
+            <p className="font-mono text-[12.5px]">worker · {stage ?? "starting"}…</p>
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-px bg-[var(--rule-strong)] border border-[var(--rule-strong)]">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
           {deals.map((deal, i) => (
             <a
               key={deal.id}
               href={deal.url}
               target="_blank"
               rel="noreferrer"
-              className="block bg-[var(--bone)] hover:bg-[var(--paper)] p-7 transition-colors group"
+              className="rv-deal-card-link group"
             >
-              <div className="flex items-start justify-between mb-3 gap-3">
-                <LicensePlate>
-                  {extractStateCode(deal.location) ?? sourceCode(deal.source)}
-                  {" · "}
-                  {String(i + 1).padStart(4, "0")}
-                  {" · "}
-                  {sourceCode(deal.source)}
-                </LicensePlate>
-                <GaugeDial value={deal.undervalue_percent} size={40} />
+              <div className="flex items-start justify-between mb-4 gap-3">
+                <span className="rv-plate-chip">
+                  <span className="rv-plate-dot" />
+                  {extractStateCode(deal.location) ?? sourceCode(deal.source)} · {String(i + 1).padStart(4, "0")} · {sourceCode(deal.source)}
+                  <span className="rv-plate-dot" />
+                </span>
+                <DealScorePill value={deal.undervalue_percent} />
               </div>
-              <div className="border-b border-[var(--ink)] mb-5" />
 
-              <h3 className="display text-[1.5rem] leading-tight tracking-tight mb-2">
+              <h3 className="display text-[1.3rem] leading-tight tracking-[-0.015em] mb-1 font-semibold">
                 {deal.year} {deal.make} {deal.model}
               </h3>
-              <div className="flex items-center gap-2 mb-5 flex-wrap text-[13px] text-[var(--ink-muted)]">
-                <span>{deal.location}</span>
-                <span className="opacity-50">·</span>
-                {deal.mileage ? (
-                  <Odometer value={deal.mileage} />
-                ) : (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-70">
-                    mileage n/a
-                  </span>
-                )}
+              <p className="text-[12.5px] text-[var(--ink-muted)] mb-5">
+                {deal.location}
+                {deal.mileage ? ` · ${deal.mileage.toLocaleString()} mi` : ""}
+              </p>
+
+              <div className="space-y-2 text-[13px] font-mono pt-4 border-t border-dashed border-[var(--rule)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ink-muted)]">Listed</span>
+                  <span className="font-semibold text-[var(--ink)]">${deal.listed_price.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ink-muted)]">Fair value</span>
+                  <span className="text-[var(--ink-soft)]">${deal.predicted_price.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[var(--ink-muted)]">Differential</span>
+                  <span className="font-semibold text-[var(--green)]">−{deal.undervalue_percent.toFixed(1)}%</span>
+                </div>
               </div>
 
-              <div className="border-t border-dashed border-[var(--rule-strong)]/30 pt-4 space-y-2 font-mono text-[13px]">
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[var(--ink-muted)]">Listed</span>
-                  <span className="flex-1 border-b border-dotted border-[var(--rule-strong)]/30 translate-y-[-4px]" />
-                  <span className="font-bold">${deal.listed_price.toLocaleString()}</span>
-                </div>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-[var(--ink-muted)]">Fair value</span>
-                  <span className="flex-1 border-b border-dotted border-[var(--rule-strong)]/30 translate-y-[-4px]" />
-                  <span>${deal.predicted_price.toLocaleString()}</span>
-                </div>
-                <div className="flex items-baseline gap-3 pt-1">
-                  <span className="text-[var(--ink-muted)]">Differential</span>
-                  <span className="flex-1 border-b border-dotted border-[var(--rule-strong)]/30 translate-y-[-4px]" />
-                  <span className="text-[var(--red)] font-bold">−{deal.undervalue_percent.toFixed(1)}%</span>
-                </div>
+              <div className="mt-5 pt-3 border-t border-[var(--rule)] flex items-center justify-between text-[12px]">
+                <span className="font-mono uppercase tracking-[0.15em] text-[var(--ink-muted)]">Open listing</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--blue)] transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               </div>
             </a>
           ))}
         </div>
       </section>
 
-      {/* ── FOOTER ──────────────────────────────────────────── */}
-      <footer className="border-t border-[var(--rule-strong)] px-6 md:px-10 py-8">
+      {/* ── FOOTER ───────────────────────────────────────── */}
+      <footer className="border-t border-[var(--rule)] bg-white px-6 md:px-10 py-7">
         <div className="max-w-[1280px] mx-auto flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
-            © 2026 Revveal · Buyer's Index
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
+            © 2026 Revveal · Buyer's Intelligence
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
-            Model v3.2 · Updated 2m ago
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
+            Model v3.2 · updated 2m ago
           </span>
         </div>
       </footer>
@@ -359,7 +334,7 @@ function Input({
 }) {
   return (
     <div>
-      <label className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)] mb-2 block">
+      <label className="text-[12px] font-medium text-[var(--ink-soft)] mb-2 block">
         {label}
       </label>
       <input
@@ -367,8 +342,151 @@ function Input({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="field-input"
+        className="rv-input"
       />
     </div>
   );
 }
+
+function DealScorePill({ value }: { value: number }) {
+  // map undervalue % to a 0-100ish badge color
+  const tier = value >= 25 ? "great" : value >= 15 ? "good" : "ok";
+  const palette = {
+    great: { bg: "var(--green-soft)", fg: "var(--green)", label: "Great" },
+    good:  { bg: "var(--blue-tint)",  fg: "var(--blue-deep)", label: "Solid" },
+    ok:    { bg: "#f1f3f8",           fg: "var(--ink-soft)",  label: "Fair" },
+  }[tier];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-mono text-[10.5px] uppercase tracking-[0.14em] font-medium"
+      style={{ background: palette.bg, color: palette.fg }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: palette.fg }} />
+      {palette.label}
+    </span>
+  );
+}
+
+const SHARED_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  :root {
+    --paper: #ffffff;
+    --paper-warm: #f7f9fc;
+    --blue-tint: #ebf1ff;
+    --ink: #0a1530;
+    --ink-soft: #475574;
+    --ink-muted: #8392ad;
+    --rule: #e3e9f3;
+    --rule-strong: #cfd8e6;
+    --blue: #1f5fff;
+    --blue-deep: #1648c4;
+    --green: #16a34a;
+    --green-soft: #d9f4e7;
+  }
+
+  .display {
+    font-family: 'Bricolage Grotesque', serif;
+    font-variation-settings: "wdth" 100, "opsz" 96;
+    font-weight: 600;
+  }
+
+  .shadow-soft { box-shadow: 0 10px 36px -10px rgba(10,21,48,0.08), 0 4px 12px rgba(10,21,48,0.04); }
+
+  .rv-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    line-height: 1;
+  }
+  .rv-tag-blue { background: var(--blue-tint); color: var(--blue-deep); }
+
+  .rv-live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--blue);
+    animation: liveBeat 1.6s ease-in-out infinite;
+    display: inline-block;
+  }
+  .rv-live-dot-green { background: var(--green); animation: liveBeatGreen 1.6s ease-in-out infinite; }
+  @keyframes liveBeat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(31,95,255,0.55); }
+    50% { box-shadow: 0 0 0 5px rgba(31,95,255,0); }
+  }
+  @keyframes liveBeatGreen {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(22,163,74,0); }
+  }
+
+  .rv-sparkle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: white; color: var(--blue);
+    box-shadow: 0 2px 6px rgba(31,95,255,0.22);
+  }
+
+  .rv-input {
+    width: 100%;
+    padding: 12px 14px;
+    background: white;
+    border: 1px solid var(--rule-strong);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    font-family: 'Geist', sans-serif;
+  }
+  .rv-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 4px rgba(31,95,255,0.10);
+  }
+
+  .rv-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 13px 22px;
+    background: var(--blue);
+    color: white;
+    font-size: 14px; font-weight: 500;
+    border-radius: 999px;
+    transition: all 0.2s;
+    box-shadow: 0 6px 18px rgba(31,95,255,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  .rv-primary:hover:not(:disabled) {
+    background: var(--blue-deep);
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(31,95,255,0.40), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  .rv-primary:disabled { opacity: 0.65; cursor: wait; }
+
+  .rv-deal-card-link {
+    display: block;
+    background: white;
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    padding: 20px;
+    transition: all 0.3s cubic-bezier(.2,.8,.2,1);
+  }
+  .rv-deal-card-link:hover {
+    transform: translateY(-3px);
+    border-color: var(--blue);
+    box-shadow: 0 14px 32px -10px rgba(31,95,255,0.20), 0 4px 10px rgba(10,21,48,0.04);
+  }
+
+  .rv-plate-chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 10px; border-radius: 6px;
+    background: var(--paper-warm);
+    border: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft);
+    line-height: 1;
+  }
+  .rv-plate-dot {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--ink-muted);
+  }
+`;

@@ -71,124 +71,158 @@ export default function LoginPage({ onLogin }: Props) {
   return (
     <div
       className={`min-h-screen flex transition-opacity duration-500 ${fading ? "opacity-0" : mounted ? "opacity-100" : "opacity-0"}`}
-      style={{ background: "var(--bone)", color: "var(--ink)", fontFamily: "'DM Sans', sans-serif" }}
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400..800,0..100,0..1;1,9..144,400..800,0..100,0..1&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+      <style>{STYLES}</style>
 
-        :root {
-          --bone: #efe9dd; --paper: #f7f1e3;
-          --ink: #131310; --ink-soft: #3a3a36; --ink-muted: #7a756c;
-          --rule: #ddd6c7; --rule-strong: #131310;
-          --red: #c41e3a; --red-deep: #a01a30;
-        }
-        .display { font-family: 'Fraunces', serif; font-weight: 500; font-variation-settings: "WONK" 1, "SOFT" 30, "opsz" 144; }
-        .field-wrap:focus-within { border-color: var(--ink); }
-        .field-wrap.err:focus-within { border-color: var(--red); }
-        @keyframes tickerScroll { from { transform: translateX(0);} to { transform: translateX(-50%);} }
-        .ticker-track { animation: tickerScroll 60s linear infinite; }
-        @keyframes livePulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
-        .live-dot { animation: livePulse 1.4s ease-in-out infinite; }
-        @keyframes spin { to { transform: rotate(360deg); }}
-        .spin { animation: spin 0.7s linear infinite; }
-      `}</style>
+      {/* ── LEFT — brand panel ──────────────────────────────── */}
+      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 overflow-hidden bg-[#0a1530] text-white">
 
-      {/* ── LEFT — editorial brand panel ─────────────────────────── */}
-      <aside className="hidden lg:flex lg:w-[50%] relative flex-col justify-between p-14 bg-[var(--ink)] text-[var(--bone)] overflow-hidden">
+        {/* Showroom photo backdrop */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-cover bg-center brand-photo"
+          style={{ backgroundImage: "url('/assets/bg-showroom.png')" }}
+        />
+        {/* Layered gradient overlays for depth */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(10,21,48,0.65) 0%, rgba(10,21,48,0.85) 60%, rgba(10,21,48,0.95) 100%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(60% 50% at 18% 18%, rgba(31,95,255,0.28) 0%, transparent 60%)",
+          }}
+        />
 
-        {/* Top header */}
-        <div className="relative z-10 flex items-center justify-between">
-          <a href="/" className="flex items-baseline gap-1">
-            <span className="display text-[1.5rem] leading-none tracking-tight text-[var(--bone)]">Revveal</span>
-            <span className="w-[7px] h-[7px] bg-[var(--red)] inline-block translate-y-[-2px]" />
+        {/* Top — brand */}
+        <div className="relative z-20 flex items-center justify-between">
+          <a href="/" className="flex items-center gap-3 group">
+            <img
+              src="/assets/revveal-icon.png"
+              alt=""
+              aria-hidden
+              className="w-9 h-9 rounded-[9px] shadow-[0_8px_24px_rgba(31,95,255,0.45)] transition-transform duration-300 group-hover:rotate-[-4deg]"
+            />
+            <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
           </a>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-60">Buyer's Index</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-60">Buyer's Intelligence</span>
         </div>
 
         {/* Center — editorial copy */}
-        <div className="relative z-10 max-w-[24rem]">
-          <div className="flex items-baseline gap-3 mb-12">
-            <span className="font-mono text-[10px] tracking-[0.22em] uppercase opacity-60">§ Access</span>
-            <span className="h-px w-14 bg-[var(--bone)]/40 translate-y-[-3px]" />
+        <div className="relative z-20 max-w-[26rem]">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm mb-10">
+            <span className="rv-live-dot" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-80">Live · Last 24h</span>
           </div>
 
-          <h2 className="display text-[3.5rem] leading-[0.92] tracking-[-0.02em] mb-8">
+          <h2 className="display text-[3.6rem] leading-[0.96] tracking-[-0.03em] mb-7 font-semibold">
             Sign in.<br />
-            <span className="italic text-[var(--red)]">Stop guessing.</span>
+            <span className="rv-accent italic">Stop guessing.</span>
           </h2>
 
-          <p className="text-[15px] leading-[1.65] text-[var(--bone)]/70 max-w-[20rem]">
+          <p className="text-[15.5px] leading-[1.65] text-white/70 max-w-[22rem]">
             Save searches. Set drop alerts. The next great deal will go in hours — Revveal puts you on it first.
           </p>
+
+          {/* Inline mini-stats */}
+          <div className="mt-10 grid grid-cols-3 gap-4 max-w-[24rem]">
+            {STATS.map(s => (
+              <div key={s.lbl} className="border-l border-white/15 pl-3.5">
+                <div className="display text-[1.4rem] font-semibold leading-none">{s.val}</div>
+                <div className="font-mono text-[9.5px] uppercase tracking-[0.18em] opacity-55 mt-2">{s.lbl}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Bottom — live ticker preview */}
-        <div className="relative z-10 border-t border-[var(--bone)]/15 pt-6">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="live-dot w-1.5 h-1.5 rounded-full bg-[var(--red)]" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-60">Live · Last 24h</span>
-          </div>
+        {/* Bottom — live ticker */}
+        <div className="relative z-20 border-t border-white/10 pt-6">
           <div className="overflow-hidden">
             <div className="ticker-track flex gap-8 whitespace-nowrap font-mono text-[12px]">
               {[...TICKER, ...TICKER].map((t, i) => (
-                <span key={i} className="flex items-center gap-2 shrink-0 opacity-70">
+                <span key={i} className="flex items-center gap-2 shrink-0 opacity-75">
                   <span className="opacity-50">{t.tag}</span>
                   <span>{t.label}</span>
-                  <span className="text-[var(--red)] opacity-90">{t.delta}</span>
+                  <span className="text-[#7da8ff]">{t.delta}</span>
                 </span>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Subtle texture */}
+        {/* Soft grid */}
         <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          aria-hidden
+          className="absolute inset-0 opacity-[0.05] pointer-events-none z-[1]"
           style={{
-            backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
             backgroundSize: "80px 80px",
           }}
         />
       </aside>
 
-      {/* ── RIGHT — login form ────────────────────────────────── */}
-      <main className="flex-1 flex items-center justify-center px-6 py-16 relative">
-        <div className="w-full max-w-[400px]">
+      {/* ── RIGHT — form ──────────────────────────────────── */}
+      <main className="flex-1 flex items-center justify-center px-6 py-14 relative bg-[var(--paper)]">
+
+        {/* Atmospheric blobs */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(60% 50% at 90% 0%, rgba(31,95,255,0.06) 0%, transparent 60%), radial-gradient(40% 30% at 0% 100%, rgba(31,95,255,0.05) 0%, transparent 60%)",
+          }}
+        />
+
+        <div className="w-full max-w-[420px] relative">
 
           {/* Mobile brand */}
-          <div className="lg:hidden mb-12 flex items-baseline gap-1">
-            <span className="display text-[1.5rem] leading-none tracking-tight">Revveal</span>
-            <span className="w-[7px] h-[7px] bg-[var(--red)] inline-block translate-y-[-2px]" />
+          <div className="lg:hidden mb-12 flex items-center gap-3">
+            <img
+              src="/assets/revveal-icon.png"
+              alt=""
+              aria-hidden
+              className="w-9 h-9 rounded-[9px] shadow-[0_4px_14px_rgba(31,95,255,0.22)]"
+            />
+            <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
           </div>
 
-          <div className="flex items-baseline gap-3 mb-8">
-            <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[var(--ink-muted)]">
-              § 01 — {isRegister ? "New buyer" : "Returning"}
+          {/* Pill kicker */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-7">
+            <span className="rv-live-dot" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--blue-deep)]">
+              {isRegister ? "New buyer" : "Welcome back"}
             </span>
-            <span className="h-px flex-1 bg-[var(--rule-strong)] translate-y-[-3px]" />
           </div>
 
-          <h1 className="display text-[2.6rem] leading-[1] tracking-[-0.02em] mb-3">
+          <h1 className="display text-[2.6rem] leading-[1] tracking-[-0.03em] mb-3 font-semibold">
             {isRegister ? (
-              <>Create your <span className="italic">account</span>.</>
+              <>Create your <span className="text-[var(--blue)] italic">account</span>.</>
             ) : (
-              <>Welcome <span className="italic">back</span>.</>
+              <>Welcome <span className="text-[var(--blue)] italic">back</span>.</>
             )}
           </h1>
-          <p className="text-[14px] text-[var(--ink-muted)] mb-10">
+          <p className="text-[14.5px] text-[var(--ink-muted)] mb-9">
             {isRegister ? "Start tracking deals before they go." : "Continue to your deal feed."}
           </p>
 
           {/* Social row */}
-          <div className="grid grid-cols-2 gap-3 mb-8">
+          <div className="grid grid-cols-2 gap-3 mb-7">
             <SocialBtn icon={<GoogleIcon />} label="Google" />
             <SocialBtn icon={<GitHubIcon />} label="GitHub" />
           </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-7">
             <div className="h-px flex-1 bg-[var(--rule)]" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)]">or with email</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">or with email</span>
             <div className="h-px flex-1 bg-[var(--rule)]" />
           </div>
 
@@ -200,7 +234,7 @@ export default function LoginPage({ onLogin }: Props) {
                 value={email}
                 onChange={e => { setEmail(e.target.value); clearErr("email"); }}
                 placeholder="you@example.com"
-                className="field-input"
+                className={`field-input ${errors.email ? "err" : ""}`}
               />
             </Field>
 
@@ -211,7 +245,7 @@ export default function LoginPage({ onLogin }: Props) {
                   value={password}
                   onChange={e => { setPassword(e.target.value); clearErr("password"); }}
                   placeholder="••••••••"
-                  className="field-input pr-12"
+                  className={`field-input pr-12 ${errors.password ? "err" : ""}`}
                 />
                 <button
                   type="button"
@@ -227,17 +261,17 @@ export default function LoginPage({ onLogin }: Props) {
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2.5 cursor-pointer group select-none" onClick={() => setRememberMe(v => !v)}>
                 <span
-                  className={`w-4 h-4 border-[1.5px] flex items-center justify-center transition-colors duration-150 ${rememberMe ? "bg-[var(--ink)] border-[var(--ink)]" : "bg-transparent border-[var(--ink-muted)]/60 group-hover:border-[var(--ink)]"}`}
+                  className={`w-4 h-4 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors duration-150 ${rememberMe ? "bg-[var(--blue)] border-[var(--blue)]" : "bg-transparent border-[var(--rule-strong)] group-hover:border-[var(--ink)]"}`}
                 >
                   {rememberMe && (
-                    <svg className="w-2.5 h-2.5 text-[var(--bone)]" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </span>
                 <span className="text-[13px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">Remember me</span>
               </label>
-              <button type="button" className="text-[13px] text-[var(--red)] hover:text-[var(--red-deep)] transition-colors">
+              <button type="button" className="text-[13px] text-[var(--blue)] hover:text-[var(--blue-deep)] transition-colors font-medium">
                 Forgot password?
               </button>
             </div>
@@ -245,7 +279,7 @@ export default function LoginPage({ onLogin }: Props) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3.5 bg-[var(--ink)] text-[var(--bone)] font-medium text-[15px] rounded-full hover:bg-[var(--red)] disabled:opacity-60 disabled:hover:bg-[var(--ink)] transition-all duration-200 group flex items-center justify-center gap-3"
+              className="rv-submit"
             >
               {loading ? (
                 <>
@@ -258,82 +292,69 @@ export default function LoginPage({ onLogin }: Props) {
               ) : (
                 <>
                   <span>{isRegister ? "Create account" : "Sign in"}</span>
-                  <span className="transition-transform group-hover:translate-x-0.5">→</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                 </>
               )}
             </button>
 
             {formError && (
-              <p className="mt-3 text-[12px] text-[var(--red)] flex items-center gap-1.5">
-                <span className="font-bold">!</span> {formError}
+              <p className="mt-2 text-[12.5px] text-[#dc2626] flex items-center gap-1.5">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] text-[#dc2626] font-bold text-[10px]">!</span>
+                {formError}
               </p>
             )}
           </form>
 
-          <p className="mt-10 text-center text-[13px] text-[var(--ink-muted)]">
+          <p className="mt-9 text-center text-[13px] text-[var(--ink-muted)]">
             {isRegister ? "Already have an account? " : "New here? "}
             <button
               type="button"
               onClick={toggleMode}
-              className="text-[var(--ink)] underline underline-offset-4 decoration-[var(--red)] decoration-2 hover:decoration-[var(--ink)] transition-colors"
+              className="text-[var(--ink)] font-semibold underline underline-offset-4 decoration-[var(--blue)] decoration-2 hover:decoration-[var(--ink)] transition-colors"
             >
               {isRegister ? "Sign in instead" : "Create an account"}
             </button>
           </p>
         </div>
-
-        {/* Local field styles */}
-        <style>{`
-          .field-input {
-            width: 100%;
-            padding: 14px 16px;
-            background: transparent;
-            border: 1px solid var(--rule-strong);
-            border-radius: 0;
-            font-size: 15px;
-            color: var(--ink);
-            outline: none;
-            transition: border-color 0.15s ease, background-color 0.15s ease;
-            font-family: 'DM Sans', sans-serif;
-          }
-          .field-input::placeholder { color: var(--ink-muted); opacity: 0.6; }
-          .field-input:focus { background: var(--paper); }
-          .field-input.err { border-color: var(--red); }
-        `}</style>
       </main>
     </div>
   );
 }
 
 function parseAuthError(raw: string): string {
-  // Map common backend errors to friendlier copy.
   if (/409/.test(raw) || /already registered/i.test(raw)) return "That email is already registered.";
   if (/401/.test(raw) || /Invalid email or password/i.test(raw)) return "Invalid email or password.";
   if (/429/.test(raw)) return "Too many attempts — please try again in a minute.";
-  // Pydantic validation errors come back as JSON arrays
   if (/value is not a valid email/i.test(raw)) return "Enter a valid email.";
   if (/string_too_short/i.test(raw)) return "Password must be at least 8 characters.";
   return raw.length > 120 ? "Something went wrong." : raw;
 }
 
 const TICKER = [
-  { tag: "AUS/TX", label: "2019 CIVIC", delta: "↓20.5%" },
-  { tag: "DAL/TX", label: "2020 RAV4", delta: "↓18.2%" },
-  { tag: "PHX/AZ", label: "2018 CAMRY", delta: "↓24.1%" },
-  { tag: "DEN/CO", label: "2021 CR-V", delta: "↓7.9%" },
-  { tag: "ATL/GA", label: "2017 ALTIMA", delta: "↓31.4%" },
+  { tag: "AUS/TX", label: "2019 CIVIC", delta: "−20.5%" },
+  { tag: "DAL/TX", label: "2020 RAV4", delta: "−18.2%" },
+  { tag: "PHX/AZ", label: "2018 CAMRY", delta: "−24.1%" },
+  { tag: "DEN/CO", label: "2021 CR-V", delta: "−7.9%" },
+  { tag: "ATL/GA", label: "2017 ALTIMA", delta: "−31.4%" },
+];
+
+const STATS = [
+  { val: "12.4k", lbl: "listings · today" },
+  { val: "$3.2k", lbl: "avg. savings" },
+  { val: "94%", lbl: "model accuracy" },
 ];
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--ink-muted)] mb-2.5 block">
+      <label className="text-[12px] font-medium text-[var(--ink-soft)] mb-2 block">
         {label}
       </label>
       {children}
       {error && (
-        <p className="mt-2 text-[12px] text-[var(--red)] flex items-center gap-1.5">
-          <span className="font-bold">!</span> {error}
+        <p className="mt-2 text-[12px] text-[#dc2626] flex items-center gap-1.5">
+          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] text-[#dc2626] font-bold text-[10px]">!</span>
+          {error}
         </p>
       )}
     </div>
@@ -344,10 +365,10 @@ function SocialBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <button
       type="button"
-      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-transparent border border-[var(--rule-strong)] text-[14px] text-[var(--ink)] hover:bg-[var(--ink)] hover:text-[var(--bone)] transition-all duration-200"
+      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-white border border-[var(--rule-strong)] rounded-[12px] text-[14px] font-medium text-[var(--ink)] hover:border-[var(--blue)] hover:bg-[var(--blue-tint)] hover:text-[var(--blue-deep)] transition-all duration-200"
     >
       {icon}
-      <span className="font-medium">{label}</span>
+      <span>{label}</span>
     </button>
   );
 }
@@ -384,3 +405,99 @@ function GitHubIcon() {
     </svg>
   );
 }
+
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  :root {
+    --paper: #ffffff;
+    --blue-tint: #ebf1ff;
+    --ink: #0a1530;
+    --ink-soft: #475574;
+    --ink-muted: #8392ad;
+    --rule: #e3e9f3;
+    --rule-strong: #cfd8e6;
+    --blue: #1f5fff;
+    --blue-deep: #1648c4;
+  }
+
+  body { font-family: 'Geist', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+  .display {
+    font-family: 'Bricolage Grotesque', serif;
+    font-variation-settings: "wdth" 100, "opsz" 96;
+    font-weight: 600;
+  }
+
+  .rv-accent { color: #4d7fff; }
+
+  .field-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: white;
+    border: 1px solid var(--rule-strong);
+    border-radius: 12px;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    font-family: 'Geist', sans-serif;
+  }
+  .field-input::placeholder { color: var(--ink-muted); opacity: 0.7; }
+  .field-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 4px rgba(31,95,255,0.10);
+  }
+  .field-input.err {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.08);
+  }
+
+  .rv-submit {
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px 24px;
+    background: var(--blue);
+    color: white;
+    font-weight: 500;
+    font-size: 15px;
+    border-radius: 999px;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 6px 18px rgba(31,95,255,0.32), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  .rv-submit:hover:not(:disabled) {
+    background: var(--blue-deep);
+    box-shadow: 0 10px 26px rgba(31,95,255,0.42), inset 0 1px 0 rgba(255,255,255,0.18);
+    transform: translateY(-1px);
+  }
+  .rv-submit:disabled { opacity: 0.65; cursor: wait; }
+
+  .rv-live-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #4d7fff;
+    animation: liveBeat 1.6s ease-in-out infinite;
+    display: inline-block;
+  }
+  @keyframes liveBeat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(77,127,255,0.6); }
+    50% { box-shadow: 0 0 0 5px rgba(77,127,255,0); }
+  }
+
+  @keyframes tickerScroll { from { transform: translateX(0);} to { transform: translateX(-50%);} }
+  .ticker-track { animation: tickerScroll 55s linear infinite; }
+
+  @keyframes spin { to { transform: rotate(360deg); }}
+  .spin { animation: spin 0.7s linear infinite; }
+
+  @keyframes brandDrift {
+    0%   { transform: scale(1.08) translate(0, 0); }
+    50%  { transform: scale(1.14) translate(-1.5%, -1%); }
+    100% { transform: scale(1.08) translate(0, 0); }
+  }
+  .brand-photo {
+    filter: saturate(0.85) contrast(1.05);
+    animation: brandDrift 28s ease-in-out infinite;
+    will-change: transform;
+  }
+`;

@@ -4,7 +4,14 @@
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\bibek\\\\Personal Projects\\\\car catch ai\\\\car-deal-finder\" -Recurse -Force | Select-Object -Property FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\Users\\\\bibek\\\\Personal Projects\\\\car catch ai\\\\car-deal-finder\"\\), \".\" } | Sort-Object)",
       "Bash(Copy-Item *)",
       "PowerShell(Copy-Item *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(mkdir -p \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets\")",
+      "Bash(cp \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/dist/Revveal.png\" \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets/revveal-wordmark.png\")",
+      "Bash(cp \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/dist/iconrevveal.png\" \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets/revveal-icon.png\")",
+      "Bash(cp \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/dist/bgimg1.png\" \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets/bg-showroom.png\")",
+      "Bash(cp \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/dist/bgimg2.png\" \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets/bg-highway.png\")",
+      "Bash(npx vite *)",
+      "PowerShell(Get-NetTCPConnection *)"
     ]
   }
 }
