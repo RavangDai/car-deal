@@ -11,7 +11,11 @@
       "Bash(cp \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/dist/bgimg1.png\" \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets/bg-showroom.png\")",
       "Bash(cp \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/dist/bgimg2.png\" \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/frontend/public/assets/bg-highway.png\")",
       "Bash(npx vite *)",
-      "PowerShell(Get-NetTCPConnection *)"
+      "PowerShell(Get-NetTCPConnection *)",
+      "Bash(node -e \"const a = require\\('animejs/package.json'\\); console.log\\(a.name, a.version, a.main || a.module\\);\")",
+      "Bash(node -e \"const a = require\\('animejs'\\); console.log\\(Object.keys\\(a\\).slice\\(0,30\\).join\\(', '\\)\\);\")",
+      "Bash(node -e \"const a = require\\('animejs'\\); console.log\\('stagger:', typeof a.stagger, 'eases:', Object.keys\\(a.eases || {}\\).slice\\(0,8\\).join\\(','\\)\\);\")",
+      "Bash(node -e \"const a = require\\('framer-motion/package.json'\\); console.log\\(a.name, a.version\\);\")"
     ]
   }
 }

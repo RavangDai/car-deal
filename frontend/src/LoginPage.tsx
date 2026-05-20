@@ -1,4 +1,10 @@
-import { useState, useEffect } from "react";
+import { useRef, useState } from "react";
+import {
+  motion,
+  useAnimationControls,
+  useReducedMotion,
+  type Variants,
+} from "framer-motion";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 
 interface Props {
@@ -7,16 +13,57 @@ interface Props {
 
 type Mode = "login" | "register";
 
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+const brandContainer: Variants = {
+  hidden: {},
+  show: { transition: { delayChildren: 0.2, staggerChildren: 0.08 } },
+};
+const brandFade: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 1.2, ease: EASE_OUT_EXPO } },
+};
+const brandLine: Variants = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.9, ease: EASE_OUT_EXPO } },
+};
+const brandStat: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
+};
+const brandTicker: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE_OUT_EXPO } },
+};
+const brandTop: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
+};
+
+const formContainer: Variants = {
+  hidden: {},
+  show: { transition: { delayChildren: 0.32, staggerChildren: 0.07 } },
+};
+const formField: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_OUT_EXPO } },
+};
+const formLine: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.75, ease: EASE_OUT_EXPO } },
+};
+
 export default function LoginPage({ onLogin }: Props) {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [fading, setFading] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const exitControls = useAnimationControls();
+  const prefersReduced = useReducedMotion();
 
   const loginMut = useLoginMutation();
   const registerMut = useRegisterAndLoginMutation();
@@ -24,10 +71,17 @@ export default function LoginPage({ onLogin }: Props) {
   const isRegister = mode === "register";
   const loading = loginMut.isPending || registerMut.isPending;
 
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 50);
-    return () => clearTimeout(t);
-  }, []);
+  async function exitThen(cb: () => void) {
+    if (prefersReduced) {
+      cb();
+      return;
+    }
+    await exitControls.start({
+      opacity: 0,
+      transition: { duration: 0.36, ease: [0.33, 1, 0.68, 1] },
+    });
+    cb();
+  }
 
   function validate() {
     const e: { email?: string; password?: string } = {};
@@ -49,9 +103,7 @@ export default function LoginPage({ onLogin }: Props) {
     const mutation = isRegister ? registerMut : loginMut;
     try {
       await mutation.mutateAsync({ email, password });
-      setFading(true);
-      await new Promise(r => setTimeout(r, 400));
-      onLogin();
+      exitThen(onLogin);
     } catch (err: any) {
       setFormError(parseAuthError(err?.message ?? "Something went wrong."));
     }
@@ -68,22 +120,25 @@ export default function LoginPage({ onLogin }: Props) {
     setFormError(null);
   }
 
+  const initial = prefersReduced ? "show" : "hidden";
+
   return (
-    <div
-      className={`min-h-screen flex transition-opacity duration-500 ${fading ? "opacity-0" : mounted ? "opacity-100" : "opacity-0"}`}
-    >
+    <motion.div ref={rootRef} className="min-h-screen flex" animate={exitControls}>
       <style>{STYLES}</style>
 
       {/* ── LEFT — brand panel ──────────────────────────────── */}
-      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 overflow-hidden bg-[#0a1530] text-white">
-
-        {/* Showroom photo backdrop */}
-        <div
+      <motion.aside
+        className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 overflow-hidden bg-[#0a1530] text-white"
+        variants={brandContainer}
+        initial={initial}
+        animate="show"
+      >
+        <motion.div
           aria-hidden
+          variants={brandFade}
           className="absolute inset-0 bg-cover bg-center brand-photo"
           style={{ backgroundImage: "url('/assets/bg-showroom.png')" }}
         />
-        {/* Layered gradient overlays for depth */}
         <div
           aria-hidden
           className="absolute inset-0"
@@ -101,63 +156,64 @@ export default function LoginPage({ onLogin }: Props) {
           }}
         />
 
-        {/* Top — brand */}
-        <div className="relative z-20 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 group">
+        <motion.div className="relative z-20 flex items-center justify-between" variants={brandTop}>
+          <a href="/" className="flex items-center gap-3">
             <img
               src="/assets/revveal-icon.png"
               alt=""
               aria-hidden
-              className="w-9 h-9 rounded-[9px] shadow-[0_8px_24px_rgba(31,95,255,0.45)] transition-transform duration-300 group-hover:rotate-[-4deg]"
+              className="w-9 h-9 rounded-[9px]"
             />
             <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
           </a>
           <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-60">Buyer's Intelligence</span>
-        </div>
+        </motion.div>
 
-        {/* Center — editorial copy */}
         <div className="relative z-20 max-w-[26rem]">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm mb-10">
+          <motion.div
+            variants={brandLine}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm mb-10"
+          >
             <span className="rv-live-dot" />
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-80">Live · Last 24h</span>
-          </div>
+          </motion.div>
 
           <h2 className="display text-[3.6rem] leading-[0.96] tracking-[-0.03em] mb-7 font-semibold">
-            Sign in.<br />
-            <span className="rv-accent italic">Stop guessing.</span>
+            <motion.span className="block" variants={brandLine}>Sign in.</motion.span>
+            <motion.span className="block rv-accent italic" variants={brandLine}>Stop guessing.</motion.span>
           </h2>
 
-          <p className="text-[15.5px] leading-[1.65] text-white/70 max-w-[22rem]">
+          <motion.p
+            className="text-[15.5px] leading-[1.65] text-white/70 max-w-[22rem]"
+            variants={brandLine}
+          >
             Save searches. Set drop alerts. The next great deal will go in hours — Revveal puts you on it first.
-          </p>
+          </motion.p>
 
-          {/* Inline mini-stats */}
           <div className="mt-10 grid grid-cols-3 gap-4 max-w-[24rem]">
             {STATS.map(s => (
-              <div key={s.lbl} className="border-l border-white/15 pl-3.5">
+              <motion.div key={s.lbl} className="border-l border-white/15 pl-3.5" variants={brandStat}>
                 <div className="display text-[1.4rem] font-semibold leading-none">{s.val}</div>
                 <div className="font-mono text-[9.5px] uppercase tracking-[0.18em] opacity-55 mt-2">{s.lbl}</div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
 
-        {/* Bottom — live ticker */}
-        <div className="relative z-20 border-t border-white/10 pt-6">
-          <div className="overflow-hidden">
-            <div className="ticker-track flex gap-8 whitespace-nowrap font-mono text-[12px]">
-              {[...TICKER, ...TICKER].map((t, i) => (
-                <span key={i} className="flex items-center gap-2 shrink-0 opacity-75">
-                  <span className="opacity-50">{t.tag}</span>
-                  <span>{t.label}</span>
-                  <span className="text-[#7da8ff]">{t.delta}</span>
-                </span>
-              ))}
-            </div>
+        {/* Static recent-deals strip — no auto-scroll */}
+        <motion.div className="relative z-20 border-t border-white/10 pt-6" variants={brandTicker}>
+          <div className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-55 mb-3">Most undervalued · last 24h</div>
+          <div className="grid grid-cols-3 gap-4 font-mono text-[12px]">
+            {RECENT_DEALS.map((d) => (
+              <div key={d.label} className="flex items-baseline gap-2">
+                <span className="opacity-50">{d.tag}</span>
+                <span className="opacity-90 truncate">{d.label}</span>
+                <span className="ml-auto text-[#7da8ff]">{d.delta}</span>
+              </div>
+            ))}
           </div>
-        </div>
+        </motion.div>
 
-        {/* Soft grid */}
         <div
           aria-hidden
           className="absolute inset-0 opacity-[0.05] pointer-events-none z-[1]"
@@ -167,12 +223,11 @@ export default function LoginPage({ onLogin }: Props) {
             backgroundSize: "80px 80px",
           }}
         />
-      </aside>
+      </motion.aside>
 
       {/* ── RIGHT — form ──────────────────────────────────── */}
       <main className="flex-1 flex items-center justify-center px-6 py-14 relative bg-[var(--paper)]">
 
-        {/* Atmospheric blobs */}
         <div
           aria-hidden
           className="absolute inset-0 pointer-events-none"
@@ -182,86 +237,94 @@ export default function LoginPage({ onLogin }: Props) {
           }}
         />
 
-        <div className="w-full max-w-[420px] relative">
+        <motion.div
+          className="w-full max-w-[420px] relative"
+          variants={formContainer}
+          initial={initial}
+          animate="show"
+        >
 
-          {/* Mobile brand */}
-          <div className="lg:hidden mb-12 flex items-center gap-3">
+          <motion.div className="lg:hidden mb-12 flex items-center gap-3" variants={formLine}>
             <img
               src="/assets/revveal-icon.png"
               alt=""
               aria-hidden
-              className="w-9 h-9 rounded-[9px] shadow-[0_4px_14px_rgba(31,95,255,0.22)]"
+              className="w-9 h-9 rounded-[9px]"
             />
             <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
-          </div>
+          </motion.div>
 
-          {/* Pill kicker */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-7">
+          <motion.div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-7"
+            variants={formLine}
+          >
             <span className="rv-live-dot" />
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--blue-deep)]">
               {isRegister ? "New buyer" : "Welcome back"}
             </span>
-          </div>
+          </motion.div>
 
-          <h1 className="display text-[2.6rem] leading-[1] tracking-[-0.03em] mb-3 font-semibold">
+          <motion.h1 className="display text-[2.6rem] leading-[1] tracking-[-0.03em] mb-3 font-semibold" variants={formLine}>
             {isRegister ? (
               <>Create your <span className="text-[var(--blue)] italic">account</span>.</>
             ) : (
               <>Welcome <span className="text-[var(--blue)] italic">back</span>.</>
             )}
-          </h1>
-          <p className="text-[14.5px] text-[var(--ink-muted)] mb-9">
+          </motion.h1>
+          <motion.p className="text-[14.5px] text-[var(--ink-muted)] mb-9" variants={formLine}>
             {isRegister ? "Start tracking deals before they go." : "Continue to your deal feed."}
-          </p>
+          </motion.p>
 
-          {/* Social row */}
-          <div className="grid grid-cols-2 gap-3 mb-7">
+          <motion.div className="grid grid-cols-2 gap-3 mb-7" variants={formField}>
             <SocialBtn icon={<GoogleIcon />} label="Google" />
             <SocialBtn icon={<GitHubIcon />} label="GitHub" />
-          </div>
+          </motion.div>
 
-          <div className="flex items-center gap-3 mb-7">
+          <motion.div className="flex items-center gap-3 mb-7" variants={formField}>
             <div className="h-px flex-1 bg-[var(--rule)]" />
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">or with email</span>
             <div className="h-px flex-1 bg-[var(--rule)]" />
-          </div>
+          </motion.div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
-            <Field label="Email address" error={errors.email}>
-              <input
-                type="email"
-                value={email}
-                onChange={e => { setEmail(e.target.value); clearErr("email"); }}
-                placeholder="you@example.com"
-                className={`field-input ${errors.email ? "err" : ""}`}
-              />
-            </Field>
-
-            <Field label="Password" error={errors.password}>
-              <div className="relative">
+            <motion.div variants={formField}>
+              <Field label="Email address" error={errors.email}>
                 <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={e => { setPassword(e.target.value); clearErr("password"); }}
-                  placeholder="••••••••"
-                  className={`field-input pr-12 ${errors.password ? "err" : ""}`}
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); clearErr("email"); }}
+                  placeholder="you@example.com"
+                  className={`field-input ${errors.email ? "err" : ""}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(s => !s)}
-                  tabIndex={-1}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
-                >
-                  {showPassword ? <EyeOff /> : <Eye />}
-                </button>
-              </div>
-            </Field>
+              </Field>
+            </motion.div>
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2.5 cursor-pointer group select-none" onClick={() => setRememberMe(v => !v)}>
+            <motion.div variants={formField}>
+              <Field label="Password" error={errors.password}>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={e => { setPassword(e.target.value); clearErr("password"); }}
+                    placeholder="••••••••"
+                    className={`field-input pr-12 ${errors.password ? "err" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(s => !s)}
+                    tabIndex={-1}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+                  >
+                    {showPassword ? <EyeOff /> : <Eye />}
+                  </button>
+                </div>
+              </Field>
+            </motion.div>
+
+            <motion.div className="flex items-center justify-between pt-1" variants={formField}>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none" onClick={() => setRememberMe(v => !v)}>
                 <span
-                  className={`w-4 h-4 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors duration-150 ${rememberMe ? "bg-[var(--blue)] border-[var(--blue)]" : "bg-transparent border-[var(--rule-strong)] group-hover:border-[var(--ink)]"}`}
+                  className={`w-4 h-4 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors duration-150 ${rememberMe ? "bg-[var(--blue)] border-[var(--blue)]" : "bg-transparent border-[var(--rule-strong)]"}`}
                 >
                   {rememberMe && (
                     <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
@@ -269,33 +332,35 @@ export default function LoginPage({ onLogin }: Props) {
                     </svg>
                   )}
                 </span>
-                <span className="text-[13px] text-[var(--ink-soft)] group-hover:text-[var(--ink)]">Remember me</span>
+                <span className="text-[13px] text-[var(--ink-soft)]">Remember me</span>
               </label>
               <button type="button" className="text-[13px] text-[var(--blue)] hover:text-[var(--blue-deep)] transition-colors font-medium">
                 Forgot password?
               </button>
-            </div>
+            </motion.div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="rv-submit"
-            >
-              {loading ? (
-                <>
-                  <svg className="w-4 h-4 spin" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
-                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  <span>{isRegister ? "Creating account" : "Signing in"}</span>
-                </>
-              ) : (
-                <>
-                  <span>{isRegister ? "Create account" : "Sign in"}</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-                </>
-              )}
-            </button>
+            <motion.div variants={formField}>
+              <button
+                type="submit"
+                disabled={loading}
+                className="rv-submit"
+              >
+                {loading ? (
+                  <>
+                    <svg className="w-4 h-4 spin" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
+                      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>{isRegister ? "Creating account" : "Signing in"}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{isRegister ? "Create account" : "Sign in"}</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                  </>
+                )}
+              </button>
+            </motion.div>
 
             {formError && (
               <p className="mt-2 text-[12.5px] text-[#dc2626] flex items-center gap-1.5">
@@ -305,7 +370,7 @@ export default function LoginPage({ onLogin }: Props) {
             )}
           </form>
 
-          <p className="mt-9 text-center text-[13px] text-[var(--ink-muted)]">
+          <motion.p className="mt-9 text-center text-[13px] text-[var(--ink-muted)]" variants={formField}>
             {isRegister ? "Already have an account? " : "New here? "}
             <button
               type="button"
@@ -314,10 +379,10 @@ export default function LoginPage({ onLogin }: Props) {
             >
               {isRegister ? "Sign in instead" : "Create an account"}
             </button>
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
       </main>
-    </div>
+    </motion.div>
   );
 }
 
@@ -330,12 +395,10 @@ function parseAuthError(raw: string): string {
   return raw.length > 120 ? "Something went wrong." : raw;
 }
 
-const TICKER = [
-  { tag: "AUS/TX", label: "2019 CIVIC", delta: "−20.5%" },
-  { tag: "DAL/TX", label: "2020 RAV4", delta: "−18.2%" },
-  { tag: "PHX/AZ", label: "2018 CAMRY", delta: "−24.1%" },
-  { tag: "DEN/CO", label: "2021 CR-V", delta: "−7.9%" },
-  { tag: "ATL/GA", label: "2017 ALTIMA", delta: "−31.4%" },
+const RECENT_DEALS = [
+  { tag: "AUS/TX", label: "2019 Civic", delta: "−20.5%" },
+  { tag: "PHX/AZ", label: "2018 Camry", delta: "−24.1%" },
+  { tag: "ATL/GA", label: "2017 Altima", delta: "−31.4%" },
 ];
 
 const STATS = [
@@ -365,7 +428,7 @@ function SocialBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <button
       type="button"
-      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-white border border-[var(--rule-strong)] rounded-[12px] text-[14px] font-medium text-[var(--ink)] hover:border-[var(--blue)] hover:bg-[var(--blue-tint)] hover:text-[var(--blue-deep)] transition-all duration-200"
+      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-white border border-[var(--rule-strong)] rounded-[12px] text-[14px] font-medium text-[var(--ink)] hover:border-[var(--ink)] transition-colors duration-200"
     >
       {icon}
       <span>{label}</span>
@@ -431,6 +494,11 @@ const STYLES = `
 
   .rv-accent { color: #4d7fff; }
 
+  .brand-photo {
+    filter: saturate(0.85) contrast(1.05);
+    transform: scale(1.06);
+  }
+
   .field-input {
     width: 100%;
     padding: 14px 16px;
@@ -440,7 +508,7 @@ const STYLES = `
     font-size: 15px;
     color: var(--ink);
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
     font-family: 'Geist', sans-serif;
   }
   .field-input::placeholder { color: var(--ink-muted); opacity: 0.7; }
@@ -462,42 +530,29 @@ const STYLES = `
     font-weight: 500;
     font-size: 15px;
     border-radius: 999px;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
     display: flex; align-items: center; justify-content: center; gap: 10px;
-    box-shadow: 0 6px 18px rgba(31,95,255,0.32), inset 0 1px 0 rgba(255,255,255,0.18);
+    box-shadow: 0 4px 14px rgba(31,95,255,0.26), inset 0 1px 0 rgba(255,255,255,0.16);
   }
-  .rv-submit:hover:not(:disabled) {
-    background: var(--blue-deep);
-    box-shadow: 0 10px 26px rgba(31,95,255,0.42), inset 0 1px 0 rgba(255,255,255,0.18);
-    transform: translateY(-1px);
-  }
+  .rv-submit:hover:not(:disabled) { background: var(--blue-deep); }
   .rv-submit:disabled { opacity: 0.65; cursor: wait; }
 
   .rv-live-dot {
     width: 6px; height: 6px; border-radius: 50%;
     background: #4d7fff;
-    animation: liveBeat 1.6s ease-in-out infinite;
+    box-shadow: 0 0 0 0 rgba(77,127,255,0);
+    animation: liveBeat 2.4s ease-in-out infinite;
     display: inline-block;
   }
   @keyframes liveBeat {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(77,127,255,0.6); }
-    50% { box-shadow: 0 0 0 5px rgba(77,127,255,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(77,127,255,0.45); }
+    50%      { box-shadow: 0 0 0 5px rgba(77,127,255,0); }
   }
-
-  @keyframes tickerScroll { from { transform: translateX(0);} to { transform: translateX(-50%);} }
-  .ticker-track { animation: tickerScroll 55s linear infinite; }
 
   @keyframes spin { to { transform: rotate(360deg); }}
   .spin { animation: spin 0.7s linear infinite; }
 
-  @keyframes brandDrift {
-    0%   { transform: scale(1.08) translate(0, 0); }
-    50%  { transform: scale(1.14) translate(-1.5%, -1%); }
-    100% { transform: scale(1.08) translate(0, 0); }
-  }
-  .brand-photo {
-    filter: saturate(0.85) contrast(1.05);
-    animation: brandDrift 28s ease-in-out infinite;
-    will-change: transform;
+  @media (prefers-reduced-motion: reduce) {
+    .rv-live-dot { animation: none; }
   }
 `;

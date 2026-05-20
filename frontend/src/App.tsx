@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { getToken } from "./api";
 import {
   useDeals,
@@ -30,6 +31,25 @@ type Deal = {
 };
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
+
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+const dashContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07 } },
+};
+const dashLine: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
+};
+const dashForm: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.8, ease: EASE_OUT_EXPO, delay: 0.2 },
+  },
+};
 
 export default function App() {
   const me = useMe();
@@ -84,6 +104,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
   const scrapeMutation = useScrapeMutation();
   const scrapeJob = useScrapeJob(jobId);
   const dealsQuery = useDeals(minUndervalue);
+  const prefersReduced = useReducedMotion();
+  const initial = prefersReduced ? "show" : "hidden";
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -130,12 +152,12 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
       <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[var(--rule)]">
         <div className="px-6 md:px-10 h-[68px] flex items-center justify-between max-w-[1280px] mx-auto">
           <div className="flex items-center gap-8">
-            <a href="#" className="flex items-center gap-2.5 group">
+            <a href="#" className="flex items-center gap-2.5">
               <img
                 src="/assets/revveal-icon.png"
                 alt=""
                 aria-hidden
-                className="w-8 h-8 rounded-[8px] shadow-[0_4px_14px_rgba(31,95,255,0.20)] transition-transform duration-300 group-hover:rotate-[-4deg]"
+                className="w-8 h-8 rounded-[8px]"
               />
               <span className="display text-[1.4rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
             </a>
@@ -157,72 +179,88 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       </header>
 
-      {/* ── PAGE TITLE ────────────────────────────────────── */}
-      <section className="px-6 md:px-10 pt-14 pb-10 max-w-[1280px] mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-6">
-          <span className="rv-sparkle">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.39 8.61L23 11l-8.61 2.39L12 22l-2.39-8.61L1 11l8.61-2.39z"/></svg>
-          </span>
-          <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--blue-deep)] font-medium">Run a Search</span>
-        </div>
-        <h1 className="display text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.98] tracking-[-0.025em] mb-3 font-semibold">
-          Find a deal <span className="text-[var(--blue)] italic">worth</span> the drive.
-        </h1>
-        <p className="text-[15.5px] text-[var(--ink-soft)] max-w-[48ch]">
-          Set your parameters. The model returns each car ranked, scored, and explained.
-        </p>
-      </section>
+      {/* ── PAGE TITLE + FORM (animated as one orchestrated group) ── */}
+      <motion.div
+        className="max-w-[1280px] mx-auto"
+        variants={dashContainer}
+        initial={initial}
+        animate="show"
+      >
+        <section className="px-6 md:px-10 pt-14 pb-10">
+          <motion.div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-6"
+            variants={dashLine}
+          >
+            <span className="rv-sparkle">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.39 8.61L23 11l-8.61 2.39L12 22l-2.39-8.61L1 11l8.61-2.39z"/></svg>
+            </span>
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--blue-deep)] font-medium">Run a Search</span>
+          </motion.div>
+          <motion.h1
+            className="display text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.98] tracking-[-0.025em] mb-3 font-semibold"
+            variants={dashLine}
+          >
+            Find a deal <span className="text-[var(--blue)] italic">worth</span> the drive.
+          </motion.h1>
+          <motion.p
+            className="text-[15.5px] text-[var(--ink-soft)] max-w-[48ch]"
+            variants={dashLine}
+          >
+            Set your parameters. The model returns each car ranked, scored, and explained.
+          </motion.p>
+        </section>
 
-      {/* ── SEARCH FORM ──────────────────────────────────── */}
-      <section className="px-6 md:px-10 mb-12 max-w-[1280px] mx-auto">
-        <form
-          onSubmit={handleSearch}
-          className="bg-white border border-[var(--rule)] rounded-[20px] p-7 md:p-9 shadow-soft"
-        >
-          <div className="flex items-center gap-3 mb-7">
-            <span className="rv-tag rv-tag-blue">Parameters</span>
-            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Cluster 02 · live index</span>
-            <span className="h-px flex-1 bg-[var(--rule)]" />
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            <Input label="City" value={city} onChange={setCity} placeholder="austin" />
-            <Input label="Search query" value={query} onChange={setQuery} placeholder="honda civic" />
-            <Input label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} />
-            <Input label="Min undervalue %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} />
-          </div>
-
-          <div className="mt-7 flex items-center gap-6 flex-wrap">
-            <button
-              type="submit"
-              disabled={loading}
-              className="rv-primary group"
-            >
-              <span>{loading ? (stage ?? "Querying") : "Run search"}</span>
-              {loading ? (
-                <Tire size={14} />
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-              )}
-            </button>
-            {error && (
-              <p className="text-[13px] text-[#dc2626] flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] font-bold text-[10px]">!</span>
-                {error}
-              </p>
-            )}
-          </div>
-
-          {jobSummary && !loading && (
-            <div className="mt-5 flex items-center gap-2 text-[var(--ink-muted)]">
-              <span className="rv-live-dot rv-live-dot-green" />
-              <p className="font-mono text-[11px] uppercase tracking-[0.16em]">
-                Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
-              </p>
+        <section className="px-6 md:px-10 mb-12">
+          <motion.form
+            onSubmit={handleSearch}
+            variants={dashForm}
+            className="bg-white border border-[var(--rule)] rounded-[20px] p-7 md:p-9 shadow-soft"
+          >
+            <div className="flex items-center gap-3 mb-7">
+              <span className="rv-tag rv-tag-blue">Parameters</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Cluster 02 · live index</span>
+              <span className="h-px flex-1 bg-[var(--rule)]" />
             </div>
-          )}
-        </form>
-      </section>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+              <Input label="City" value={city} onChange={setCity} placeholder="austin" />
+              <Input label="Search query" value={query} onChange={setQuery} placeholder="honda civic" />
+              <Input label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} />
+              <Input label="Min undervalue %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} />
+            </div>
+
+            <div className="mt-7 flex items-center gap-6 flex-wrap">
+              <button
+                type="submit"
+                disabled={loading}
+                className="rv-primary"
+              >
+                <span>{loading ? (stage ?? "Querying") : "Run search"}</span>
+                {loading ? (
+                  <Tire size={14} />
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                )}
+              </button>
+              {error && (
+                <p className="text-[13px] text-[#dc2626] flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] font-bold text-[10px]">!</span>
+                  {error}
+                </p>
+              )}
+            </div>
+
+            {jobSummary && !loading && (
+              <div className="mt-5 flex items-center gap-2 text-[var(--ink-muted)]">
+                <span className="rv-live-dot rv-live-dot-green" />
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em]">
+                  Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
+                </p>
+              </div>
+            )}
+          </motion.form>
+        </section>
+      </motion.div>
 
       {/* ── RESULTS ──────────────────────────────────────── */}
       <section className="px-6 md:px-10 pb-24 max-w-[1280px] mx-auto">
@@ -254,14 +292,21 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <motion.div
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-5"
+          variants={cardGrid}
+          initial="hidden"
+          animate="show"
+          key={`${deals.length}-${dealsQuery.dataUpdatedAt}`}
+        >
           {deals.map((deal, i) => (
-            <a
+            <motion.a
               key={deal.id}
               href={deal.url}
               target="_blank"
               rel="noreferrer"
               className="rv-deal-card-link group"
+              variants={cardItem}
             >
               <div className="flex items-start justify-between mb-4 gap-3">
                 <span className="rv-plate-chip">
@@ -299,9 +344,9 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <span className="font-mono uppercase tracking-[0.15em] text-[var(--ink-muted)]">Open listing</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--blue)] transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               </div>
-            </a>
+            </motion.a>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────── */}
@@ -318,6 +363,15 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
     </div>
   );
 }
+
+const cardGrid: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+};
+const cardItem: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE_OUT_EXPO } },
+};
 
 function Input({
   label,
@@ -450,14 +504,10 @@ const SHARED_STYLES = `
     color: white;
     font-size: 14px; font-weight: 500;
     border-radius: 999px;
-    transition: all 0.2s;
-    box-shadow: 0 6px 18px rgba(31,95,255,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: background-color 0.2s ease;
+    box-shadow: 0 4px 14px rgba(31,95,255,0.26), inset 0 1px 0 rgba(255,255,255,0.16);
   }
-  .rv-primary:hover:not(:disabled) {
-    background: var(--blue-deep);
-    transform: translateY(-1px);
-    box-shadow: 0 10px 24px rgba(31,95,255,0.40), inset 0 1px 0 rgba(255,255,255,0.18);
-  }
+  .rv-primary:hover:not(:disabled) { background: var(--blue-deep); }
   .rv-primary:disabled { opacity: 0.65; cursor: wait; }
 
   .rv-deal-card-link {
@@ -466,13 +516,9 @@ const SHARED_STYLES = `
     border: 1px solid var(--rule);
     border-radius: 18px;
     padding: 20px;
-    transition: all 0.3s cubic-bezier(.2,.8,.2,1);
+    transition: border-color 0.2s ease, transform 0.2s ease;
   }
-  .rv-deal-card-link:hover {
-    transform: translateY(-3px);
-    border-color: var(--blue);
-    box-shadow: 0 14px 32px -10px rgba(31,95,255,0.20), 0 4px 10px rgba(10,21,48,0.04);
-  }
+  .rv-deal-card-link:hover { border-color: var(--rule-strong); transform: translateY(-2px); }
 
   .rv-plate-chip {
     display: inline-flex; align-items: center; gap: 7px;
