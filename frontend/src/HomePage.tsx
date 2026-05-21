@@ -169,9 +169,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         start: "top 80%",
         once: true,
         onEnter: () => {
-          gsap.to("[data-rv-section='features'] .rv-rule-draw", {
-            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
-          });
           gsap.to("[data-rv-section='features'] .rv-bulletin-item", {
             y: 0, opacity: 1, duration: 0.75, stagger: 0.07, ease: "expo.out", delay: 0.15,
           });
@@ -189,9 +186,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             const split = new SplitText(h, { type: "words" });
             gsap.from(split.words, { y: 22, opacity: 0, duration: 0.75, stagger: 0.04, ease: "expo.out" });
           }
-          gsap.to("[data-rv-section='how'] .rv-rule-draw", {
-            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
-          });
           gsap.to("[data-rv-section='how'] .rv-step-row", {
             y: 0, opacity: 1, duration: 0.7, stagger: 0.1, ease: "expo.out", delay: 0.25,
           });
@@ -216,9 +210,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             const split = new SplitText(h, { type: "words" });
             gsap.from(split.words, { y: 22, opacity: 0, duration: 0.7, stagger: 0.04, ease: "expo.out" });
           }
-          gsap.to("[data-rv-section='deals'] .rv-rule-draw", {
-            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
-          });
           gsap.from("[data-rv-section='deals'] .rv-filter-bar > *", {
             opacity: 0, y: 8, duration: 0.5, stagger: 0.05, ease: "expo.out", delay: 0.2,
           });
@@ -239,9 +230,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             const split = new SplitText(h, { type: "words" });
             gsap.from(split.words, { y: 22, opacity: 0, duration: 0.75, stagger: 0.04, ease: "expo.out" });
           }
-          gsap.to("[data-rv-section='compare'] .rv-rule-draw", {
-            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
-          });
           gsap.from(".rv-legacy-item, .rv-reveal-item", {
             opacity: 0, y: 8, duration: 0.5, stagger: 0.05, ease: "expo.out", delay: 0.25,
           });
@@ -262,9 +250,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             const split = new SplitText(h, { type: "words" });
             gsap.from(split.words, { y: 22, opacity: 0, duration: 0.7, stagger: 0.04, ease: "expo.out" });
           }
-          gsap.to("[data-rv-section='pricing'] .rv-rule-draw", {
-            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
-          });
           gsap.from(".rv-price-col", {
             y: 24, opacity: 0, duration: 0.7, stagger: 0.08, ease: "expo.out", delay: 0.2,
           });
@@ -465,7 +450,10 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       {/* ── BULLETIN (FEATURES) ─────────────────────────── */}
       <section id="features" data-rv-section="features" className="rv-section">
         <div className="rv-section-inner">
-          <SectionHead num="§ 02" kicker="What we actually do" title="No paid placement. No mystery scores." />
+          <SectionHead
+            title="What we actually do."
+            sub="No paid placement. No mystery scores. Just listings ranked by how far below fair market value they're priced."
+          />
 
           <div className="rv-bulletin-grid">
             {FEATURES.map((f, i) => (
@@ -490,16 +478,12 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         <div className="rv-section-inner">
           <div className="rv-how-grid">
             <div className="rv-how-side">
-              <span className="rv-section-mark">§ 03 · How it works</span>
               <h2 data-rv-how-headline className="rv-display rv-how-title">
-                Three things have to be true for a deal to make it in.
+                How it works
               </h2>
-              <p className="rv-how-side-note">
-                <span className="rv-margin-note">ed. note —</span> every listing gets the same treatment. No favors, no exceptions.
+              <p className="rv-how-side-sub">
+                Three things have to be true for a deal to make it in. Every listing gets the same treatment — no favors, no exceptions.
               </p>
-              <svg className="rv-how-rule-svg" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden>
-                <path className="rv-draw rv-rule-draw" d="M0,0.5 L100,0.5" stroke="currentColor" strokeWidth="0.6" />
-              </svg>
             </div>
 
             <ol className="rv-how-steps">
@@ -522,10 +506,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       <section id="deals" data-rv-section="deals" className="rv-section">
         <div className="rv-section-inner">
           <SectionHead
-            num="§ 04"
-            kicker="Today's deals · live"
-            title="Ranked by how far below fair market value."
-            note="Updated 2 min ago"
+            title="Today's deals"
+            sub="Ranked by % below fair market value. Updated 2 min ago."
             headingRef="deals"
           />
 
@@ -717,9 +699,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       <section data-rv-section="compare" className="rv-section rv-section-paper rv-section-compact">
         <div className="rv-section-inner">
           <SectionHead
-            num="§ 05"
-            kicker="Why us"
-            title="Most car-buying sites work for the seller. <em>We work for the buyer.</em>"
+            title="Most sites work for sellers. <em class='rv-emph'>We work for buyers.</em>"
             html
             headingRef="compare"
           />
@@ -763,10 +743,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       <section id="pricing" data-rv-section="pricing" className="rv-section">
         <div className="rv-section-inner">
           <SectionHead
-            num="§ 06"
-            kicker="Pricing"
-            title="Free for casual buyers. Pro for serious ones."
-            note="Cancel anytime"
+            title="Pricing"
+            sub="Free for casual buyers. Pro for serious ones. Cancel anytime."
             headingRef="pricing"
           />
 
@@ -829,7 +807,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
 
       {/* ── CTA ──────────────────────────────────────────── */}
       <section data-rv-section="cta" className="rv-section rv-section-ink rv-section-cta">
-        <span className="rv-cta-ghost" aria-hidden>07</span>
         <div className="rv-section-inner rv-cta-inner">
           <h2 data-rv-cta-headline className="rv-display rv-cta-headline">
             Stop overpaying.<br />
@@ -926,26 +903,14 @@ function PaperGrain() {
 }
 
 function SectionHead({
-  num, kicker, title, note, html = false, headingRef,
+  title, sub, html = false, headingRef,
 }: {
-  num: string; kicker: string; title: string; note?: string;
+  title: string; sub?: string;
   html?: boolean; headingRef?: string;
 }) {
   const refAttr = headingRef ? { [`data-rv-${headingRef}-headline`]: "" } : {};
   return (
     <header className="rv-section-head">
-      <div className="rv-section-head-meta">
-        <span className="rv-section-head-num">{num}</span>
-        <span className="rv-section-head-kicker">{kicker}</span>
-        {note && (
-          <>
-            <svg className="rv-section-head-svg" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden>
-              <path className="rv-draw rv-rule-draw" d="M0,0.5 L100,0.5" stroke="currentColor" strokeWidth="0.6" />
-            </svg>
-            <span className="rv-section-head-note">{note}</span>
-          </>
-        )}
-      </div>
       {html ? (
         <h2
           className="rv-display rv-section-head-title"
@@ -955,6 +920,7 @@ function SectionHead({
       ) : (
         <h2 className="rv-display rv-section-head-title" {...refAttr}>{title}</h2>
       )}
+      {sub && <p className="rv-section-head-sub">{sub}</p>}
     </header>
   );
 }
@@ -1714,46 +1680,28 @@ const STYLES = `
     position: relative; z-index: 2;
   }
 
-  /* tiny section marker — replaces giant ghost numerals on most sections */
-  .rv-catalog .rv-section-mark {
-    display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--red);
-    font-weight: 700;
-    margin-bottom: 14px;
-  }
-
   /* ── SECTION HEAD ─────────────────────────────────── */
   .rv-catalog .rv-section-head {
-    margin-bottom: 36px;
-    max-width: 960px;
+    margin-bottom: 40px;
+    max-width: 760px;
   }
-  .rv-catalog .rv-section-head-meta {
-    display: flex; align-items: center; gap: 16px;
-    margin-bottom: 14px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-  }
-  .rv-catalog .rv-section-head-num { color: var(--red); font-weight: 700; }
-  .rv-catalog .rv-section-head-kicker { color: var(--ink); font-weight: 600; }
-  .rv-catalog .rv-section-head-svg {
-    flex: 1; height: 1px; color: var(--ink); overflow: visible; max-width: 200px;
-  }
-  .rv-catalog .rv-section-head-note { color: var(--ink-fade); font-weight: 500; }
   .rv-catalog .rv-section-head-title {
-    font-size: clamp(1.9rem, 4.2vw, 3.2rem);
+    font-size: clamp(2rem, 4.4vw, 3.2rem);
     line-height: 1.05;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.022em;
     color: var(--ink);
     font-weight: 600;
     margin: 0;
     max-width: 22ch;
+  }
+  .rv-catalog .rv-section-head-sub {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: clamp(1.02rem, 1.3vw, 1.15rem);
+    line-height: 1.55;
+    color: var(--ink-muted);
+    margin: 14px 0 0;
+    max-width: 58ch;
   }
 
   /* ── BULLETIN (FEATURES) ──────────────────────────── */
@@ -1861,28 +1809,14 @@ const STYLES = `
     font-weight: 600;
     margin: 4px 0 16px;
   }
-  .rv-catalog .rv-how-side-note {
+  .rv-catalog .rv-how-side-sub {
     font-family: 'Newsreader', serif;
     font-variation-settings: "opsz" 18;
-    font-style: italic;
-    font-size: 15px;
+    font-size: 16px;
     color: var(--ink-muted);
-    line-height: 1.5;
-    margin: 0 0 18px;
-    max-width: 36ch;
-  }
-  .rv-catalog .rv-margin-note {
-    display: inline-block;
-    transform: rotate(-1.2deg);
-    color: var(--red);
-    font-style: italic;
-    font-variation-settings: "opsz" 18;
-    font-weight: 500;
-    margin-right: 6px;
-  }
-  .rv-catalog .rv-how-rule-svg {
-    display: block; width: 80px; height: 2px;
-    color: var(--ink); overflow: visible;
+    line-height: 1.55;
+    margin: 0;
+    max-width: 40ch;
   }
 
   .rv-catalog .rv-how-steps {
@@ -2264,11 +2198,9 @@ const STYLES = `
   .rv-catalog .rv-manifesto-col-tag {
     display: inline-block;
     margin-bottom: 22px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--ink);
     font-family: 'JetBrains Mono', monospace;
     font-size: 10.5px;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     font-weight: 700;
     color: var(--ink-muted);
@@ -2485,22 +2417,6 @@ const STYLES = `
     text-align: center;
     position: relative;
     overflow: hidden;
-  }
-  .rv-catalog .rv-cta-ghost {
-    position: absolute;
-    bottom: -8%; right: -3%;
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 0;
-    font-weight: 900;
-    font-style: italic;
-    font-size: clamp(16rem, 26vw, 32rem);
-    line-height: 0.78;
-    color: var(--ink-soft);
-    opacity: 0.4;
-    z-index: 0;
-    pointer-events: none;
-    user-select: none;
-    letter-spacing: -0.04em;
   }
   .rv-catalog .rv-cta-inner {
     max-width: 920px;
