@@ -34,7 +34,20 @@
       "Bash(jobs -l)",
       "Bash(pkill -f \"vite$\")",
       "Bash(curl -s -o /dev/null -w \"5174:%{http_code}\\\\n\" http://localhost:5174/)",
-      "Bash(kill %1)"
+      "Bash(kill %1)",
+      "Bash(node -e \"console.log\\(require\\('./package.json'\\).dependencies.gsap\\)\")",
+      "Bash(curl -s -o /dev/null -w \"5173:%{http_code} 5174:%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s http://localhost:5174/ -o /tmp/h.html)",
+      "Bash(node verify-gsap.mjs)",
+      "Bash(grep -n \"SHARED_STYLES = \\\\`\" App.tsx)",
+      "Bash(timeout 5 bash -c 'until curl -sf http://localhost:5173 > /dev/null 2>&1; do sleep 0.5; done')",
+      "Bash(URL=http://localhost:5175/ node verify-gsap.mjs)",
+      "Bash(taskkill /F /IM node.exe)",
+      "PowerShell(Get-Process *)",
+      "Bash(curl -sf http://localhost:5173)",
+      "Bash(curl -sf http://localhost:5174)",
+      "Bash(curl -sf http://localhost:5175)",
+      "Bash(URL=http://localhost:5174/ node verify-gsap.mjs)"
     ]
   }
 }

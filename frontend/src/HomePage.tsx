@@ -1,1091 +1,2760 @@
-import { useEffect } from "react";
-import { motion, useReducedMotion, type Variants } from "framer-motion";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-const heroContainer: Variants = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.09, delayChildren: 0.18 } },
-};
-
-const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 26 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.9, ease: EASE_OUT_EXPO } },
-};
-
-const fadeUpSmall: Variants = {
-  hidden: { opacity: 0, y: 14 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
-};
-
-const badgeIn: Variants = {
-  hidden: { opacity: 0, y: 12, scale: 0.94 },
-  show: (i: number) => ({
-    opacity: 1, y: 0, scale: 1,
-    transition: { duration: 0.7, ease: EASE_OUT_EXPO, delay: 1.0 + i * 0.12 },
-  }),
-};
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { gsap, ScrollTrigger, SplitText } from "./lib/gsap";
 
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
-  const prefersReduced = useReducedMotion();
+  const scopeRef = useRef<HTMLDivElement>(null);
+  const heroHeadlineRef = useRef<HTMLHeadingElement>(null);
+  const heroUnderlineRef = useRef<SVGPathElement>(null);
+  const indexCounterRef = useRef<HTMLSpanElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>("hero");
+
+  // Index (deals table) product state
+  const [filterMake, setFilterMake] = useState<string>("all");
+  const [filterMinScore, setFilterMinScore] = useState<number>(0);
+  const [filterSort, setFilterSort] = useState<"delta" | "score" | "posted">("delta");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const filteredDeals = useMemo(() => {
+    let rows = FEATURED.filter((d) => {
+      if (filterMake !== "all" && d.make !== filterMake) return false;
+      if (d.score < filterMinScore) return false;
+      if (savedOnly && !saved.has(d.id)) return false;
+      return true;
+    });
+    if (filterSort === "delta") {
+      rows = [...rows].sort((a, b) => parseFloat(a.delta) - parseFloat(b.delta));
+    } else if (filterSort === "score") {
+      rows = [...rows].sort((a, b) => b.score - a.score);
+    } else {
+      rows = [...rows].sort((a, b) => a.postedHours - b.postedHours);
+    }
+    return rows;
+  }, [filterMake, filterMinScore, filterSort, savedOnly, saved]);
+
+  const toggleSave = (id: string) => {
+    setSaved((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     const onScroll = () => {
       const nav = document.querySelector(".rv-nav");
       if (!nav) return;
-      if (window.scrollY > 16) {
-        nav.classList.add("rv-nav-scrolled");
-        nav.classList.remove("rv-nav-dark");
-      } else {
-        nav.classList.remove("rv-nav-scrolled");
-        nav.classList.add("rv-nav-dark");
-      }
+      if (window.scrollY > 12) nav.classList.add("rv-nav-pinned");
+      else nav.classList.remove("rv-nav-pinned");
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  return (
-    <div className="min-h-screen overflow-x-hidden relative bg-[var(--paper)] text-[var(--ink)]">
-      <style>{STYLES}</style>
+  useEffect(() => {
+    const root = scopeRef.current;
+    if (!root) return;
+    const sections = root.querySelectorAll<HTMLElement>("[data-rv-section]");
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) {
+          const id = visible.target.getAttribute("data-rv-section");
+          if (id) setActiveSection(id);
+        }
+      },
+      { rootMargin: "-25% 0% -65% 0%", threshold: 0 },
+    );
+    sections.forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  }, []);
 
-      {/* ── NAV ───────────────────────────────────────────────── */}
-      <nav className="rv-nav rv-nav-dark fixed top-0 inset-x-0 z-50">
-        <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-[72px] flex items-center justify-between">
+  useEffect(() => {
+    const panel = mobileMenuRef.current;
+    if (!panel) return;
+    if (mobileOpen) {
+      gsap.set(panel, { display: "block" });
+      gsap.fromTo(panel, { y: -16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "expo.out" });
+      gsap.fromTo(
+        panel.querySelectorAll(".rv-mobile-link"),
+        { x: -10, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.35, stagger: 0.04, ease: "expo.out", delay: 0.05 },
+      );
+    } else {
+      gsap.to(panel, {
+        opacity: 0, y: -8, duration: 0.2, ease: "expo.in",
+        onComplete: () => gsap.set(panel, { display: "none" }),
+      });
+    }
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMobileOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
+  useLayoutEffect(() => {
+    if (!scopeRef.current) return;
+    const root = scopeRef.current;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const ctx = gsap.context(() => {
+      const formatInt = (n: number) => Math.round(n).toLocaleString();
+
+      if (reduce) {
+        gsap.set("[data-rv-reveal], [data-rv-cta-sub]", { opacity: 1, y: 0 });
+        gsap.set(".rv-draw", { drawSVG: "100%" });
+        if (indexCounterRef.current) indexCounterRef.current.innerText = "12,408";
+        return;
+      }
+
+      gsap.set("[data-rv-reveal]", { opacity: 0, y: 20 });
+      gsap.set("[data-rv-cta-sub]", { opacity: 0, y: 14 });
+      gsap.set(".rv-draw", { drawSVG: "0% 0%" });
+      gsap.set(".rv-hero-lot-preview", { opacity: 0, x: 14 });
+      if (indexCounterRef.current) indexCounterRef.current.innerText = "0";
+
+      // ── HERO ─────────────────────────────────────────
+      const splitHero = heroHeadlineRef.current
+        ? new SplitText(heroHeadlineRef.current, { type: "chars,words", linesClass: "rv-hero-line" })
+        : null;
+      if (splitHero) gsap.set(splitHero.chars, { opacity: 0, yPercent: 55, rotate: 3 });
+
+      const heroTl = gsap.timeline({ defaults: { ease: "expo.out" }, delay: 0.2 });
+
+      if (splitHero) {
+        heroTl.to(splitHero.chars, {
+          opacity: 1, yPercent: 0, rotate: 0,
+          duration: 0.9, stagger: 0.011,
+        }, 0);
+      }
+      if (heroUnderlineRef.current) {
+        heroTl.to(heroUnderlineRef.current, { drawSVG: "0% 100%", duration: 1.05, ease: "power2.out" }, 0.7);
+      }
+      heroTl.to("[data-rv-hero-eyebrow]", { opacity: 1, y: 0, duration: 0.55 }, 0);
+      heroTl.to("[data-rv-hero-lede]", { opacity: 1, y: 0, duration: 0.65 }, 0.4);
+      heroTl.to("[data-rv-hero-cta]", { opacity: 1, y: 0, duration: 0.6, stagger: 0.07 }, 0.55);
+      heroTl.to(".rv-hero-lot-preview", { opacity: 1, x: 0, duration: 0.6, stagger: 0.06 }, 0.4);
+      heroTl.to(".rv-hero-rule", { drawSVG: "0% 100%", duration: 0.8, stagger: 0.08 }, 0.15);
+
+      if (indexCounterRef.current) {
+        const obj = { v: 0 };
+        heroTl.to(obj, {
+          v: 12408, duration: 1.4, ease: "expo.out",
+          onUpdate: () => {
+            if (indexCounterRef.current) indexCounterRef.current.innerText = formatInt(obj.v);
+          },
+        }, 0.3);
+      }
+
+      // Subtle parallax on the single hero ghost
+      gsap.to(".rv-hero-ghost", {
+        yPercent: -8, ease: "none",
+        scrollTrigger: { trigger: ".rv-hero", start: "top top", end: "bottom top", scrub: true },
+      });
+
+      // ── BULLETIN ─────────────────────────────────────
+      ScrollTrigger.create({
+        trigger: "[data-rv-section='features']",
+        start: "top 80%",
+        once: true,
+        onEnter: () => {
+          gsap.to("[data-rv-section='features'] .rv-rule-draw", {
+            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
+          });
+          gsap.to("[data-rv-section='features'] .rv-bulletin-item", {
+            y: 0, opacity: 1, duration: 0.75, stagger: 0.07, ease: "expo.out", delay: 0.15,
+          });
+        },
+      });
+
+      // ── HOW ──────────────────────────────────────────
+      ScrollTrigger.create({
+        trigger: "[data-rv-section='how']",
+        start: "top 78%",
+        once: true,
+        onEnter: () => {
+          const h = root.querySelector<HTMLHeadingElement>("[data-rv-how-headline]");
+          if (h) {
+            const split = new SplitText(h, { type: "words" });
+            gsap.from(split.words, { y: 22, opacity: 0, duration: 0.75, stagger: 0.04, ease: "expo.out" });
+          }
+          gsap.to("[data-rv-section='how'] .rv-rule-draw", {
+            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
+          });
+          gsap.to("[data-rv-section='how'] .rv-step-row", {
+            y: 0, opacity: 1, duration: 0.7, stagger: 0.1, ease: "expo.out", delay: 0.25,
+          });
+          gsap.utils.toArray<HTMLElement>(".rv-step-num").forEach((el, i) => {
+            const obj = { v: 0 };
+            gsap.to(obj, {
+              v: i + 1, duration: 1.1, ease: "expo.out", delay: 0.4 + i * 0.1,
+              onUpdate: () => { el.innerText = String(Math.round(obj.v)).padStart(2, "0"); },
+            });
+          });
+        },
+      });
+
+      // ── INDEX (deals table) ──────────────────────────
+      ScrollTrigger.create({
+        trigger: "[data-rv-section='deals']",
+        start: "top 76%",
+        once: true,
+        onEnter: () => {
+          const h = root.querySelector<HTMLHeadingElement>("[data-rv-deals-headline]");
+          if (h) {
+            const split = new SplitText(h, { type: "words" });
+            gsap.from(split.words, { y: 22, opacity: 0, duration: 0.7, stagger: 0.04, ease: "expo.out" });
+          }
+          gsap.to("[data-rv-section='deals'] .rv-rule-draw", {
+            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
+          });
+          gsap.from("[data-rv-section='deals'] .rv-filter-bar > *", {
+            opacity: 0, y: 8, duration: 0.5, stagger: 0.05, ease: "expo.out", delay: 0.2,
+          });
+          gsap.from("[data-rv-section='deals'] .rv-lot-row", {
+            opacity: 0, x: -18, duration: 0.55, stagger: 0.06, ease: "expo.out", delay: 0.35,
+          });
+        },
+      });
+
+      // ── MANIFESTO ────────────────────────────────────
+      ScrollTrigger.create({
+        trigger: "[data-rv-section='compare']",
+        start: "top 80%",
+        once: true,
+        onEnter: () => {
+          const h = root.querySelector<HTMLHeadingElement>("[data-rv-compare-headline]");
+          if (h) {
+            const split = new SplitText(h, { type: "words" });
+            gsap.from(split.words, { y: 22, opacity: 0, duration: 0.75, stagger: 0.04, ease: "expo.out" });
+          }
+          gsap.to("[data-rv-section='compare'] .rv-rule-draw", {
+            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
+          });
+          gsap.from(".rv-legacy-item, .rv-reveal-item", {
+            opacity: 0, y: 8, duration: 0.5, stagger: 0.05, ease: "expo.out", delay: 0.25,
+          });
+          gsap.to(".rv-legacy-strike", {
+            drawSVG: "0% 100%", duration: 0.45, stagger: 0.06, ease: "power2.out", delay: 0.45,
+          });
+        },
+      });
+
+      // ── PRICING ──────────────────────────────────────
+      ScrollTrigger.create({
+        trigger: "[data-rv-section='pricing']",
+        start: "top 80%",
+        once: true,
+        onEnter: () => {
+          const h = root.querySelector<HTMLHeadingElement>("[data-rv-pricing-headline]");
+          if (h) {
+            const split = new SplitText(h, { type: "words" });
+            gsap.from(split.words, { y: 22, opacity: 0, duration: 0.7, stagger: 0.04, ease: "expo.out" });
+          }
+          gsap.to("[data-rv-section='pricing'] .rv-rule-draw", {
+            drawSVG: "0% 100%", duration: 0.7, ease: "expo.out",
+          });
+          gsap.from(".rv-price-col", {
+            y: 24, opacity: 0, duration: 0.7, stagger: 0.08, ease: "expo.out", delay: 0.2,
+          });
+          gsap.from(".rv-stamp", {
+            scale: 0.4, rotate: -28, opacity: 0, duration: 0.85, ease: "back.out(1.5)", delay: 0.7,
+          });
+        },
+      });
+
+      // ── CTA ──────────────────────────────────────────
+      ScrollTrigger.create({
+        trigger: "[data-rv-section='cta']",
+        start: "top 82%",
+        once: true,
+        onEnter: () => {
+          const h = root.querySelector<HTMLHeadingElement>("[data-rv-cta-headline]");
+          if (h) {
+            const split = new SplitText(h, { type: "chars,words" });
+            gsap.from(split.chars, {
+              opacity: 0, y: 26, rotateX: -45, duration: 0.8, stagger: 0.016, ease: "back.out(1.2)",
+            });
+          }
+          gsap.to("[data-rv-section='cta'] [data-rv-cta-sub]", {
+            opacity: 1, y: 0, duration: 0.65, stagger: 0.08, ease: "expo.out", delay: 0.45,
+          });
+          gsap.to("[data-rv-section='cta'] .rv-cta-flourish", {
+            drawSVG: "0% 100%", duration: 1.2, ease: "expo.out", delay: 0.7,
+          });
+        },
+      });
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => ScrollTrigger.refresh());
+      }
+    }, scopeRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  const navLinkClass = (id: string) =>
+    `rv-nav-link${activeSection === id ? " rv-nav-link-active" : ""}`;
+
+  return (
+    <div ref={scopeRef} className="rv-catalog min-h-screen overflow-x-hidden relative">
+      <style>{STYLES}</style>
+      <PaperGrain />
+
+      {/* ── TOP TICKER ───────────────────────────────────── */}
+      <div className="rv-ticker" role="presentation">
+        <div className="rv-ticker-track">
+          {[...TICKER_ITEMS, ...TICKER_ITEMS].map((t, i) => (
+            <span key={i} className="rv-ticker-item">
+              <span className="rv-ticker-dot" />
+              <span className="rv-ticker-text">{t}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* ── NAV ──────────────────────────────────────────── */}
+      <nav className="rv-nav">
+        <div className="rv-nav-inner">
           <Wordmark />
-          <div className="hidden lg:flex items-center gap-9 text-[14px]">
+          <div className="hidden lg:flex items-center gap-1">
             {NAV_LINKS.map(([l, h]) => (
-              <a key={h} href={`#${h}`} className="rv-nav-link">{l}</a>
+              <a key={h} href={`#${h}`} className={navLinkClass(h)}>{l}</a>
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={onGetStarted} className="hidden sm:inline-flex rv-nav-login text-[14px] px-3 py-2">Login</button>
-            <button onClick={onGetStarted} className="rv-btn rv-btn-primary text-[14px]">
-              <span>Get Started</span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            <button onClick={onGetStarted} className="hidden sm:inline-flex rv-nav-login">Sign in</button>
+            <button onClick={onGetStarted} className="rv-btn rv-btn-primary hidden sm:inline-flex">
+              <span>Get started</span>
+              <Arrow size={12} />
+            </button>
+            <button
+              onClick={() => setMobileOpen((v) => !v)}
+              className="lg:hidden rv-burger"
+              aria-label="Toggle menu"
+              aria-expanded={mobileOpen}
+            >
+              <span className={`rv-burger-bar ${mobileOpen ? "rv-burger-bar-top-open" : ""}`} />
+              <span className={`rv-burger-bar ${mobileOpen ? "rv-burger-bar-mid-open" : ""}`} />
+              <span className={`rv-burger-bar ${mobileOpen ? "rv-burger-bar-bot-open" : ""}`} />
+            </button>
+          </div>
+        </div>
+
+        <div ref={mobileMenuRef} className="rv-mobile-panel" style={{ display: "none" }}>
+          <div className="px-5 py-7 flex flex-col gap-4">
+            {NAV_LINKS.map(([l, h]) => (
+              <a key={h} href={`#${h}`} onClick={() => setMobileOpen(false)} className="rv-mobile-link">{l}</a>
+            ))}
+            <div className="rv-rule-static my-1" />
+            <button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-mobile-link text-left">
+              Sign in
+            </button>
+            <button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-btn rv-btn-primary self-start">
+              <span>Get started</span>
+              <Arrow size={12} />
             </button>
           </div>
         </div>
       </nav>
 
-      {/* ── HERO ──────────────────────────────────────────────── */}
-      <section className="rv-hero">
-        {/* Full-bleed showroom backdrop */}
-        <div
-          className="rv-hero-bg"
-          style={{ backgroundImage: "url('/assets/bg-showroom.png')" }}
-          aria-hidden
-        />
-        {/* Left dark gradient for text legibility */}
-        <div className="rv-hero-mask" aria-hidden />
-        {/* Bottom vignette */}
-        <div className="rv-hero-vignette" aria-hidden />
+      {/* ── HERO ─────────────────────────────────────────── */}
+      <section data-rv-section="hero" className="rv-hero">
+        <span className="rv-hero-ghost" aria-hidden>2026</span>
 
-        {/* ── AMBIENT EFFECTS — disabled when prefers-reduced-motion ── */}
-        {!prefersReduced && (
-          <>
-            {/* Soft headlight pulse over the front of the car */}
-            <div className="rv-headlight" aria-hidden />
+        <div className="rv-hero-inner">
+          <div className="rv-hero-grid">
+            <div className="rv-hero-main">
+              <div data-rv-hero-eyebrow className="rv-hero-eyebrow">
+                <span className="rv-hero-eyebrow-dot" />
+                <span>Updated 4 min ago · <span ref={indexCounterRef}>0</span> listings scanned today</span>
+              </div>
 
-            {/* AI scan beam sweeping across the car */}
-            <motion.div
-              className="rv-scan-beam"
-              aria-hidden
-              initial={{ opacity: 0, x: "-12%" }}
-              animate={{
-                opacity: [0, 0.55, 0.55, 0],
-                x: ["-12%", "-12%", "112%", "112%"],
-              }}
-              transition={{
-                duration: 5.2,
-                times: [0, 0.06, 0.9, 1],
-                ease: "easeInOut",
-                repeat: Infinity,
-                repeatDelay: 4.5,
-                delay: 2.0,
-              }}
-            />
-
-            {/* Floor shimmer line */}
-            <div className="rv-floor-shimmer" aria-hidden />
-          </>
-        )}
-
-        {/* ── CONTENT ── */}
-        <motion.div
-          className="rv-hero-content"
-          variants={heroContainer}
-          initial="hidden"
-          animate="show"
-        >
-          <div className="max-w-[1320px] mx-auto px-6 md:px-10 w-full grid lg:grid-cols-12 gap-10 items-center relative">
-
-            <div className="lg:col-span-7 text-center lg:text-left">
-              <motion.div variants={fadeUpSmall} className="inline-flex">
-                <AIPill onDark />
-              </motion.div>
-
-              <h1 className="display rv-headline tracking-[-0.025em] leading-[1.02] mt-7 mb-6 text-[clamp(2.3rem,5.4vw,4.4rem)] text-white max-w-[18ch] mx-auto lg:mx-0">
-                <motion.span className="block" variants={fadeUp}>Reveal the Best</motion.span>
-                <motion.span className="block" variants={fadeUp}>Car Deals Before</motion.span>
-                <motion.span className="block text-[#7da8ff]" variants={fadeUp}>Everyone Else.</motion.span>
+              <h1 ref={heroHeadlineRef} className="rv-display rv-hero-headline">
+                Find <em className="rv-emph">underpriced</em> used cars<br />
+                before everyone else does.
               </h1>
 
-              <motion.p
-                className="text-[16px] md:text-[17px] leading-[1.6] text-white/70 max-w-[54ch] mx-auto lg:mx-0 mb-9"
-                variants={fadeUpSmall}
-              >
-                Revveal scans listings, price history, mileage, title signals, and market value — so you can spot hidden deals faster.
-              </motion.p>
+              <svg className="rv-hero-underline-svg" viewBox="0 0 200 8" preserveAspectRatio="none" aria-hidden>
+                <path
+                  ref={heroUnderlineRef}
+                  className="rv-draw"
+                  d="M2,5 C 40,2 90,2 140,5 C 165,7 185,4 198,5"
+                  fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+                />
+              </svg>
 
-              <motion.div
-                className="flex flex-wrap justify-center lg:justify-start items-center gap-3.5"
-                variants={fadeUpSmall}
-              >
-                <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-lg">
-                  <span>Start Finding Deals</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+              <p data-rv-hero-lede className="rv-hero-lede">
+                Revveal scans Marketplace, Craigslist, AutoTrader and dealer feeds every few minutes, compares each listing to fifty thousand comparable sales, and surfaces the ones priced below fair market value &mdash; with the math attached.
+              </p>
+
+              <div className="rv-hero-cta-row">
+                <button data-rv-hero-cta onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-lg">
+                  <span>See today&apos;s deals</span>
+                  <Arrow size={14} />
                 </button>
-                <a href="#how" className="rv-btn rv-btn-outline rv-btn-lg">
-                  <svg width="11" height="13" viewBox="0 0 9 11" fill="currentColor" className="opacity-90"><path d="M0 0v11l9-5.5z"/></svg>
-                  <span>See How It Works</span>
+                <a data-rv-hero-cta href="#how" className="rv-btn rv-btn-ghost rv-btn-lg">
+                  <span>How it works</span>
                 </a>
-              </motion.div>
-            </div>
+              </div>
 
-            {/* Floating deal badges — positioned around the car (desktop only) */}
-            <div className="hidden lg:block lg:col-span-5">
-              <div className="relative w-full h-[min(60vh,520px)]">
-                {DEAL_BADGES.map((b, i) => (
-                  <DealBadge key={b.label} badge={b} index={i} reduce={!!prefersReduced} />
-                ))}
+              <div className="rv-hero-meta">
+                <svg className="rv-hero-meta-svg" viewBox="0 0 100 2" preserveAspectRatio="none" aria-hidden>
+                  <path className="rv-draw rv-hero-rule" d="M0,1 L100,1" stroke="currentColor" strokeWidth="1.2" />
+                </svg>
+                <div className="rv-hero-meta-row">
+                  <span className="rv-hero-meta-cell">
+                    <span className="rv-hero-meta-v">12,408</span>
+                    <span className="rv-hero-meta-k">listings scanned today</span>
+                  </span>
+                  <span className="rv-hero-meta-cell">
+                    <span className="rv-hero-meta-v">8,500+</span>
+                    <span className="rv-hero-meta-k">active buyers</span>
+                  </span>
+                  <span className="rv-hero-meta-cell">
+                    <span className="rv-hero-meta-v">$3,210</span>
+                    <span className="rv-hero-meta-k">avg. savings per deal</span>
+                  </span>
+                </div>
               </div>
             </div>
+
+            <aside className="rv-hero-side">
+              <div className="rv-hero-side-head">
+                <span className="rv-hero-side-title">Today&apos;s top picks</span>
+                <span className="rv-hero-side-meta">4 min ago</span>
+              </div>
+
+              <ul className="rv-hero-lots">
+                {HERO_LOTS.map((lot, i) => (
+                  <li key={i} className="rv-hero-lot-preview">
+                    <span className="rv-hero-lot-body">
+                      <span className="rv-hero-lot-title">{lot.title}</span>
+                      <span className="rv-hero-lot-meta">{lot.loc} · {lot.miles}</span>
+                    </span>
+                    <span className="rv-hero-lot-pricecol">
+                      <span className="rv-hero-lot-price">{lot.price}</span>
+                      <span className="rv-hero-lot-delta">{lot.delta}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="rv-hero-side-foot">
+                <button onClick={onGetStarted} className="rv-hero-side-cta">
+                  <span>View all 12,408 listings</span>
+                  <Arrow size={11} />
+                </button>
+              </div>
+            </aside>
           </div>
-        </motion.div>
-
-        {/* Bottom thin trust line */}
-        <motion.div
-          className="rv-hero-trust"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: EASE_OUT_EXPO, delay: 1.4 }}
-        >
-          <div className="max-w-[1320px] mx-auto px-6 md:px-10 flex flex-wrap items-center gap-x-7 gap-y-2 text-[12.5px]">
-            <span className="flex items-center gap-2 text-white/75">
-              <span className="rv-live-dot rv-live-dot-bright" />
-              <span className="font-mono text-[10.5px] tracking-[0.2em] uppercase font-medium">Live</span>
-              <span className="text-white/40">·</span>
-              <span>12,400 listings indexed today</span>
-            </span>
-            <span className="hidden md:flex items-center gap-2 text-white/55 font-mono text-[10.5px] tracking-[0.18em] uppercase">
-              <span className="w-1 h-1 rounded-full bg-white/35" />
-              <span>Trusted by 8,500+ buyers</span>
-            </span>
-          </div>
-        </motion.div>
-
-        {/* Smooth fade to next section */}
-        <div className="rv-hero-fade" aria-hidden />
-      </section>
-
-      {/* ── FEATURE GRID ─────────────────────────────────────── */}
-      <section className="relative z-10 px-6 md:px-10 py-24">
-        <div className="max-w-[1280px] mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-          {FEATURES.map((f) => (
-            <FeatureChip key={f.title} feature={f} />
-          ))}
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ─────────────────────────────────────── */}
-      <section id="how" className="relative z-10 px-6 md:px-10 py-28 md:py-36 bg-[var(--paper-warm)] border-y border-[var(--rule)]">
-        <div className="max-w-[1280px] mx-auto">
-          <SectionLabel kicker="How It Works" tag="03 steps · zero guesswork" />
-          <h2 className="display tracking-[-0.025em] leading-[0.98] text-[clamp(2.2rem,4.8vw,4rem)] max-w-[18ch] mt-6 mb-16">
-            From listing to deal in <span className="rv-accent-text italic">three quiet steps</span>.
-          </h2>
+      {/* ── BULLETIN (FEATURES) ─────────────────────────── */}
+      <section id="features" data-rv-section="features" className="rv-section">
+        <div className="rv-section-inner">
+          <SectionHead num="§ 02" kicker="What we actually do" title="No paid placement. No mystery scores." />
 
-          <div className="grid md:grid-cols-3 gap-5">
-            {STEPS.map((s, i) => (
-              <article key={s.title} className="rv-step">
-                <div className="rv-step-num">{String(i + 1).padStart(2, "0")}</div>
-                <div className="rv-step-icon">{s.icon}</div>
-                <h3 className="display text-[1.4rem] leading-tight tracking-[-0.015em] mb-3 mt-6">{s.title}</h3>
-                <p className="text-[15px] leading-[1.6] text-[var(--ink-soft)]">{s.body}</p>
+          <div className="rv-bulletin-grid">
+            {FEATURES.map((f, i) => (
+              <article key={f.title} className="rv-bulletin-item" data-rv-reveal>
+                <div className="rv-bulletin-num-row">
+                  <span className="rv-bulletin-num">{String(i + 1).padStart(2, "0")}</span>
+                </div>
+                <h3 className="rv-display rv-bulletin-title">{f.title}</h3>
+                <p className="rv-bulletin-body">{f.body}</p>
+                <div className="rv-bulletin-foot">
+                  <span className="rv-bulletin-icon">{f.icon}</span>
+                  <span className="rv-bulletin-foot-text">{f.foot}</span>
+                </div>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── FEATURED DEALS ───────────────────────────────────── */}
-      <section id="deals" className="relative z-10 px-6 md:px-10 py-28 md:py-36">
-        <div className="max-w-[1280px] mx-auto">
-          <div className="flex items-end justify-between flex-wrap gap-6 mb-12">
-            <div>
-              <SectionLabel kicker="This Week's Index" tag="updated 2m ago" />
-              <h2 className="display tracking-[-0.025em] leading-[0.98] text-[clamp(2.2rem,4.8vw,4rem)] max-w-[16ch] mt-6">
-                The honest <span className="rv-accent-text italic">deals</span>.
+      {/* ── HOW IT WORKS — asymmetric ──────────────────── */}
+      <section id="how" data-rv-section="how" className="rv-section rv-section-paper">
+        <div className="rv-section-inner">
+          <div className="rv-how-grid">
+            <div className="rv-how-side">
+              <span className="rv-section-mark">§ 03 · How it works</span>
+              <h2 data-rv-how-headline className="rv-display rv-how-title">
+                Three things have to be true for a deal to make it in.
               </h2>
+              <p className="rv-how-side-note">
+                <span className="rv-margin-note">ed. note —</span> every listing gets the same treatment. No favors, no exceptions.
+              </p>
+              <svg className="rv-how-rule-svg" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden>
+                <path className="rv-draw rv-rule-draw" d="M0,0.5 L100,0.5" stroke="currentColor" strokeWidth="0.6" />
+              </svg>
             </div>
-            <a href="#" className="rv-link text-[14px] flex items-center gap-2 self-end">
-              See the full index
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-            </a>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-5">
-            {FEATURED.map((d, i) => (
-              <FeaturedDealCard key={d.title} deal={d} idx={i} />
-            ))}
+            <ol className="rv-how-steps">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="rv-step-row">
+                  <span className="rv-step-num">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="rv-step-body">
+                    <h3 className="rv-display rv-step-title">{s.title}</h3>
+                    <p className="rv-step-text">{s.body}</p>
+                    <span className="rv-step-foot">{s.foot}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
       </section>
 
-      {/* ── COMPARISON ───────────────────────────────────────── */}
-      <section className="relative z-10 px-6 md:px-10 py-28 md:py-36 bg-[var(--paper-cool)] border-y border-[var(--rule)]">
-        <div className="max-w-[1280px] mx-auto">
-          <SectionLabel kicker="A Comparison" tag="legacy vs. revveal" />
-          <h2 className="display tracking-[-0.025em] leading-[0.98] text-[clamp(2.2rem,4.8vw,4rem)] max-w-[20ch] mt-6 mb-16">
-            The way it's always worked.{" "}
-            <span className="rv-accent-text italic">And the way it should.</span>
-          </h2>
+      {/* ── INDEX (deals) — full product UI ─────────────── */}
+      <section id="deals" data-rv-section="deals" className="rv-section">
+        <div className="rv-section-inner">
+          <SectionHead
+            num="§ 04"
+            kicker="Today's deals · live"
+            title="Ranked by how far below fair market value."
+            note="Updated 2 min ago"
+            headingRef="deals"
+          />
 
-          <div className="grid md:grid-cols-2 rounded-[20px] overflow-hidden border border-[var(--rule)] bg-[var(--paper)] shadow-soft">
-            <div className="p-9 md:p-12 border-b md:border-b-0 md:border-r border-[var(--rule)]">
-              <div className="flex items-center gap-3 mb-8">
-                <span className="rv-tag rv-tag-muted">Legacy listing sites</span>
-                <span className="h-px flex-1 bg-[var(--rule)]" />
+          {/* Filter bar */}
+          <div className="rv-filter-bar">
+            <label className="rv-filter">
+              <span className="rv-filter-k">Make</span>
+              <select
+                className="rv-filter-input"
+                value={filterMake}
+                onChange={(e) => setFilterMake(e.target.value)}
+              >
+                <option value="all">All makes</option>
+                {MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </label>
+            <label className="rv-filter">
+              <span className="rv-filter-k">Min. score</span>
+              <div className="rv-filter-score">
+                <input
+                  type="range" min={0} max={100} step={5}
+                  value={filterMinScore}
+                  onChange={(e) => setFilterMinScore(Number(e.target.value))}
+                  className="rv-filter-range"
+                />
+                <span className="rv-filter-range-val">{filterMinScore}</span>
               </div>
-              <ul className="space-y-5">
-                {LEGACY.map(t => (
-                  <li key={t} className="flex gap-4 items-start text-[15px] text-[var(--ink-muted)]">
-                    <span className="rv-x">×</span>
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="p-9 md:p-12 bg-gradient-to-br from-[var(--paper)] to-[var(--blue-tint)]">
-              <div className="flex items-center gap-3 mb-8">
-                <span className="rv-tag rv-tag-blue">The Revveal way</span>
-                <span className="h-px flex-1 bg-[var(--blue)]/30" />
-              </div>
-              <ul className="space-y-5">
-                {REVVEAL_WAY.map(t => (
-                  <li key={t} className="flex gap-4 items-start text-[15px] text-[var(--ink)]">
-                    <span className="rv-check"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6.5 L5 9 L10 3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── CTA ──────────────────────────────────────────────── */}
-      <section className="relative z-10 px-6 md:px-10 py-32 md:py-40 overflow-hidden">
-        <div className="rv-cta-glow" />
-        <div className="max-w-[1080px] mx-auto text-center relative">
-          <SectionLabel kicker="Start Now" tag="free · no card" center />
-          <h2 className="display tracking-[-0.03em] leading-[0.95] text-[clamp(2.8rem,7vw,6rem)] mt-6 mb-10">
-            Stop overpaying.<br />
-            Start <span className="rv-accent-text italic">Revvealing</span>.
-          </h2>
-          <p className="text-[17px] text-[var(--ink-soft)] max-w-[48ch] mx-auto mb-12">
-            Free forever for buyers. The smartest car-finding model on the internet — and we'll show you the math.
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-4">
-            <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-xl">
-              <span>Find My Next Deal</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-            </button>
-            <a href="#how" className="rv-btn rv-btn-ghost rv-btn-xl">See how it works</a>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FOOTER ───────────────────────────────────────────── */}
-      <footer className="relative z-10 border-t border-[var(--rule)] px-6 md:px-10 py-12 bg-[var(--paper)]">
-        <div className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-6">
-          <div className="flex items-center gap-5">
-            <Wordmark />
-            <span className="hidden md:inline font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
-              Buyer's Intelligence · v3.2 · 2026
+            </label>
+            <label className="rv-filter">
+              <span className="rv-filter-k">Sort by</span>
+              <select
+                className="rv-filter-input"
+                value={filterSort}
+                onChange={(e) => setFilterSort(e.target.value as "delta" | "score" | "posted")}
+              >
+                <option value="delta">Largest discount</option>
+                <option value="score">Highest score</option>
+                <option value="posted">Most recently posted</option>
+              </select>
+            </label>
+            <label className="rv-filter rv-filter-toggle">
+              <input
+                type="checkbox"
+                checked={savedOnly}
+                onChange={(e) => setSavedOnly(e.target.checked)}
+                className="rv-filter-checkbox"
+              />
+              <span>Saved only ({saved.size})</span>
+            </label>
+            <span className="rv-filter-result">
+              {filteredDeals.length} of {FEATURED.length} listings
             </span>
           </div>
-          <div className="flex items-center gap-7 text-[13px] text-[var(--ink-muted)]">
-            {["Privacy", "Terms", "Press", "GitHub"].map(l => (
-              <a key={l} href="#" className="rv-link">{l}</a>
+
+          <div className="rv-index-wrap">
+            <table className="rv-index">
+              <thead>
+                <tr>
+                  <th className="rv-index-th rv-index-th-save" aria-label="Save"></th>
+                  <th className="rv-index-th rv-index-th-vehicle">Vehicle</th>
+                  <th className="rv-index-th rv-index-th-loc">Location</th>
+                  <th className="rv-index-th rv-index-th-num">Miles</th>
+                  <th className="rv-index-th rv-index-th-num">Fair</th>
+                  <th className="rv-index-th rv-index-th-num">Asking</th>
+                  <th className="rv-index-th rv-index-th-num">Δ</th>
+                  <th className="rv-index-th rv-index-th-conf">Confidence</th>
+                  <th className="rv-index-th rv-index-th-score">Score</th>
+                  <th className="rv-index-th rv-index-th-act"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDeals.length === 0 && (
+                  <tr>
+                    <td colSpan={10} className="rv-index-empty">
+                      No listings match these filters. <button onClick={() => { setFilterMake("all"); setFilterMinScore(0); setSavedOnly(false); }} className="rv-link">Clear filters</button>
+                    </td>
+                  </tr>
+                )}
+                {filteredDeals.map((d) => {
+                  const isOpen = expanded === d.id;
+                  const isSaved = saved.has(d.id);
+                  return (
+                    <Fragment key={d.id}>
+                      <tr className={`rv-lot-row ${isOpen ? "rv-lot-row-open" : ""}`}>
+                        <td className="rv-lot-cell rv-lot-cell-save">
+                          <button
+                            onClick={() => toggleSave(d.id)}
+                            className={`rv-save-btn ${isSaved ? "rv-save-btn-on" : ""}`}
+                            aria-label={isSaved ? "Unsave" : "Save listing"}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+                              <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+                            </svg>
+                          </button>
+                        </td>
+                        <td className="rv-lot-cell rv-lot-cell-vehicle">
+                          <span className="rv-lot-vehicle">{d.title}</span>
+                          <span className="rv-lot-source">{d.source} · posted {d.postedLabel}</span>
+                        </td>
+                        <td className="rv-lot-cell rv-lot-cell-loc">{d.location}</td>
+                        <td className="rv-lot-cell rv-lot-cell-num">{d.miles}</td>
+                        <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-strike">{d.fair}</td>
+                        <td className="rv-lot-cell rv-lot-cell-num">
+                          <span className="rv-lot-price">{d.price}</span>
+                        </td>
+                        <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-delta">{d.delta}</td>
+                        <td className="rv-lot-cell rv-lot-cell-conf">
+                          <ConfidenceBars level={d.confidence} />
+                        </td>
+                        <td className="rv-lot-cell rv-lot-cell-score">
+                          <span className="rv-lot-score-pill">{d.score}<span className="rv-lot-score-of">/100</span></span>
+                        </td>
+                        <td className="rv-lot-cell rv-lot-cell-act">
+                          <button
+                            className="rv-lot-expand"
+                            onClick={() => setExpanded(isOpen ? null : d.id)}
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? "Hide details" : "Why this score?"}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                              <path d="M2 4l4 4 4-4" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                      {isOpen && (
+                        <tr className="rv-lot-detail">
+                          <td colSpan={10} className="rv-lot-detail-cell">
+                            <div className="rv-lot-detail-grid">
+                              <div className="rv-lot-detail-col">
+                                <div className="rv-lot-detail-k">Why this score?</div>
+                                <ul className="rv-lot-detail-list">
+                                  {d.reasons.map((r) => (
+                                    <li key={r}><span className="rv-lot-detail-mark">·</span>{r}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div className="rv-lot-detail-col">
+                                <div className="rv-lot-detail-k">Confidence interval</div>
+                                <div className="rv-confidence-bar">
+                                  <div className="rv-confidence-bar-rail">
+                                    <div className="rv-confidence-bar-fill" style={{ left: `${d.ciLow}%`, width: `${d.ciHigh - d.ciLow}%` }} />
+                                    <div className="rv-confidence-bar-mark" style={{ left: `${d.ciFair}%` }} />
+                                  </div>
+                                  <div className="rv-confidence-bar-labels">
+                                    <span>${d.ciLowVal}k</span>
+                                    <span className="rv-confidence-bar-fair">fair · ${d.ciFairVal}k</span>
+                                    <span>${d.ciHighVal}k</span>
+                                  </div>
+                                </div>
+                                <div className="rv-lot-detail-meta">
+                                  Based on {d.compCount} comparable sales · {d.daysOnMarket} days on market
+                                </div>
+                              </div>
+                              <div className="rv-lot-detail-col rv-lot-detail-col-actions">
+                                <a href="#" className="rv-btn rv-btn-primary rv-btn-sm">
+                                  <span>View listing</span>
+                                  <Arrow size={11} />
+                                </a>
+                                <button onClick={() => toggleSave(d.id)} className="rv-btn rv-btn-outline rv-btn-sm">
+                                  <span>{isSaved ? "Saved" : "Save"}</span>
+                                </button>
+                                <a href="#" className="rv-btn rv-btn-ghost rv-btn-sm">
+                                  <span>Run VIN check</span>
+                                </a>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rv-index-foot">
+            <span className="rv-index-foot-meta">Showing top 5 of 12,408 listings.</span>
+            <button onClick={onGetStarted} className="rv-btn rv-btn-ghost rv-btn-sm">
+              <span>See the full index</span>
+              <Arrow size={11} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── MANIFESTO ────────────────────────────────────── */}
+      <section data-rv-section="compare" className="rv-section rv-section-paper rv-section-compact">
+        <div className="rv-section-inner">
+          <SectionHead
+            num="§ 05"
+            kicker="Why us"
+            title="Most car-buying sites work for the seller. <em>We work for the buyer.</em>"
+            html
+            headingRef="compare"
+          />
+
+          <div className="rv-manifesto">
+            <div className="rv-manifesto-col">
+              <span className="rv-manifesto-col-tag">Most listing sites</span>
+              <ul className="rv-manifesto-list">
+                {LEGACY.map((t) => (
+                  <li key={t} className="rv-legacy-item">
+                    <span className="rv-legacy-mark">×</span>
+                    <span className="rv-legacy-body">
+                      <span className="rv-legacy-text">{t}</span>
+                      <svg className="rv-legacy-strike-svg" viewBox="0 0 100 2" preserveAspectRatio="none" aria-hidden>
+                        <path className="rv-draw rv-legacy-strike" d="M0,1 L100,1" stroke="currentColor" strokeWidth="1.5" />
+                      </svg>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rv-manifesto-divider" aria-hidden />
+
+            <div className="rv-manifesto-col">
+              <span className="rv-manifesto-col-tag rv-manifesto-col-tag-new">Revveal</span>
+              <ul className="rv-manifesto-list">
+                {REVVEAL_WAY.map((t) => (
+                  <li key={t} className="rv-reveal-item">
+                    <span className="rv-reveal-mark">→</span>
+                    <span className="rv-reveal-text">{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING — comparison table ──────────────────── */}
+      <section id="pricing" data-rv-section="pricing" className="rv-section">
+        <div className="rv-section-inner">
+          <SectionHead
+            num="§ 06"
+            kicker="Pricing"
+            title="Free for casual buyers. Pro for serious ones."
+            note="Cancel anytime"
+            headingRef="pricing"
+          />
+
+          <div className="rv-pricing">
+            {/* Header row */}
+            <div className="rv-price-grid rv-price-grid-head">
+              <div className="rv-price-col rv-price-col-features-head" />
+              {TIERS.map((tier) => (
+                <div key={tier.name} className={`rv-price-col rv-price-col-head ${tier.featured ? "rv-price-col-featured" : ""}`}>
+                  {tier.featured && (
+                    <span className="rv-stamp" aria-hidden>
+                      <span className="rv-stamp-inner">
+                        <span className="rv-stamp-top">★</span>
+                        <span className="rv-stamp-main">MOST<br />POPULAR</span>
+                        <span className="rv-stamp-bot">2026</span>
+                      </span>
+                    </span>
+                  )}
+                  <h3 className="rv-display rv-price-name">{tier.name}</h3>
+                  <span className="rv-price-tagline">{tier.tagline}</span>
+                  <div className="rv-price-amt-row">
+                    <span className="rv-display rv-price-amt">{tier.price}</span>
+                    <span className="rv-price-cad">{tier.cadence}</span>
+                  </div>
+                  <button onClick={onGetStarted} className={`rv-btn ${tier.featured ? "rv-btn-primary" : "rv-btn-outline"} rv-btn-sm w-full justify-center`}>
+                    <span>{tier.cta}</span>
+                    <Arrow size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Feature rows */}
+            {PRICING_FEATURES.map((row) => (
+              <div key={row.label} className="rv-price-grid rv-price-grid-row">
+                <div className="rv-price-col rv-price-col-feature">{row.label}</div>
+                {row.values.map((v, i) => (
+                  <div
+                    key={i}
+                    className={`rv-price-col rv-price-col-cell ${TIERS[i].featured ? "rv-price-col-featured" : ""}`}
+                  >
+                    {v === true ? (
+                      <span className="rv-price-check" aria-label="Included">
+                        <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6.5 L5 9 L10 3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                    ) : v === false ? (
+                      <span className="rv-price-dash" aria-label="Not included">—</span>
+                    ) : (
+                      <span className="rv-price-value">{v}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ──────────────────────────────────────────── */}
+      <section data-rv-section="cta" className="rv-section rv-section-ink rv-section-cta">
+        <span className="rv-cta-ghost" aria-hidden>07</span>
+        <div className="rv-section-inner rv-cta-inner">
+          <h2 data-rv-cta-headline className="rv-display rv-cta-headline">
+            Stop overpaying.<br />
+            Start <em className="rv-emph">Revvealing</em>.
+            <svg className="rv-cta-flourish-svg" viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden>
+              <path
+                className="rv-draw rv-cta-flourish"
+                d="M2,8 C 30,2 60,10 90,5 C 120,1 150,9 180,4 C 188,3 195,6 198,7"
+                fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+              />
+            </svg>
+          </h2>
+          <p data-rv-cta-sub className="rv-cta-lede">
+            Free for casual buyers. Pro for serious ones. No credit card required to start.
+          </p>
+          <div data-rv-cta-sub className="rv-cta-buttons">
+            <button onClick={onGetStarted} className="rv-btn rv-btn-primary-on-dark rv-btn-xl">
+              <span>Get started — it&apos;s free</span>
+              <Arrow size={16} />
+            </button>
+            <a href="#how" className="rv-btn rv-btn-ghost-on-dark rv-btn-xl">
+              <span>How it works</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ───────────────────────────────────────── */}
+      <footer className="rv-colophon">
+        <div className="rv-section-inner">
+          <div className="rv-colophon-top">
+            <Wordmark />
+            <span className="rv-colophon-rule" />
+            <span className="rv-colophon-meta">Buyer-first used car index · 2026</span>
+          </div>
+          <div className="rv-colophon-bot">
+            <div className="rv-colophon-links">
+              {["Privacy", "Terms", "Press", "Careers", "GitHub"].map((l) => (
+                <a key={l} href="#" className="rv-colophon-link">{l}</a>
+              ))}
+            </div>
+            <div className="rv-colophon-copy">© 2026 Revveal · Built for buyers, not dealers.</div>
           </div>
         </div>
       </footer>
+
+      {/* ── BUYER DESK (floating assistant) ──────────────── */}
+      <BuyerDesk />
     </div>
   );
 }
 
-/* ── BRAND ────────────────────────────────────────────────────── */
+/* ── COMPONENTS ───────────────────────────────────────────── */
 
 function Wordmark() {
   return (
-    <a href="#" className="flex items-center gap-2.5">
-      <img
-        src="/assets/revveal-icon.png"
-        alt=""
-        aria-hidden
-        className="w-8 h-8 rounded-[8px]"
-      />
-      <span className="display text-[1.45rem] leading-none tracking-[-0.02em] font-semibold">
-        Revveal
-      </span>
-    </a>
-  );
-}
-
-function AIPill({ onDark = false }: { onDark?: boolean }) {
-  return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${onDark ? "bg-white/10 border border-white/15 text-white backdrop-blur-md" : "bg-[var(--blue-tint)] border border-[var(--blue)]/15 text-[var(--blue-deep)]"}`}>
-      <span className="rv-sparkle">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.39 8.61L23 11l-8.61 2.39L12 22l-2.39-8.61L1 11l8.61-2.39z"/></svg>
-      </span>
-      <span className="font-mono text-[11px] uppercase tracking-[0.18em] font-medium">AI-Powered Deal Discovery</span>
-    </div>
-  );
-}
-
-function DealBadge({
-  badge,
-  index,
-  reduce,
-}: {
-  badge: typeof DEAL_BADGES[0];
-  index: number;
-  reduce: boolean;
-}) {
-  return (
-    <motion.div
-      className="rv-deal-badge"
-      style={{ top: badge.top, left: badge.left, right: badge.right }}
-      custom={index}
-      variants={badgeIn}
-      initial="hidden"
-      animate={reduce
-        ? "show"
-        : {
-            opacity: 1, y: [0, -4, 0],
-            transition: {
-              opacity: { duration: 0.7, ease: EASE_OUT_EXPO, delay: 1.0 + index * 0.12 },
-              y: { duration: 6 + (index % 3), repeat: Infinity, ease: "easeInOut", delay: 1.6 + index * 0.2 },
-            },
-          }
-      }
-    >
-      <span
-        className="rv-deal-badge-dot"
-        style={{ background: badge.color }}
-      />
-      <span className="rv-deal-badge-icon" style={{ color: badge.color }}>
-        {badge.icon}
-      </span>
-      <span className="rv-deal-badge-label">{badge.label}</span>
-    </motion.div>
-  );
-}
-
-function SectionLabel({ kicker, tag, center = false }: { kicker: string; tag: string; center?: boolean }) {
-  return (
-    <div className={`flex items-center gap-3 ${center ? "justify-center" : ""}`}>
-      <span className="rv-tag rv-tag-blue">{kicker}</span>
-      <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">{tag}</span>
-    </div>
-  );
-}
-
-/* ── FEATURE CHIPS ───────────────────────────────────────────── */
-
-function FeatureChip({ feature }: { feature: typeof FEATURES[0] }) {
-  return (
-    <div className="rv-feature">
-      <div className="rv-feature-icon">{feature.icon}</div>
-      <h3 className="font-semibold text-[15px] tracking-[-0.005em] mt-5 mb-1.5">{feature.title}</h3>
-      <p className="text-[13.5px] leading-[1.55] text-[var(--ink-muted)]">{feature.body}</p>
-    </div>
-  );
-}
-
-/* ── FEATURED DEAL CARDS ─────────────────────────────────────── */
-
-function FeaturedDealCard({ deal, idx }: { deal: typeof FEATURED[0]; idx: number }) {
-  return (
-    <a href="#" className="rv-listing">
-      <div className="rv-listing-img" style={{ background: deal.tone }}>
-        <svg viewBox="0 0 240 100" className="absolute inset-0 w-full h-full p-7">
+    <a href="#" className="rv-wordmark">
+      <span className="rv-wordmark-mark">
+        <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden>
+          <circle cx="18" cy="18" r="17" fill="none" stroke="currentColor" strokeWidth="1.4" />
           <path
-            d="M 20,75 Q 25,55 50,55 L 75,40 Q 85,32 100,32 L 165,32 Q 180,32 195,45 L 215,55 Q 220,57 220,75 L 220,80 L 200,80 Q 195,90 185,90 Q 175,90 170,80 L 70,80 Q 65,90 55,90 Q 45,90 40,80 L 20,80 Z"
-            fill="rgba(10,21,48,0.85)"
+            d="M11 25 V13 H19 a4 4 0 0 1 0 8 H13 M17 21 L23 25"
+            fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
           />
-          <circle cx="55" cy="80" r="10" fill="rgba(10,21,48,0.9)" />
-          <circle cx="55" cy="80" r="4" fill={deal.tone} />
-          <circle cx="185" cy="80" r="10" fill="rgba(10,21,48,0.9)" />
-          <circle cx="185" cy="80" r="4" fill={deal.tone} />
         </svg>
-        <span className="absolute top-3 left-3 rv-tag rv-tag-white">№ {String(idx + 1).padStart(2, "0")}</span>
-        <span className="absolute top-3 right-3 rv-tag rv-tag-ink">{deal.score}/100</span>
-      </div>
-      <div className="p-5">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">{deal.source}</span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--green)]">{deal.label}</span>
-        </div>
-        <h3 className="display text-[1.2rem] leading-tight tracking-[-0.015em] mb-1">{deal.title}</h3>
-        <p className="text-[12.5px] text-[var(--ink-muted)] mb-4">{deal.location} · {deal.miles}</p>
-        <div className="flex items-baseline gap-3">
-          <span className="display text-[1.45rem] tracking-[-0.015em] font-semibold">{deal.price}</span>
-          <span className="text-[12px] text-[var(--ink-muted)] font-mono line-through">{deal.fair}</span>
-          <span className="ml-auto font-mono text-[12px] font-semibold text-[var(--green)]">{deal.delta}</span>
-        </div>
-      </div>
+      </span>
+      <span className="rv-wordmark-name">Revveal</span>
     </a>
   );
 }
 
-/* ── DATA ───────────────────────────────────────────────────── */
+function Arrow({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+      className="rv-btn-arrow"
+    >
+      <path d="M5 12h14M13 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function PaperGrain() {
+  return (
+    <svg className="rv-grain" aria-hidden>
+      <filter id="rv-grain-filter">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
+        <feColorMatrix values="0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0 0.03  0 0 0 0.55 0" />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#rv-grain-filter)" />
+    </svg>
+  );
+}
+
+function SectionHead({
+  num, kicker, title, note, html = false, headingRef,
+}: {
+  num: string; kicker: string; title: string; note?: string;
+  html?: boolean; headingRef?: string;
+}) {
+  const refAttr = headingRef ? { [`data-rv-${headingRef}-headline`]: "" } : {};
+  return (
+    <header className="rv-section-head">
+      <div className="rv-section-head-meta">
+        <span className="rv-section-head-num">{num}</span>
+        <span className="rv-section-head-kicker">{kicker}</span>
+        {note && (
+          <>
+            <svg className="rv-section-head-svg" viewBox="0 0 100 1" preserveAspectRatio="none" aria-hidden>
+              <path className="rv-draw rv-rule-draw" d="M0,0.5 L100,0.5" stroke="currentColor" strokeWidth="0.6" />
+            </svg>
+            <span className="rv-section-head-note">{note}</span>
+          </>
+        )}
+      </div>
+      {html ? (
+        <h2
+          className="rv-display rv-section-head-title"
+          {...refAttr}
+          dangerouslySetInnerHTML={{ __html: title }}
+        />
+      ) : (
+        <h2 className="rv-display rv-section-head-title" {...refAttr}>{title}</h2>
+      )}
+    </header>
+  );
+}
+
+function ConfidenceBars({ level }: { level: "low" | "med" | "high" }) {
+  const filled = level === "high" ? 3 : level === "med" ? 2 : 1;
+  return (
+    <span className="rv-conf" aria-label={`Confidence: ${level}`}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} className={`rv-conf-bar ${i < filled ? "rv-conf-bar-on" : ""}`} />
+      ))}
+      <span className="rv-conf-label">{level}</span>
+    </span>
+  );
+}
+
+function BuyerDesk() {
+  const [open, setOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    setTimeout(() => { setSubmitted(false); setOpen(false); }, 1800);
+  };
+
+  return (
+    <div className="rv-desk">
+      {open && (
+        <div className="rv-desk-panel" role="dialog" aria-label="Buyer desk">
+          <div className="rv-desk-head">
+            <div className="rv-desk-head-inner">
+              <span className="rv-desk-status">
+                <span className="rv-desk-status-dot" />
+                Open · replies in &lt; 1 hour
+              </span>
+              <button onClick={() => setOpen(false)} className="rv-desk-close" aria-label="Close">×</button>
+            </div>
+            <h4 className="rv-display rv-desk-title">Ask a buyer.</h4>
+            <p className="rv-desk-body">
+              Send a listing URL or a make/model you&apos;re after. A real person on the team replies — usually inside an hour.
+            </p>
+          </div>
+          {submitted ? (
+            <div className="rv-desk-sent">
+              <span className="rv-desk-sent-mark">✓</span>
+              <span>Sent. We&apos;ll be in touch.</span>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="rv-desk-form">
+              <input
+                type="text"
+                className="rv-desk-input"
+                placeholder="A listing URL, or 'looking for a 2019 Civic under $13k'…"
+                aria-label="Your question"
+              />
+              <button type="submit" className="rv-btn rv-btn-primary rv-btn-sm">
+                <span>Send</span>
+                <Arrow size={11} />
+              </button>
+            </form>
+          )}
+        </div>
+      )}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`rv-desk-tab ${open ? "rv-desk-tab-open" : ""}`}
+        aria-expanded={open}
+      >
+        <span className="rv-desk-tab-mark">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+          </svg>
+        </span>
+        <span className="rv-desk-tab-label">{open ? "Close" : "Ask a buyer"}</span>
+      </button>
+    </div>
+  );
+}
+
+/* ── DATA ─────────────────────────────────────────────────── */
 
 const NAV_LINKS: [string, string][] = [
-  ["How It Works", "how"],
-  ["Features", "features"],
   ["Deals", "deals"],
+  ["How it works", "how"],
+  ["Features", "features"],
   ["Pricing", "pricing"],
 ];
 
-const DEAL_BADGES = [
-  {
-    label: "AI Verified",
-    color: "#7da8ff",
-    top: "6%", left: "30%", right: undefined as string | undefined,
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L4 6v6c0 4.5 3.2 8.5 8 10 4.8-1.5 8-5.5 8-10V6l-8-4z" />
-        <path d="M9 12l2 2 4-4" />
-      </svg>
-    ),
-  },
-  {
-    label: "Great Deal",
-    color: "#7dffb1",
-    top: "12%", left: undefined, right: "2%",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-        <path d="M2 6.5 L5 9 L10 3" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-  },
-  {
-    label: "Clean Title",
-    color: "#7da8ff",
-    top: "36%", left: "2%", right: undefined,
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-        <path d="M14 2v6h6" /><path d="M9 13h6" /><path d="M9 17h4" />
-      </svg>
-    ),
-  },
-  {
-    label: "Low Mileage",
-    color: "#ffd27d",
-    top: "56%", left: undefined, right: "-4%",
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22a10 10 0 100-20 10 10 0 000 20z" />
-        <path d="M12 6v6l4 2" />
-      </svg>
-    ),
-  },
-  {
-    label: "Price Drop",
-    color: "#ff9a7d",
-    top: "82%", left: "44%", right: undefined,
-    icon: (
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7 7l10 10" />
-        <path d="M17 7v10H7" />
-      </svg>
-    ),
-  },
+const TICKER_ITEMS = [
+  "Honda Civic EX 2019 · Austin, TX · $12,400 · −20.5%",
+  "Subaru Forester 2020 · Denver, CO · $18,900 · −15.6%",
+  "Toyota Camry SE 2018 · Phoenix, AZ · $11,250 · −24.1%",
+  "Mazda CX-5 2021 · Portland, OR · $19,400 · −18.2%",
+  "Ford F-150 XLT 2019 · Houston, TX · $24,800 · −13.4%",
+  "12,408 listings scanned today · 47 markets · no paid placement",
+];
+
+const HERO_LOTS = [
+  { title: "2018 Toyota Camry SE", loc: "Phoenix, AZ", miles: "62k mi", price: "$11,250", delta: "−24.1%" },
+  { title: "2019 Honda Civic EX", loc: "Austin, TX", miles: "45k mi", price: "$12,400", delta: "−20.5%" },
+  { title: "2021 Mazda CX-5 Sport", loc: "Portland, OR", miles: "29k mi", price: "$19,400", delta: "−18.2%" },
+  { title: "2020 Subaru Forester", loc: "Denver, CO", miles: "39k mi", price: "$18,900", delta: "−15.6%" },
 ];
 
 const FEATURES = [
   {
-    title: "AI Price Insight",
-    body: "Our AI analyzes year, trim, mileage, region, and condition to reveal each car's true fair value.",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 3v18h18" />
-        <path d="M7 14l4-4 4 4 6-6" />
-        <circle cx="7" cy="14" r="1.5" fill="currentColor" />
-        <circle cx="11" cy="10" r="1.5" fill="currentColor" />
-        <circle cx="15" cy="14" r="1.5" fill="currentColor" />
-      </svg>
-    ),
+    title: "Fair-market pricing.",
+    body: "Every listing is scored against fifty thousand comparable sales — year, trim, mileage, region, condition. The math is visible on the deal page.",
+    foot: "Confidence intervals on every score",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>,
   },
   {
-    title: "Real-time Scanning",
-    body: "Marketplace, classifieds, dealers — refreshed continuously so listings never go cold.",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="7" />
-        <path d="M21 21l-4.3-4.3" />
-        <path d="M11 8v3l2 1.5" />
-      </svg>
-    ),
+    title: "Every major source.",
+    body: "Facebook Marketplace, Craigslist, AutoTrader, CarGurus, dealer feeds. Refreshed every few minutes. Duplicates folded. Ghost listings flagged.",
+    foot: "47 metro markets, daily",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>,
   },
   {
-    title: "Verified Listings",
-    body: "Duplicates removed, fake listings flagged. Every car is sourced from accuracy-tested feeds.",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2l8 3v6.5c0 4.5-3.4 8.5-8 10-4.6-1.5-8-5.5-8-10V5l8-3z" />
-        <path d="M9 12l2 2 4-4" />
-      </svg>
-    ),
+    title: "Title & history surfaced.",
+    body: "Salvage titles, branded titles, frame damage, odometer rollback signals — surfaced before you click. VIN history is one click from any listing.",
+    foot: "VIN check included on Pro",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2l8 3v7c0 4-3.4 8-8 9-4.6-1-8-5-8-9V5l8-3z" /><path d="M9 12l2 2 4-4" /></svg>,
   },
   {
-    title: "Smart Deal Score",
-    body: "Each car gets a 0–100 score with the math shown: comps, deltas, confidence. No black box.",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7v5l3 2" />
-        <path d="M12 3v1.5M21 12h-1.5M12 21v-1.5M3 12h1.5" />
-      </svg>
-    ),
+    title: "Alerts that move.",
+    body: "Saved searches send SMS and email within five minutes of a matching listing. Underpriced cars sell in hours — by the time the morning is over, the good ones are gone.",
+    foot: "Avg. delivery: 3.4 min",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10 21a2 2 0 004 0" /></svg>,
   },
 ];
 
 const STEPS = [
   {
-    title: "Aggregate every honest source",
-    body: "Marketplace, classifieds, dealer feeds, auction houses — every listing in every major US market, refreshed in real time, deduplicated and normalized.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7" />
-        <path d="M3 7l9 6 9-6" />
-        <path d="M3 7l4-3h10l4 3" />
-      </svg>
-    ),
+    title: "Pull every listing.",
+    body: "Marketplace, Craigslist, AutoTrader, CarGurus, dealer feeds — every major US market, refreshed every few minutes, deduped against the listings we already know about.",
+    foot: "Live · 47 markets",
   },
   {
-    title: "Score against 50k+ comparables",
-    body: "Year, trim, mileage, region, condition, days-on-market. Our model returns a fair value with a confidence interval, and shows the comps it used.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 21V10M9 21V4M15 21v-8M21 21V7" />
-      </svg>
-    ),
+    title: "Compare to fair market.",
+    body: "Score each listing against fifty thousand comparable sales. Year, trim, mileage, region, condition, days-on-market — every input visible on the deal page.",
+    foot: "Math published",
   },
   {
-    title: "Move before the listing's gone",
-    body: "Truly undervalued cars sell in hours. Save searches, set drop alerts — Revveal puts the next great deal in your hands first.",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2L3 14h7l-1 8 10-12h-7z" />
-      </svg>
-    ),
+    title: "Surface the underpriced ones.",
+    body: "Rank by % below fair market value, with a confidence band. Save a search and we&apos;ll text you within five minutes when a match shows up.",
+    foot: "Alerts in &lt; 5 min",
   },
 ];
 
-const FEATURED = [
-  { title: "2019 Honda Civic EX", location: "Austin, TX", miles: "45,210 mi", price: "$12,400", fair: "$15,600", delta: "−20.5%", score: 87, source: "Classifieds", label: "Great deal", tone: "#e2ecff" },
-  { title: "2020 Subaru Forester", location: "Denver, CO", miles: "38,902 mi", price: "$18,900", fair: "$22,400", delta: "−15.6%", score: 81, source: "Marketplace", label: "Great deal", tone: "#dbe7ff" },
-  { title: "2018 Toyota Camry SE", location: "Phoenix, AZ", miles: "62,450 mi", price: "$11,250", fair: "$14,820", delta: "−24.1%", score: 91, source: "Classifieds", label: "Excellent", tone: "#cfdcff" },
+const MAKES = ["Honda", "Toyota", "Subaru", "Mazda", "Ford"];
+
+type DealRow = {
+  id: string;
+  title: string;
+  make: string;
+  location: string;
+  miles: string;
+  price: string;
+  fair: string;
+  delta: string;
+  score: number;
+  source: string;
+  postedLabel: string;
+  postedHours: number;
+  confidence: "low" | "med" | "high";
+  reasons: string[];
+  ciLow: number; ciHigh: number; ciFair: number;
+  ciLowVal: string; ciHighVal: string; ciFairVal: string;
+  compCount: number;
+  daysOnMarket: number;
+};
+
+const FEATURED: DealRow[] = [
+  {
+    id: "d1", title: "2018 Toyota Camry SE", make: "Toyota",
+    location: "Phoenix, AZ", miles: "62,450", price: "$11,250", fair: "$14,820", delta: "−24.1%",
+    score: 91, source: "Craigslist", postedLabel: "2h ago", postedHours: 2, confidence: "high",
+    reasons: [
+      "Asking $3,570 below median for trim + mileage band",
+      "Clean title; no major flags on VIN",
+      "Mileage 9% under expected for model year",
+    ],
+    ciLow: 18, ciHigh: 78, ciFair: 50, ciLowVal: "13.2", ciHighVal: "16.4", ciFairVal: "14.8",
+    compCount: 142, daysOnMarket: 1,
+  },
+  {
+    id: "d2", title: "2019 Honda Civic EX", make: "Honda",
+    location: "Austin, TX", miles: "45,210", price: "$12,400", fair: "$15,600", delta: "−20.5%",
+    score: 87, source: "Marketplace", postedLabel: "5h ago", postedHours: 5, confidence: "high",
+    reasons: [
+      "Asking $3,200 below median for this trim",
+      "Single owner; full service history attached",
+      "Strong reliability cohort (this generation)",
+    ],
+    ciLow: 22, ciHigh: 74, ciFair: 50, ciLowVal: "14.1", ciHighVal: "17.1", ciFairVal: "15.6",
+    compCount: 218, daysOnMarket: 1,
+  },
+  {
+    id: "d3", title: "2021 Mazda CX-5 Sport", make: "Mazda",
+    location: "Portland, OR", miles: "28,910", price: "$19,400", fair: "$23,720", delta: "−18.2%",
+    score: 84, source: "Dealer", postedLabel: "1d ago", postedHours: 26, confidence: "med",
+    reasons: [
+      "Asking $4,320 below median for trim + mileage",
+      "Days-on-market: 14 (cohort median: 32)",
+      "Dealer-sourced; price not yet adjusted",
+    ],
+    ciLow: 28, ciHigh: 72, ciFair: 50, ciLowVal: "21.6", ciHighVal: "25.8", ciFairVal: "23.7",
+    compCount: 89, daysOnMarket: 14,
+  },
+  {
+    id: "d4", title: "2020 Subaru Forester", make: "Subaru",
+    location: "Denver, CO", miles: "38,902", price: "$18,900", fair: "$22,400", delta: "−15.6%",
+    score: 81, source: "Marketplace", postedLabel: "8h ago", postedHours: 8, confidence: "med",
+    reasons: [
+      "Asking $3,500 below median for this trim",
+      "AWD/Premium package · uncommon at this price",
+      "Single accident on history (minor, no frame damage)",
+    ],
+    ciLow: 30, ciHigh: 70, ciFair: 50, ciLowVal: "20.8", ciHighVal: "24.0", ciFairVal: "22.4",
+    compCount: 156, daysOnMarket: 3,
+  },
+  {
+    id: "d5", title: "2019 Ford F-150 XLT", make: "Ford",
+    location: "Houston, TX", miles: "54,300", price: "$24,800", fair: "$28,640", delta: "−13.4%",
+    score: 76, source: "Marketplace", postedLabel: "12h ago", postedHours: 12, confidence: "med",
+    reasons: [
+      "Asking $3,840 below median for trim + mileage",
+      "Towing package · 5.0L V8 · in-demand spec",
+      "One small flag: title transferred 3 times",
+    ],
+    ciLow: 34, ciHigh: 66, ciFair: 50, ciLowVal: "26.9", ciHighVal: "30.4", ciFairVal: "28.6",
+    compCount: 201, daysOnMarket: 5,
+  },
 ];
 
 const LEGACY = [
-  "Dealers pay to rank higher in your results.",
-  "A green badge with no explanation of why.",
-  "Private sellers and Marketplace listings ignored.",
-  "Pages clogged with promotional inventory.",
+  "Dealers pay to rank higher in your search results.",
+  "Badges with no explanation of why a deal is good.",
+  "Private sellers and Marketplace listings hidden.",
+  "Pages clogged with sponsored inventory.",
 ];
 
 const REVVEAL_WAY = [
-  "Pure algorithmic ranking. No pay-to-play. Ever.",
-  "A score with the math shown — comps, deltas, confidence.",
-  "Marketplace, classifieds, dealers — one honest feed.",
+  "Pure algorithmic ranking. No paid placement, ever.",
+  "Scores show the comps, deltas, and confidence behind them.",
+  "Marketplace, Craigslist, dealers — one combined index.",
   "Built for buyers. Not for the inventory page.",
 ];
 
-/* ── STYLES ─────────────────────────────────────────────────── */
+const TIERS = [
+  { name: "Free", tagline: "For casual browsing.", price: "$0", cadence: "forever", featured: false, cta: "Get started" },
+  { name: "Pro", tagline: "When you're actively buying.", price: "$19", cadence: "per month", featured: true, cta: "Start 7-day trial" },
+  { name: "Concierge", tagline: "We do the legwork.", price: "$99", cadence: "per month", featured: false, cta: "Talk to us" },
+];
+
+type FeatureRow = { label: string; values: (string | boolean)[] };
+
+const PRICING_FEATURES: FeatureRow[] = [
+  { label: "Deals shown per day", values: ["10 / day", "Unlimited", "Unlimited"] },
+  { label: "Saved searches", values: ["1", "Unlimited", "Unlimited"] },
+  { label: "Alert delivery", values: ["Daily email", "SMS + email, < 5 min", "SMS + email, < 5 min"] },
+  { label: "Confidence intervals", values: [false, true, true] },
+  { label: "Advanced filters (trim, options, days-on-market)", values: [false, true, true] },
+  { label: "VIN history checks", values: [false, "3 / month", "Unlimited"] },
+  { label: "Title flag surfacing", values: [true, true, true] },
+  { label: "1-on-1 onboarding call", values: [false, false, true] },
+  { label: "We contact sellers on your behalf", values: [false, false, true] },
+  { label: "Pre-purchase inspection coordinated", values: [false, false, true] },
+  { label: "Negotiation script written per listing", values: [false, false, true] },
+];
+
+/* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-  :root {
-    --paper: #ffffff;
-    --paper-warm: #f7f9fc;
-    --paper-cool: #eef2f9;
-    --blue-tint: #ebf1ff;
-    --ink: #0a1530;
-    --ink-soft: #475574;
-    --ink-muted: #8392ad;
-    --rule: #e3e9f3;
-    --rule-strong: #cfd8e6;
-    --blue: #1f5fff;
-    --blue-deep: #1648c4;
-    --blue-soft: #4d7fff;
-    --green: #16a34a;
-    --green-soft: #d9f4e7;
+  .rv-catalog {
+    --paper:        #ece2cd;
+    --paper-deep:   #ddd0b4;
+    --paper-soft:   #f3eada;
+    --paper-pale:   #f7f0df;
+    --ink:          #18130a;
+    --ink-soft:     #2a2418;
+    --ink-muted:    #6f6244;
+    --ink-fade:     #968866;
+    --red:          #b8312e;
+    --red-deep:     #8a1d1c;
+    --brass:        #a3792c;
+
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Newsreader', Georgia, serif;
+    font-feature-settings: "ss01", "ss02", "liga";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  html, body, #root { font-family: 'Geist', system-ui, sans-serif; }
-  body { background: var(--paper); color: var(--ink); -webkit-font-smoothing: antialiased; }
+  .rv-catalog .rv-display {
+    font-family: 'Fraunces', 'Times New Roman', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 0;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+  }
 
-  .display {
-    font-family: 'Bricolage Grotesque', serif;
-    font-variation-settings: "wdth" 100, "opsz" 96;
+  /* Red italic — used sparingly, 3 instances on the page total. */
+  .rv-catalog .rv-emph {
+    font-style: italic;
+    color: var(--red);
+    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
+  }
+
+  /* Paper grain overlay */
+  .rv-catalog .rv-grain {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.28;
+    mix-blend-mode: multiply;
+  }
+
+  /* ── TICKER ───────────────────────────────────────── */
+  .rv-catalog .rv-ticker {
+    position: relative;
+    z-index: 60;
+    background: var(--ink);
+    color: var(--paper);
+    overflow: hidden;
+  }
+  .rv-catalog .rv-ticker-track {
+    display: flex; gap: 36px;
+    padding: 8px 0;
+    white-space: nowrap;
+    animation: rv-ticker 64s linear infinite;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    width: max-content;
+  }
+  .rv-catalog .rv-ticker-item { display: inline-flex; align-items: center; gap: 10px; }
+  .rv-catalog .rv-ticker-dot { width: 4px; height: 4px; background: var(--red); display: inline-block; flex-shrink: 0; }
+  .rv-catalog .rv-ticker-text { opacity: 0.88; }
+  @keyframes rv-ticker {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  /* ── NAV ──────────────────────────────────────────── */
+  .rv-catalog .rv-nav {
+    position: sticky; top: 0;
+    z-index: 50;
+    background: var(--paper);
+    border-bottom: 1px solid var(--ink);
+    transition: box-shadow 0.3s ease;
+  }
+  .rv-catalog .rv-nav-pinned {
+    box-shadow: 0 1px 0 var(--ink), 0 6px 14px -10px rgba(20,15,8,0.18);
+  }
+  .rv-catalog .rv-nav-inner {
+    max-width: 1320px; margin: 0 auto;
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px;
+  }
+
+  .rv-catalog .rv-wordmark {
+    display: inline-flex; align-items: center; gap: 10px;
+    color: var(--ink); text-decoration: none;
+  }
+  .rv-catalog .rv-wordmark-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    background: var(--red); color: var(--paper);
+  }
+  .rv-catalog .rv-wordmark-name {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  .rv-catalog .rv-nav-link {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 14, "SOFT" 30;
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--ink);
+    padding: 8px 14px;
+    text-decoration: none;
+    transition: color 0.2s ease;
+    position: relative;
+  }
+  .rv-catalog .rv-nav-link:hover { color: var(--red); }
+  .rv-catalog .rv-nav-link-active { color: var(--red); }
+  .rv-catalog .rv-nav-link-active::before {
+    content: "·"; position: absolute; left: 4px; top: 50%;
+    transform: translateY(-50%); color: var(--red); font-size: 18px;
+  }
+  .rv-catalog .rv-nav-login {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: transparent; border: none;
+    padding: 8px 4px; cursor: pointer;
+    transition: color 0.2s ease;
+  }
+  .rv-catalog .rv-nav-login:hover { color: var(--red); }
+
+  .rv-catalog .rv-burger {
+    width: 38px; height: 38px;
+    display: inline-flex; flex-direction: column; gap: 4px;
+    align-items: center; justify-content: center;
+    background: transparent; border: 1px solid var(--ink);
+    cursor: pointer;
+  }
+  .rv-catalog .rv-burger-bar {
+    width: 16px; height: 1.4px; background: var(--ink);
+    transition: transform 0.3s ease, opacity 0.2s ease, width 0.3s ease;
+    transform-origin: center;
+  }
+  .rv-catalog .rv-burger-bar-top-open { transform: translateY(5px) rotate(45deg); }
+  .rv-catalog .rv-burger-bar-mid-open { opacity: 0; width: 0; }
+  .rv-catalog .rv-burger-bar-bot-open { transform: translateY(-5px) rotate(-45deg); }
+
+  .rv-catalog .rv-mobile-panel {
+    background: var(--paper);
+    border-top: 1px solid var(--ink);
+    border-bottom: 1px solid var(--ink);
+  }
+  .rv-catalog .rv-mobile-link {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 36, "SOFT" 40;
+    font-weight: 500;
+    font-size: 20px;
+    color: var(--ink);
+    background: transparent; border: none;
+    padding: 8px 0; cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s ease, transform 0.2s ease;
+  }
+  .rv-catalog .rv-mobile-link:hover { color: var(--red); transform: translateX(3px); }
+  .rv-catalog .rv-rule-static { height: 1px; background: var(--ink); opacity: 0.4; }
+
+  /* ── BUTTONS ──────────────────────────────────────── */
+  .rv-catalog .rv-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-radius: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .rv-catalog .rv-btn-sm { padding: 8px 12px; font-size: 10px; }
+  .rv-catalog .rv-btn-lg { padding: 13px 20px; font-size: 11.5px; gap: 10px; }
+  .rv-catalog .rv-btn-xl { padding: 16px 26px; font-size: 12.5px; gap: 12px; }
+  .rv-catalog .rv-btn-arrow { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); }
+  .rv-catalog .rv-btn:hover .rv-btn-arrow { transform: translateX(3px); }
+
+  .rv-catalog .rv-btn-primary {
+    background: var(--red); color: var(--paper-pale);
+    border-color: var(--red);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .rv-catalog .rv-btn-primary:hover {
+    background: var(--red-deep); border-color: var(--red-deep);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .rv-catalog .rv-btn-primary:active {
+    transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink);
+  }
+
+  .rv-catalog .rv-btn-outline {
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--ink);
+  }
+  .rv-catalog .rv-btn-outline:hover {
+    background: var(--ink); color: var(--paper-pale);
+  }
+
+  .rv-catalog .rv-btn-ghost {
+    background: transparent; color: var(--ink);
+    border: none;
+    padding-left: 4px; padding-right: 4px;
+    border-bottom: 1px solid var(--ink);
+  }
+  .rv-catalog .rv-btn-ghost:hover { color: var(--red); border-color: var(--red); }
+
+  .rv-catalog .rv-btn-primary-on-dark {
+    background: var(--paper-pale); color: var(--ink);
+    border-color: var(--paper-pale);
+    box-shadow: 3px 3px 0 var(--red);
+  }
+  .rv-catalog .rv-btn-primary-on-dark:hover {
+    background: var(--red); color: var(--paper-pale); border-color: var(--red);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--paper-pale);
+  }
+  .rv-catalog .rv-btn-ghost-on-dark {
+    background: transparent; color: var(--paper-pale);
+    border: none;
+    padding-left: 4px; padding-right: 4px;
+    border-bottom: 1px solid var(--paper-pale);
+  }
+  .rv-catalog .rv-btn-ghost-on-dark:hover { color: var(--red); border-color: var(--red); }
+
+  .rv-catalog .rv-link {
+    color: var(--red); text-decoration: underline;
+    background: transparent; border: none; padding: 0;
+    cursor: pointer; font: inherit;
+  }
+
+  /* ── HERO ─────────────────────────────────────────── */
+  .rv-catalog .rv-hero {
+    position: relative;
+    padding: 48px 24px 72px;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .rv-catalog .rv-hero-inner {
+    max-width: 1320px; margin: 0 auto;
+    position: relative; z-index: 2;
+  }
+  .rv-catalog .rv-hero-ghost {
+    position: absolute;
+    top: 4%; right: -2%;
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 0;
+    font-weight: 900;
+    font-style: italic;
+    font-size: clamp(18rem, 28vw, 32rem);
+    line-height: 0.78;
+    color: var(--paper-deep);
+    opacity: 0.5;
+    pointer-events: none;
+    user-select: none;
+    z-index: 0;
+    letter-spacing: -0.04em;
+  }
+  .rv-catalog .rv-hero-grid {
+    display: grid; grid-template-columns: 1fr; gap: 44px;
+  }
+  @media (min-width: 1024px) {
+    .rv-catalog .rv-hero-grid {
+      grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+      gap: 64px;
+    }
+  }
+
+  .rv-catalog .rv-hero-eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    font-weight: 600;
+    margin-bottom: 22px;
+  }
+  .rv-catalog .rv-hero-eyebrow-dot {
+    width: 6px; height: 6px;
+    background: var(--red); border-radius: 50%;
+    animation: rv-pulse 2s ease-in-out infinite;
+  }
+  @keyframes rv-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .rv-catalog .rv-hero-headline {
+    font-size: clamp(2.6rem, 6.2vw, 5.2rem);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    margin: 4px 0 6px;
+    color: var(--ink);
+    font-weight: 600;
+    max-width: 18ch;
+  }
+  .rv-catalog .rv-hero-underline-svg {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: 12px;
+    color: var(--red);
+    margin-top: -4px;
+    overflow: visible;
+  }
+
+  .rv-catalog .rv-hero-lede {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: clamp(1.05rem, 1.4vw, 1.18rem);
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: 56ch;
+    margin: 24px 0 28px;
+    font-weight: 400;
+  }
+
+  .rv-catalog .rv-hero-cta-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 40px;
+  }
+
+  .rv-catalog .rv-hero-meta { max-width: 640px; }
+  .rv-catalog .rv-hero-meta-svg {
+    display: block; width: 100%; height: 4px;
+    color: var(--ink); overflow: visible;
+    margin-bottom: 14px;
+  }
+  .rv-catalog .rv-hero-meta-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  .rv-catalog .rv-hero-meta-cell {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .rv-catalog .rv-hero-meta-v {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 72, "SOFT" 30;
+    font-weight: 600;
+    font-size: 1.45rem;
+    line-height: 1;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .rv-catalog .rv-hero-meta-k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  /* Hero side — practical lot preview, no journal cosplay */
+  .rv-catalog .rv-hero-side {
+    position: relative;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    padding: 20px 22px 18px;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .rv-catalog .rv-hero-side-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1.5px solid var(--ink);
+    margin-bottom: 14px;
+  }
+  .rv-catalog .rv-hero-side-title {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 36, "SOFT" 40;
+    font-weight: 600;
+    font-size: 18px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .rv-catalog .rv-hero-side-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-hero-lots {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+  }
+  .rv-catalog .rv-hero-lot-preview {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--ink-fade);
+    will-change: transform, opacity;
+  }
+  .rv-catalog .rv-hero-lot-preview:last-of-type { border-bottom: none; }
+  .rv-catalog .rv-hero-lot-body {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .rv-catalog .rv-hero-lot-title {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 18, "SOFT" 30;
+    font-weight: 500;
+    font-size: 14.5px;
+    color: var(--ink);
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+  }
+  .rv-catalog .rv-hero-lot-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-hero-lot-pricecol {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  }
+  .rv-catalog .rv-hero-lot-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-hero-lot-delta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 600;
+    color: var(--red);
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-hero-side-foot {
+    padding-top: 14px; margin-top: 8px;
+    border-top: 1px solid var(--ink);
+  }
+  .rv-catalog .rv-hero-side-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: transparent; border: none;
+    padding: 4px 0;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-bottom: 1px solid var(--ink);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .rv-catalog .rv-hero-side-cta:hover { color: var(--red); border-color: var(--red); }
+
+  /* ── SECTION FRAME ────────────────────────────────── */
+  .rv-catalog .rv-section {
+    position: relative;
+    padding: 72px 24px 80px;
+    border-top: 1px solid var(--ink);
+  }
+  .rv-catalog .rv-section-paper { background: var(--paper-soft); }
+  .rv-catalog .rv-section-ink {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .rv-catalog .rv-section-compact { padding: 60px 24px 64px; }
+  .rv-catalog .rv-section-inner {
+    max-width: 1280px; margin: 0 auto;
+    position: relative; z-index: 2;
+  }
+
+  /* tiny section marker — replaces giant ghost numerals on most sections */
+  .rv-catalog .rv-section-mark {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--red);
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  /* ── SECTION HEAD ─────────────────────────────────── */
+  .rv-catalog .rv-section-head {
+    margin-bottom: 36px;
+    max-width: 960px;
+  }
+  .rv-catalog .rv-section-head-meta {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-section-head-num { color: var(--red); font-weight: 700; }
+  .rv-catalog .rv-section-head-kicker { color: var(--ink); font-weight: 600; }
+  .rv-catalog .rv-section-head-svg {
+    flex: 1; height: 1px; color: var(--ink); overflow: visible; max-width: 200px;
+  }
+  .rv-catalog .rv-section-head-note { color: var(--ink-fade); font-weight: 500; }
+  .rv-catalog .rv-section-head-title {
+    font-size: clamp(1.9rem, 4.2vw, 3.2rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-weight: 600;
+    margin: 0;
+    max-width: 22ch;
+  }
+
+  /* ── BULLETIN (FEATURES) ──────────────────────────── */
+  .rv-catalog .rv-bulletin-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border-top: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+  }
+  @media (max-width: 1024px) {
+    .rv-catalog .rv-bulletin-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .rv-catalog .rv-bulletin-grid { grid-template-columns: 1fr; }
+  }
+  .rv-catalog .rv-bulletin-item {
+    padding: 26px 24px 28px;
+    border-right: 1px solid var(--ink);
+    display: flex; flex-direction: column;
+    min-height: 260px;
+    background: var(--paper);
+    will-change: transform, opacity;
+  }
+  .rv-catalog .rv-bulletin-item:last-child { border-right: none; }
+  @media (max-width: 1024px) {
+    .rv-catalog .rv-bulletin-item:nth-child(2n) { border-right: none; }
+    .rv-catalog .rv-bulletin-item:nth-child(-n+2) { border-bottom: 1px solid var(--ink); }
+  }
+  @media (max-width: 600px) {
+    .rv-catalog .rv-bulletin-item { border-right: none; border-bottom: 1px solid var(--ink); }
+    .rv-catalog .rv-bulletin-item:last-child { border-bottom: none; }
+  }
+  .rv-catalog .rv-bulletin-num-row {
+    display: flex; align-items: baseline; gap: 14px;
+    margin-bottom: 12px;
+  }
+  .rv-catalog .rv-bulletin-num {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-weight: 700;
+    font-size: 2.2rem;
+    line-height: 0.85;
+    color: var(--ink);
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-bulletin-title {
+    font-size: 1.25rem;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    margin: 0 0 10px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .rv-catalog .rv-bulletin-body {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 16;
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    flex: 1;
+  }
+  .rv-catalog .rv-bulletin-foot {
+    display: flex; align-items: center; gap: 10px;
+    padding-top: 14px; margin-top: 16px;
+    border-top: 1px dashed var(--ink-fade);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-bulletin-icon {
+    color: var(--brass);
+    display: inline-flex; align-items: center;
+  }
+
+  /* ── HOW IT WORKS — asymmetric ────────────────────── */
+  .rv-catalog .rv-how-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  @media (min-width: 900px) {
+    .rv-catalog .rv-how-grid {
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+      gap: 72px;
+    }
+  }
+  .rv-catalog .rv-how-side {
+    position: relative;
+  }
+  @media (min-width: 900px) {
+    .rv-catalog .rv-how-side {
+      position: sticky;
+      top: 100px;
+      align-self: start;
+    }
+  }
+  .rv-catalog .rv-how-title {
+    font-size: clamp(1.9rem, 3.8vw, 2.8rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-weight: 600;
+    margin: 4px 0 16px;
+  }
+  .rv-catalog .rv-how-side-note {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-muted);
+    line-height: 1.5;
+    margin: 0 0 18px;
+    max-width: 36ch;
+  }
+  .rv-catalog .rv-margin-note {
+    display: inline-block;
+    transform: rotate(-1.2deg);
+    color: var(--red);
+    font-style: italic;
+    font-variation-settings: "opsz" 18;
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  .rv-catalog .rv-how-rule-svg {
+    display: block; width: 80px; height: 2px;
+    color: var(--ink); overflow: visible;
+  }
+
+  .rv-catalog .rv-how-steps {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+    gap: 0;
+    border-top: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+  }
+  .rv-catalog .rv-step-row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 24px;
+    padding: 22px 4px 24px;
+    border-bottom: 1px solid var(--ink);
+    opacity: 0;
+    transform: translateY(20px);
+    will-change: transform, opacity;
+  }
+  .rv-catalog .rv-step-row:last-child { border-bottom: none; }
+  .rv-catalog .rv-step-num {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 60;
+    font-weight: 700;
+    font-size: 3rem;
+    line-height: 0.85;
+    color: var(--red);
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-step-body { display: flex; flex-direction: column; }
+  .rv-catalog .rv-step-title {
+    font-size: 1.4rem;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin: 6px 0 8px;
+    font-weight: 600;
+  }
+  .rv-catalog .rv-step-text {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 16;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+  .rv-catalog .rv-step-foot {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  /* ── INDEX (deals table — product UI) ─────────────── */
+  .rv-catalog .rv-filter-bar {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    padding: 14px 16px;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    border-bottom: none;
+  }
+  .rv-catalog .rv-filter {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .rv-catalog .rv-filter-k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  .rv-catalog .rv-filter-input {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    padding: 7px 10px;
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    color: var(--ink);
+    min-width: 160px;
+    border-radius: 0;
+    cursor: pointer;
+  }
+  .rv-catalog .rv-filter-input:focus {
+    outline: 2px solid var(--red);
+    outline-offset: -2px;
+  }
+  .rv-catalog .rv-filter-score {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+  }
+  .rv-catalog .rv-filter-range {
+    accent-color: var(--red);
+    width: 140px;
+    cursor: pointer;
+  }
+  .rv-catalog .rv-filter-range-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    min-width: 24px;
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-filter-toggle {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    color: var(--ink);
+    cursor: pointer;
+    user-select: none;
+  }
+  .rv-catalog .rv-filter-checkbox {
+    width: 16px; height: 16px;
+    accent-color: var(--red);
+    margin: 0;
+  }
+  .rv-catalog .rv-filter-result {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    color: var(--ink-muted);
+    padding-bottom: 4px;
+  }
+
+  .rv-catalog .rv-index-wrap {
+    border: 1px solid var(--ink);
+    background: var(--paper-pale);
+    overflow-x: auto;
+  }
+  .rv-catalog .rv-index {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 880px;
+  }
+  .rv-catalog .rv-index-th {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1.5px solid var(--ink);
+    background: var(--paper);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .rv-catalog .rv-index-th-num { text-align: right; }
+  .rv-catalog .rv-index-th-score { text-align: center; width: 72px; }
+  .rv-catalog .rv-index-th-save { width: 38px; }
+  .rv-catalog .rv-index-th-conf { width: 110px; }
+  .rv-catalog .rv-index-th-act { width: 36px; }
+
+  .rv-catalog .rv-lot-row {
+    border-bottom: 1px solid var(--paper-deep);
+    transition: background 0.15s ease;
+    will-change: transform, opacity;
+  }
+  .rv-catalog .rv-lot-row:hover { background: var(--paper); }
+  .rv-catalog .rv-lot-row-open { background: var(--paper); }
+  .rv-catalog .rv-lot-cell {
+    padding: 14px 14px;
+    font-size: 14.5px;
+    color: var(--ink);
+    vertical-align: middle;
+  }
+  .rv-catalog .rv-lot-cell-num {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-soft);
+  }
+  .rv-catalog .rv-lot-cell-strike {
+    color: var(--ink-fade);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--ink-muted);
+  }
+  .rv-catalog .rv-lot-cell-delta { color: var(--red); font-weight: 600; }
+  .rv-catalog .rv-lot-cell-vehicle {
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 220px;
+  }
+  .rv-catalog .rv-lot-vehicle {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 24, "SOFT" 30;
+    font-weight: 500;
+    font-size: 16px;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  .rv-catalog .rv-lot-source {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--ink-fade);
+  }
+  .rv-catalog .rv-lot-cell-loc { font-style: italic; color: var(--ink-soft); white-space: nowrap; }
+  .rv-catalog .rv-lot-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-lot-cell-save { padding-right: 0; }
+  .rv-catalog .rv-save-btn {
+    background: transparent; border: none;
+    color: var(--ink-fade);
+    cursor: pointer;
+    padding: 6px;
+    transition: color 0.18s ease, transform 0.18s ease;
+    border-radius: 0;
+  }
+  .rv-catalog .rv-save-btn:hover { color: var(--ink); transform: scale(1.1); }
+  .rv-catalog .rv-save-btn-on { color: var(--red); }
+  .rv-catalog .rv-save-btn-on:hover { color: var(--red-deep); }
+  .rv-catalog .rv-lot-cell-score { text-align: center; }
+  .rv-catalog .rv-lot-score-pill {
+    display: inline-flex; align-items: baseline; gap: 1px;
+    padding: 5px 9px;
+    background: var(--ink); color: var(--paper-pale);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+  }
+  .rv-catalog .rv-lot-score-of { font-size: 9px; opacity: 0.6; margin-left: 2px; }
+  .rv-catalog .rv-lot-expand {
+    background: transparent; border: 1px solid var(--ink-fade);
+    width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink); cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .rv-catalog .rv-lot-expand:hover { border-color: var(--ink); background: var(--paper); }
+  .rv-catalog .rv-lot-row-open .rv-lot-expand { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* Confidence dots */
+  .rv-catalog .rv-conf {
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .rv-catalog .rv-conf-bar {
+    width: 6px; height: 14px;
+    background: var(--paper-deep);
+    border: 1px solid var(--ink-fade);
+  }
+  .rv-catalog .rv-conf-bar-on { background: var(--ink); border-color: var(--ink); }
+  .rv-catalog .rv-conf-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
     font-weight: 600;
   }
 
-  /* Elements driven by anime.js start invisible */
-  [data-anim] { opacity: 0; will-change: opacity, transform; }
-
-  /* Nav — theme adapts to scroll position */
-  .rv-nav { transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease; background: transparent; }
-  .rv-nav-dark {
-    background: rgba(6, 12, 30, 0.38);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+  /* Expanded row */
+  .rv-catalog .rv-lot-detail { background: var(--paper); }
+  .rv-catalog .rv-lot-detail-cell { padding: 0; border-bottom: 1px solid var(--paper-deep); }
+  .rv-catalog .rv-lot-detail-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr auto;
+    gap: 32px;
+    padding: 22px 18px 24px;
+    border-top: 2px solid var(--ink);
   }
-  .rv-nav-scrolled {
-    background: rgba(255,255,255,0.88);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    border-bottom: 1px solid var(--rule);
+  @media (max-width: 900px) {
+    .rv-catalog .rv-lot-detail-grid { grid-template-columns: 1fr; gap: 18px; }
   }
-  .rv-nav .display { transition: color 0.35s ease; }
-  .rv-nav-dark .display { color: white; }
-  .rv-nav-scrolled .display { color: var(--ink); }
-
-  .rv-nav-link { position: relative; transition: color 0.2s; }
-  .rv-nav-dark .rv-nav-link { color: rgba(255,255,255,0.78); }
-  .rv-nav-dark .rv-nav-link:hover { color: white; }
-  .rv-nav-scrolled .rv-nav-link { color: var(--ink-soft); }
-  .rv-nav-scrolled .rv-nav-link:hover { color: var(--ink); }
-
-  .rv-nav-login { transition: color 0.2s; }
-  .rv-nav-dark .rv-nav-login { color: rgba(255,255,255,0.85); }
-  .rv-nav-dark .rv-nav-login:hover { color: white; }
-  .rv-nav-scrolled .rv-nav-login { color: var(--ink-soft); }
-  .rv-nav-scrolled .rv-nav-login:hover { color: var(--ink); }
-
-  /* Buttons — color transitions only, no lift/shadow growth */
-  .rv-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 18px; border-radius: 999px;
-    font-weight: 500; line-height: 1;
-    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    white-space: nowrap;
+  .rv-catalog .rv-lot-detail-col { display: flex; flex-direction: column; gap: 10px; }
+  .rv-catalog .rv-lot-detail-col-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    align-self: center;
   }
-  .rv-btn-lg { padding: 14px 24px; gap: 10px; font-size: 15px; }
-  .rv-btn-xl { padding: 18px 32px; gap: 12px; font-size: 16px; }
-
-  .rv-btn-primary {
-    background: var(--blue); color: white;
-    box-shadow: 0 4px 14px rgba(31,95,255,0.28), inset 0 1px 0 rgba(255,255,255,0.18);
-  }
-  .rv-btn-primary:hover { background: var(--blue-deep); }
-
-  .rv-btn-ghost {
-    background: white; color: var(--ink);
-    border: 1px solid var(--rule-strong);
-  }
-  .rv-btn-ghost:hover { border-color: var(--ink); }
-
-  .rv-btn-glass {
-    background: rgba(255,255,255,0.08);
-    color: white;
-    border: 1px solid rgba(255,255,255,0.18);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-  }
-  .rv-btn-glass:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.30); }
-
-  .rv-link { color: var(--ink-soft); transition: color 0.2s; }
-  .rv-link:hover { color: var(--ink); }
-
-  .rv-play {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: var(--blue-tint); color: var(--blue);
-    margin-left: -4px;
-  }
-  .rv-play-dark { background: rgba(255,255,255,0.18); color: white; box-shadow: 0 0 0 1px rgba(255,255,255,0.12); }
-
-  .rv-sparkle {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: white; color: var(--blue);
-    box-shadow: 0 2px 6px rgba(31,95,255,0.22);
-  }
-
-  /* Tags */
-  .rv-tag {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 10px; border-radius: 999px;
+  .rv-catalog .rv-lot-detail-k {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; font-weight: 500;
-    letter-spacing: 0.06em; text-transform: uppercase;
-    line-height: 1;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--red);
+    font-weight: 700;
   }
-  .rv-tag-blue { background: var(--blue-tint); color: var(--blue-deep); }
-  .rv-tag-green { background: var(--green-soft); color: #0f7a3a; padding: 5px 9px 5px 8px; }
-  .rv-tag-muted { background: #f1f3f8; color: var(--ink-muted); }
-  .rv-tag-white { background: rgba(255,255,255,0.92); color: var(--ink); backdrop-filter: blur(4px); }
-  .rv-tag-ink { background: var(--ink); color: white; }
+  .rv-catalog .rv-lot-detail-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 6px;
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 16;
+    font-size: 14.5px;
+    color: var(--ink-soft);
+  }
+  .rv-catalog .rv-lot-detail-list li { padding-left: 14px; position: relative; line-height: 1.5; }
+  .rv-catalog .rv-lot-detail-mark {
+    position: absolute; left: 0;
+    color: var(--red);
+    font-weight: 700;
+  }
+  .rv-catalog .rv-confidence-bar { display: flex; flex-direction: column; gap: 6px; }
+  .rv-catalog .rv-confidence-bar-rail {
+    position: relative;
+    height: 8px;
+    background: var(--paper-deep);
+    border: 1px solid var(--ink-fade);
+  }
+  .rv-catalog .rv-confidence-bar-fill {
+    position: absolute; top: 0; bottom: 0;
+    background: var(--red);
+    opacity: 0.85;
+  }
+  .rv-catalog .rv-confidence-bar-mark {
+    position: absolute; top: -3px; bottom: -3px;
+    width: 2px;
+    background: var(--ink);
+  }
+  .rv-catalog .rv-confidence-bar-labels {
+    display: flex; justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-confidence-bar-fair { color: var(--ink); font-weight: 600; }
+  .rv-catalog .rv-lot-detail-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--ink-muted);
+    margin-top: 4px;
+  }
+  .rv-catalog .rv-index-empty {
+    text-align: center;
+    padding: 36px 16px;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--ink-muted);
+  }
 
-  /* Live dots — functional status indicator, subtle pulse */
-  .rv-live-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--blue);
-    box-shadow: 0 0 0 0 rgba(31,95,255,0);
-    animation: liveBeat 2.4s ease-in-out infinite;
+  .rv-catalog .rv-index-foot {
+    margin-top: 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--ink-muted);
+  }
+
+  /* ── MANIFESTO ─────────────────────────────────────── */
+  .rv-catalog .rv-manifesto {
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 0;
+    border-top: 1.5px solid var(--ink);
+    border-bottom: 1.5px solid var(--ink);
+    background: var(--paper-pale);
+  }
+  @media (max-width: 900px) {
+    .rv-catalog .rv-manifesto { grid-template-columns: 1fr; }
+  }
+  .rv-catalog .rv-manifesto-col { padding: 32px 30px 36px; }
+  .rv-catalog .rv-manifesto-divider { background: var(--ink); }
+  @media (max-width: 900px) {
+    .rv-catalog .rv-manifesto-divider { height: 1px; width: 100%; }
+  }
+  .rv-catalog .rv-manifesto-col-tag {
+    display: inline-block;
+    margin-bottom: 22px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-manifesto-col-tag-new { color: var(--red); }
+  .rv-catalog .rv-manifesto-list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+    gap: 16px;
+  }
+  .rv-catalog .rv-legacy-item {
+    display: flex; gap: 12px; align-items: baseline;
+    will-change: transform, opacity;
+  }
+  .rv-catalog .rv-legacy-mark {
+    color: var(--ink-fade);
+    font-family: 'Fraunces', serif;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .rv-catalog .rv-legacy-body { position: relative; display: inline-block; }
+  .rv-catalog .rv-legacy-text {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-legacy-strike-svg {
+    position: absolute; left: -2%; right: -2%; top: 52%;
+    width: 104%; height: 3px;
+    color: var(--red);
+    overflow: visible;
+    pointer-events: none;
+  }
+  .rv-catalog .rv-reveal-item {
+    display: flex; gap: 12px; align-items: baseline;
+    will-change: transform, opacity;
+  }
+  .rv-catalog .rv-reveal-mark {
+    color: var(--red);
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .rv-catalog .rv-reveal-text {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+
+  /* ── PRICING — comparison table ────────────────────── */
+  .rv-catalog .rv-pricing {
+    border: 1.5px solid var(--ink);
+    background: var(--paper-pale);
+  }
+  .rv-catalog .rv-price-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 1.5fr) repeat(3, minmax(0, 1fr));
+  }
+  .rv-catalog .rv-price-grid-head {
+    border-bottom: 1.5px solid var(--ink);
+    background: var(--paper);
+  }
+  .rv-catalog .rv-price-grid-row {
+    border-bottom: 1px solid var(--paper-deep);
+    transition: background 0.15s ease;
+  }
+  .rv-catalog .rv-price-grid-row:last-child { border-bottom: none; }
+  .rv-catalog .rv-price-grid-row:hover { background: var(--paper); }
+  .rv-catalog .rv-price-col {
+    padding: 12px 18px;
+    border-right: 1px solid var(--paper-deep);
+  }
+  .rv-catalog .rv-price-col:last-child { border-right: none; }
+  .rv-catalog .rv-price-col-feature {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 16;
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    border-right: 1.5px solid var(--ink);
+    padding-left: 22px;
+  }
+  .rv-catalog .rv-price-col-cell {
+    text-align: center;
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .rv-catalog .rv-price-col-head {
+    padding: 28px 20px 24px;
+    border-right: 1px solid var(--ink);
+    position: relative;
+    text-align: center;
+    background: var(--paper);
+  }
+  .rv-catalog .rv-price-col-head:last-child { border-right: none; }
+  .rv-catalog .rv-price-col-featured {
+    background: var(--paper-pale);
+  }
+  .rv-catalog .rv-price-grid-head .rv-price-col-featured {
+    background: linear-gradient(180deg, var(--paper-pale) 0%, var(--paper) 100%);
+  }
+  .rv-catalog .rv-price-col-features-head {
+    border-right: 1.5px solid var(--ink);
+    padding: 0;
+  }
+  .rv-catalog .rv-price-name {
+    font-size: 1.5rem;
+    line-height: 1;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+  .rv-catalog .rv-price-tagline {
+    display: block;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-muted);
+    margin-bottom: 14px;
+  }
+  .rv-catalog .rv-price-amt-row {
+    display: flex; align-items: baseline; justify-content: center; gap: 6px;
+    margin-bottom: 16px;
+  }
+  .rv-catalog .rv-price-amt {
+    font-size: 2.4rem;
+    line-height: 0.85;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+    color: var(--ink);
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-variant-numeric: tabular-nums;
+  }
+  .rv-catalog .rv-price-cad {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-price-check {
+    color: var(--red);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .rv-catalog .rv-price-dash {
+    color: var(--ink-fade);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .rv-catalog .rv-price-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* CERTIFIED stamp on featured plan */
+  .rv-catalog .rv-stamp {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 78px; height: 78px;
+    border: 2px solid var(--red);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transform: rotate(-12deg);
+    pointer-events: none;
+    box-shadow:
+      inset 0 0 0 2px var(--paper-pale),
+      inset 0 0 0 3px var(--red);
+    will-change: transform, opacity;
+    background: transparent;
+  }
+  .rv-catalog .rv-stamp-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    text-align: center;
+    color: var(--red);
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 24, "SOFT" 30;
+    font-weight: 700;
+    line-height: 0.95;
+  }
+  .rv-catalog .rv-stamp-top {
+    font-size: 8px;
+  }
+  .rv-catalog .rv-stamp-main {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+    padding: 2px 4px;
+    border-top: 1px solid var(--red);
+    border-bottom: 1px solid var(--red);
+    margin: 2px 0;
+    font-weight: 700;
+  }
+  .rv-catalog .rv-stamp-bot {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 7.5px;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+  }
+
+  /* ── CTA ──────────────────────────────────────────── */
+  .rv-catalog .rv-section-cta {
+    padding: 96px 24px 110px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .rv-catalog .rv-cta-ghost {
+    position: absolute;
+    bottom: -8%; right: -3%;
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 0;
+    font-weight: 900;
+    font-style: italic;
+    font-size: clamp(16rem, 26vw, 32rem);
+    line-height: 0.78;
+    color: var(--ink-soft);
+    opacity: 0.4;
+    z-index: 0;
+    pointer-events: none;
+    user-select: none;
+    letter-spacing: -0.04em;
+  }
+  .rv-catalog .rv-cta-inner {
+    max-width: 920px;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+  }
+  .rv-catalog .rv-cta-headline {
+    font-size: clamp(2.8rem, 7vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    color: var(--paper-pale);
+    font-weight: 600;
+    margin: 0 auto 28px;
+    max-width: 14ch;
+    position: relative;
+  }
+  .rv-catalog .rv-cta-headline em.rv-emph {
+    position: relative;
     display: inline-block;
   }
-  .rv-live-dot-bright {
-    background: #7dffb1;
-    animation: liveBeatBright 2.4s ease-in-out infinite;
-  }
-  @keyframes liveBeat {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(31,95,255,0.45); }
-    50%      { box-shadow: 0 0 0 5px rgba(31,95,255,0); }
-  }
-  @keyframes liveBeatBright {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(125,255,177,0.45); }
-    50%      { box-shadow: 0 0 0 5px rgba(125,255,177,0); }
-  }
-
-  /* Hero accent — one-shot underline draw on mount */
-  .rv-accent-bright { position: relative; display: inline-block; color: #7da8ff; }
-  .rv-accent-text { color: var(--blue); }
-  .rv-accent-underline {
-    position: absolute; left: 2%; right: 0; bottom: -0.04em;
-    width: 96%; height: 0.18em; color: currentColor;
-    stroke-dasharray: 600;
-    stroke-dashoffset: 600;
-    animation: drawLine 1.6s cubic-bezier(0.16, 1, 0.3, 1) 1.0s forwards;
-    opacity: 0.7;
-  }
-  @keyframes drawLine { to { stroke-dashoffset: 0; } }
-
-  /* ── CINEMATIC HERO — dark luxury showroom ──────────────── */
-
-  .rv-hero {
-    position: relative;
-    min-height: 100vh;
-    overflow: hidden;
-    background: #04060d;
-    color: white;
-    isolation: isolate;
-  }
-
-  /* Full-bleed showroom backdrop */
-  .rv-hero-bg {
-    position: absolute; inset: 0;
-    background-size: cover;
-    background-position: 65% center;
-    background-repeat: no-repeat;
-    z-index: 0;
-    filter: saturate(1.05) contrast(1.04) brightness(0.96);
-  }
-
-  /* Heavy left gradient for text legibility */
-  .rv-hero-mask {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(90deg,
-        rgba(4,6,13,0.96) 0%,
-        rgba(4,6,13,0.92) 18%,
-        rgba(4,6,13,0.62) 38%,
-        rgba(4,6,13,0.28) 55%,
-        rgba(4,6,13,0.08) 70%,
-        transparent 85%);
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .rv-hero-vignette {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(180deg, rgba(4,6,13,0.45) 0%, transparent 18%, transparent 64%, rgba(4,6,13,0.85) 100%);
-    z-index: 2;
-    pointer-events: none;
-  }
-
-  /* Headlight soft pulse — over the front-left of the car */
-  .rv-headlight {
+  .rv-catalog .rv-cta-flourish-svg {
     position: absolute;
-    top: 42%; left: 52%;
-    width: 380px; height: 380px;
-    transform: translate(-50%, -50%);
-    background: radial-gradient(circle, rgba(180,215,255,0.30) 0%, rgba(120,170,255,0.10) 35%, transparent 65%);
-    filter: blur(4px);
-    mix-blend-mode: screen;
-    z-index: 3;
-    pointer-events: none;
-    animation: rv-headlight 5.5s ease-in-out infinite;
+    bottom: -0.1em; left: 50%;
+    transform: translateX(-50%);
+    width: min(540px, 78%);
+    height: 22px;
+    color: var(--red);
+    overflow: visible;
   }
-  @keyframes rv-headlight {
-    0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
-    50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.06); }
+  .rv-catalog .rv-cta-lede {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: clamp(1.05rem, 1.4vw, 1.2rem);
+    line-height: 1.5;
+    color: var(--paper-deep);
+    max-width: 50ch;
+    margin: 0 auto 36px;
   }
-
-  /* AI scan beam — thin vertical bar that sweeps across the car */
-  .rv-scan-beam {
-    position: absolute;
-    top: 12%; bottom: 18%;
-    left: 35%;
-    width: 28%;
-    background:
-      linear-gradient(90deg,
-        transparent 0%,
-        rgba(140,200,255,0) 15%,
-        rgba(180,220,255,0.45) 48%,
-        rgba(140,200,255,0.85) 50%,
-        rgba(180,220,255,0.45) 52%,
-        rgba(140,200,255,0) 85%,
-        transparent 100%);
-    filter: blur(6px);
-    mix-blend-mode: screen;
-    z-index: 4;
-    pointer-events: none;
-    will-change: transform, opacity;
+  .rv-catalog .rv-cta-buttons {
+    display: flex; gap: 20px; justify-content: center; align-items: center;
+    flex-wrap: wrap;
   }
 
-  /* Floor shimmer — horizontal line of light traveling along the floor edge */
-  .rv-floor-shimmer {
-    position: absolute;
-    bottom: 16%;
-    left: 38%; right: 4%;
-    height: 1px;
-    background-image:
-      linear-gradient(90deg, transparent 0%, rgba(140,200,255,0.85) 50%, transparent 100%);
-    background-size: 40% 100%;
-    background-repeat: no-repeat;
-    background-position: -40% 0;
-    box-shadow: 0 0 18px rgba(140,200,255,0.45);
-    z-index: 3;
-    pointer-events: none;
-    opacity: 0.7;
-    animation: rv-shimmer 7s linear infinite;
+  /* ── FOOTER ───────────────────────────────────────── */
+  .rv-catalog .rv-colophon {
+    background: var(--paper);
+    border-top: 1.5px solid var(--ink);
+    padding: 32px 24px 24px;
+    color: var(--ink);
   }
-  @keyframes rv-shimmer {
-    0%   { background-position: -40% 0; opacity: 0; }
-    10%  { opacity: 0.7; }
-    90%  { opacity: 0.7; }
-    100% { background-position: 140% 0; opacity: 0; }
+  .rv-catalog .rv-colophon-top {
+    display: flex; align-items: center; gap: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--ink);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
   }
-
-  .rv-hero-content {
-    position: relative;
-    z-index: 5;
-    min-height: 100vh;
-    padding-top: 120px;
-    padding-bottom: 140px;
-    display: flex;
-    align-items: center;
+  .rv-catalog .rv-colophon-rule {
+    flex: 1; height: 1px; background: var(--ink-fade); min-width: 40px;
   }
-
-  .rv-hero-trust {
-    position: absolute;
-    bottom: 28px;
-    left: 0; right: 0;
-    z-index: 6;
-    pointer-events: none;
+  .rv-catalog .rv-colophon-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
   }
-  .rv-hero-trust > div { pointer-events: auto; }
-
-  .rv-hero-fade {
-    position: absolute;
-    bottom: 0; left: 0; right: 0;
-    height: 140px;
-    background: linear-gradient(180deg, transparent 0%, rgba(247,249,252,0.55) 60%, var(--paper) 100%);
-    z-index: 7;
-    pointer-events: none;
+  .rv-catalog .rv-colophon-bot {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .rv-catalog .rv-colophon-links {
+    display: flex; gap: 20px; flex-wrap: wrap;
+  }
+  .rv-catalog .rv-colophon-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+  .rv-catalog .rv-colophon-link:hover { color: var(--red); }
+  .rv-catalog .rv-colophon-copy {
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-muted);
   }
 
-  /* ── FLOATING DEAL BADGES — solid dark, thin border, no glass ── */
-  .rv-deal-badge {
-    position: absolute;
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 8px 13px 8px 11px;
-    border-radius: 999px;
-    background: rgba(8, 14, 28, 0.92);
-    border: 1px solid rgba(125, 170, 255, 0.18);
-    box-shadow:
-      0 12px 28px -8px rgba(0,0,0,0.55),
-      0 0 0 1px rgba(125,170,255,0.06) inset;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: rgba(255,255,255,0.92);
-    white-space: nowrap;
-    will-change: transform, opacity;
+  /* ── BUYER DESK (floating widget) ─────────────────── */
+  .rv-catalog .rv-desk {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 90;
+    display: flex; flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
   }
-  .rv-deal-badge-dot {
+  .rv-catalog .rv-desk-tab {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 11px 15px;
+    background: var(--ink);
+    color: var(--paper-pale);
+    border: 1px solid var(--ink);
+    border-radius: 0;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    font-weight: 600;
+    box-shadow: 3px 3px 0 var(--red);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .rv-catalog .rv-desk-tab:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--red);
+  }
+  .rv-catalog .rv-desk-tab-open {
+    background: var(--paper-pale);
+    color: var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .rv-catalog .rv-desk-tab-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--red);
+  }
+  .rv-catalog .rv-desk-tab-open .rv-desk-tab-mark { color: var(--ink); }
+  .rv-catalog .rv-desk-tab-label {
+    line-height: 1;
+  }
+
+  .rv-catalog .rv-desk-panel {
+    width: min(360px, calc(100vw - 44px));
+    background: var(--paper-pale);
+    border: 1.5px solid var(--ink);
+    padding: 18px 18px 16px;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .rv-catalog .rv-desk-head { display: flex; flex-direction: column; gap: 6px; }
+  .rv-catalog .rv-desk-head-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .rv-catalog .rv-desk-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .rv-catalog .rv-desk-status-dot {
     width: 6px; height: 6px;
+    background: #2c8c4f;
     border-radius: 50%;
-    box-shadow: 0 0 8px currentColor;
+    animation: rv-pulse 2s ease-in-out infinite;
   }
-  .rv-deal-badge-icon {
+  .rv-catalog .rv-desk-close {
+    background: transparent; border: none;
+    width: 24px; height: 24px;
     display: inline-flex; align-items: center; justify-content: center;
+    font-size: 20px; line-height: 1;
+    color: var(--ink); cursor: pointer;
+    padding: 0;
   }
-  .rv-deal-badge-label {
-    font-family: 'Geist', sans-serif;
-    letter-spacing: 0.005em;
+  .rv-catalog .rv-desk-close:hover { color: var(--red); }
+  .rv-catalog .rv-desk-title {
+    font-size: 22px;
+    line-height: 1;
+    margin: 0;
+    color: var(--ink);
+    font-weight: 600;
   }
-
-  /* Outline button — dark luxury, no glass */
-  .rv-btn-outline {
-    background: transparent;
-    color: white;
-    border: 1px solid rgba(255,255,255,0.22);
+  .rv-catalog .rv-desk-body {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 16;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    margin: 8px 0 14px;
   }
-  .rv-btn-outline:hover {
-    border-color: rgba(255,255,255,0.55);
-    background: rgba(255,255,255,0.04);
+  .rv-catalog .rv-desk-form {
+    display: flex; flex-direction: column; gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ink);
   }
-
-  /* ── FEATURE CHIPS ──────────────────────────────────────── */
-
-  .rv-feature {
-    background: white;
-    border: 1px solid var(--rule);
-    border-radius: 16px;
-    padding: 22px 22px 24px;
-    transition: border-color 0.2s ease;
+  .rv-catalog .rv-desk-input {
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    padding: 10px 12px;
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    color: var(--ink);
+    border-radius: 0;
   }
-  .rv-feature:hover { border-color: var(--rule-strong); }
-  .rv-feature-icon {
-    width: 38px; height: 38px;
-    border-radius: 10px;
-    background: var(--blue-tint);
-    color: var(--blue);
-    display: flex; align-items: center; justify-content: center;
+  .rv-catalog .rv-desk-input:focus {
+    outline: 2px solid var(--red); outline-offset: -2px;
   }
-
-  /* ── STEPS ──────────────────────────────────────────────── */
-
-  .rv-step {
-    position: relative;
-    background: white;
-    border: 1px solid var(--rule);
-    border-radius: 18px;
-    padding: 28px 28px 30px;
-    overflow: hidden;
-    transition: border-color 0.2s ease;
+  .rv-catalog .rv-desk-sent {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 0 4px;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 14.5px;
+    color: var(--ink);
   }
-  .rv-step:hover { border-color: var(--rule-strong); }
-  .rv-step-num {
-    position: absolute;
-    top: 14px; right: 18px;
-    font-family: 'Bricolage Grotesque', serif;
-    font-variation-settings: "wdth" 100, "opsz" 96;
-    font-size: 5.5rem; line-height: 0.9;
-    color: var(--paper-cool);
-    font-weight: 700;
-    user-select: none;
-  }
-  .rv-step-icon {
-    position: relative;
-    width: 46px; height: 46px;
-    border-radius: 12px;
-    background: var(--blue);
-    color: white;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 6px 14px rgba(31,95,255,0.24);
-  }
-
-  /* ── LISTING CARDS ──────────────────────────────────────── */
-
-  .rv-listing {
-    display: block;
-    background: white;
-    border: 1px solid var(--rule);
-    border-radius: 18px;
-    overflow: hidden;
-    transition: border-color 0.2s ease;
-  }
-  .rv-listing:hover { border-color: var(--rule-strong); }
-  .rv-listing-img { aspect-ratio: 4/3; position: relative; overflow: hidden; }
-
-  /* ── COMPARISON ─────────────────────────────────────────── */
-
-  .rv-x {
-    flex-shrink: 0;
+  .rv-catalog .rv-desk-sent-mark {
+    width: 20px; height: 20px;
+    background: var(--red);
+    color: var(--paper-pale);
     display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: #f1f3f8; color: var(--ink-muted);
-    font-weight: 600; font-size: 13px;
-    margin-top: 1px;
-  }
-  .rv-check {
-    flex-shrink: 0;
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
-    background: var(--blue); color: white;
-    margin-top: 1px;
+    font-size: 12px; font-weight: 700;
   }
 
-  .shadow-soft { box-shadow: 0 10px 40px -10px rgba(10,21,48,0.10), 0 4px 14px rgba(10,21,48,0.04); }
-
-  .rv-cta-glow {
-    position: absolute; inset: 0;
-    background:
-      radial-gradient(ellipse 60% 50% at 50% 100%, rgba(31,95,255,0.16) 0%, transparent 70%),
-      radial-gradient(ellipse 80% 40% at 50% 0%, rgba(31,95,255,0.06) 0%, transparent 60%);
-    pointer-events: none;
-  }
-
-  /* Responsive */
-  @media (max-width: 1024px) {
-    .rv-hero-content { padding-top: 124px; padding-bottom: 180px; }
-    .rv-hero-mask {
-      background:
-        linear-gradient(180deg, rgba(4,8,20,0.55) 0%, rgba(4,8,20,0.78) 55%, rgba(4,8,20,0.92) 100%),
-        linear-gradient(90deg, rgba(4,8,20,0.65) 0%, transparent 60%);
-    }
-    .rv-hero-car {
-      top: auto; bottom: 14%;
-      right: -8%;
-      height: 50%;
-      min-width: 540px;
-      transform: translate(calc(var(--px, 0) * -6px), 0);
-      opacity: 0.9;
-    }
-    .rv-showroom-dial { top: auto; bottom: 0; right: -10%; width: 560px; height: 560px; transform: none; }
-    .rv-hero-right { min-height: 240px; margin-top: 28px; }
-    [data-anim="deal-card"] { position: relative; top: auto; right: auto; }
-    .rv-deal-card { position: relative; top: auto; right: auto; width: 100%; max-width: 360px; margin-left: auto; }
-    [data-anim="score-badge"] { right: 4%; bottom: -8px; }
-    .rv-score-badge { width: 84px; height: 84px; }
-    [data-anim="plate-chip"] { bottom: -36px; right: auto; left: 0; }
-  }
-  @media (max-width: 640px) {
-    .rv-hero-car { min-width: 460px; bottom: 18%; opacity: 0.75; }
-    .rv-deal-card { padding: 14px 16px; }
-    .rv-score-badge { width: 76px; height: 76px; }
-    [data-anim="score-badge"] { right: 2%; }
-    .rv-hero-trust { bottom: 18px; }
-  }
-
-  /* Reduced motion fallback */
+  /* ── REDUCED MOTION ───────────────────────────────── */
   @media (prefers-reduced-motion: reduce) {
-    [data-anim] { opacity: 1 !important; }
-    .rv-live-dot, .rv-live-dot-bright { animation: none; }
-    .rv-accent-underline { animation: none; stroke-dashoffset: 0; }
+    .rv-catalog .rv-ticker-track,
+    .rv-catalog .rv-hero-eyebrow-dot,
+    .rv-catalog .rv-desk-status-dot {
+      animation: none;
+    }
+    .rv-catalog .rv-legacy-item,
+    .rv-catalog .rv-reveal-item,
+    .rv-catalog .rv-step-row,
+    .rv-catalog .rv-bulletin-item,
+    .rv-catalog .rv-lot-row,
+    .rv-catalog .rv-hero-lot-preview,
+    .rv-catalog .rv-price-col {
+      opacity: 1 !important; transform: none !important;
+    }
+    .rv-catalog .rv-btn:hover { transform: none; }
+  }
+
+  /* ── RESPONSIVE ───────────────────────────────────── */
+  @media (max-width: 720px) {
+    .rv-catalog .rv-hero { padding: 32px 18px 56px; }
+    .rv-catalog .rv-section { padding: 56px 18px 60px; }
+    .rv-catalog .rv-section-compact { padding: 48px 18px 52px; }
+    .rv-catalog .rv-section-cta { padding: 72px 18px 80px; }
+    .rv-catalog .rv-nav-inner { padding: 10px 18px; }
+    .rv-catalog .rv-hero-side { padding: 18px 18px 16px; }
+    .rv-catalog .rv-bulletin-item { min-height: 0; padding: 24px 20px 26px; }
+    .rv-catalog .rv-manifesto-col { padding: 26px 22px 28px; }
+    .rv-catalog .rv-step-row { grid-template-columns: 54px 1fr; gap: 18px; padding: 18px 4px; }
+    .rv-catalog .rv-step-num { font-size: 2.4rem; }
+    .rv-catalog .rv-desk { bottom: 14px; right: 14px; }
+    .rv-catalog .rv-desk-tab { padding: 10px 12px; font-size: 10.5px; }
   }
 `;
