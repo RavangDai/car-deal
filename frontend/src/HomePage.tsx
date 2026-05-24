@@ -943,13 +943,8 @@ function DonationStrip() {
   return (
     <div className="rv-donate">
       <div className="rv-donate-copy">
-        <span className="rv-donate-heart" aria-hidden>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 5 5.3 5c2 0 3.4 1.2 4.2 2.4C10.3 6.2 11.7 5 13.7 5 17 5 18.6 8.4 17 11.8 14.5 16.4 12 21 12 21z" />
-          </svg>
-        </span>
         <span className="rv-donate-text">
-          Revveal is free for buyers. <em className="rv-emph">Enjoying it?</em> Chip in — totally optional.
+          Revveal is free for buyers. Donations are optional and help keep it running.
         </span>
       </div>
 
@@ -982,7 +977,7 @@ function DonationStrip() {
         </div>
 
         <button type="button" onClick={donate} disabled={pending} className="rv-donate-btn">
-          <span>{pending ? "Redirecting…" : "Buy us a coffee"}</span>
+          <span>{pending ? "Redirecting…" : "Donate"}</span>
           <Arrow size={12} />
         </button>
       </div>
@@ -1024,7 +1019,7 @@ function DonateBanner() {
     <div className={`rv-donate-banner rv-donate-banner-${status}`} role="status">
       <span className="rv-donate-banner-text">
         {status === "success"
-          ? "Thank you for supporting Revveal ♥"
+          ? "Thank you for your support."
           : "Checkout cancelled — no charge made."}
       </span>
       <button onClick={() => setStatus(null)} className="rv-donate-banner-close" aria-label="Dismiss">×</button>
@@ -2284,7 +2279,6 @@ const STYLES = `
     display: inline-flex; align-items: baseline; gap: 9px;
     max-width: 42ch;
   }
-  .rv-catalog .rv-donate-heart { color: var(--red); position: relative; top: 1px; flex-shrink: 0; }
   .rv-catalog .rv-donate-text {
     font-family: 'Newsreader', serif;
     font-variation-settings: "opsz" 18;
