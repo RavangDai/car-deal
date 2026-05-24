@@ -1,5 +1,6 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const TOKEN_KEY = "revveal_access_token";
+const GUEST_KEY = "revveal_guest";
 
 // ── Token storage ─────────────────────────────────────────────────────────────
 
@@ -10,6 +11,19 @@ export function getToken(): string | null {
 export function setToken(token: string | null) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
+}
+
+// ── Guest mode ──────────────────────────────────────────────────────────────
+// A frontend-only "browse without an account" flag. Guests hold no token, so the
+// auth-only /scrape endpoints stay naturally locked while public /deals works.
+
+export function isGuest(): boolean {
+  return localStorage.getItem(GUEST_KEY) === "1";
+}
+
+export function setGuestMode(on: boolean) {
+  if (on) localStorage.setItem(GUEST_KEY, "1");
+  else localStorage.removeItem(GUEST_KEY);
 }
 
 export class UnauthorizedError extends Error {
@@ -109,6 +123,7 @@ export async function getMe(): Promise<UserOut> {
 
 export function logout() {
   setToken(null);
+  setGuestMode(false);
 }
 
 // ── Scrape / deals ────────────────────────────────────────────────────────────

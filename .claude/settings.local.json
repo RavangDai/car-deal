@@ -48,7 +48,11 @@
       "Bash(curl -sf http://localhost:5174)",
       "Bash(curl -sf http://localhost:5175)",
       "Bash(URL=http://localhost:5174/ node verify-gsap.mjs)",
-      "Bash(curl -sf http://localhost:5176)"
+      "Bash(curl -sf http://localhost:5176)",
+      "Bash(URL=http://localhost:5174/ node verify-login.mjs)",
+      "Bash(URL=http://localhost:5173/ node verify-login.mjs)",
+      "Bash(URL=http://localhost:5173/ node verify-gsap.mjs)",
+      "Bash(git *)"
     ]
   }
 }

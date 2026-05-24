@@ -9,51 +9,31 @@ import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 
 interface Props {
   onLogin: () => void;
+  onGuest: () => void;
 }
 
 type Mode = "login" | "register";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-const brandContainer: Variants = {
+const sideContainer: Variants = {
   hidden: {},
-  show: { transition: { delayChildren: 0.2, staggerChildren: 0.08 } },
+  show: { transition: { delayChildren: 0.15, staggerChildren: 0.07 } },
 };
-const brandFade: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 1.2, ease: EASE_OUT_EXPO } },
+const sideItem: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.85, ease: EASE_OUT_EXPO } },
 };
-const brandLine: Variants = {
-  hidden: { opacity: 0, y: 22 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.9, ease: EASE_OUT_EXPO } },
-};
-const brandStat: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
-};
-const brandTicker: Variants = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: EASE_OUT_EXPO } },
-};
-const brandTop: Variants = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
-};
-
 const formContainer: Variants = {
   hidden: {},
-  show: { transition: { delayChildren: 0.32, staggerChildren: 0.07 } },
+  show: { transition: { delayChildren: 0.28, staggerChildren: 0.06 } },
 };
-const formField: Variants = {
-  hidden: { opacity: 0, y: 10 },
+const formItem: Variants = {
+  hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_OUT_EXPO } },
 };
-const formLine: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.75, ease: EASE_OUT_EXPO } },
-};
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({ onLogin, onGuest }: Props) {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -72,13 +52,10 @@ export default function LoginPage({ onLogin }: Props) {
   const loading = loginMut.isPending || registerMut.isPending;
 
   async function exitThen(cb: () => void) {
-    if (prefersReduced) {
-      cb();
-      return;
-    }
+    if (prefersReduced) { cb(); return; }
     await exitControls.start({
       opacity: 0,
-      transition: { duration: 0.36, ease: [0.33, 1, 0.68, 1] },
+      transition: { duration: 0.34, ease: [0.33, 1, 0.68, 1] },
     });
     cb();
   }
@@ -110,12 +87,12 @@ export default function LoginPage({ onLogin }: Props) {
   }
 
   function clearErr(key: "email" | "password") {
-    setErrors(p => { const n = { ...p }; delete n[key]; return n; });
+    setErrors((p) => { const n = { ...p }; delete n[key]; return n; });
     setFormError(null);
   }
 
   function toggleMode() {
-    setMode(m => (m === "login" ? "register" : "login"));
+    setMode((m) => (m === "login" ? "register" : "login"));
     setErrors({});
     setFormError(null);
   }
@@ -123,197 +100,136 @@ export default function LoginPage({ onLogin }: Props) {
   const initial = prefersReduced ? "show" : "hidden";
 
   return (
-    <motion.div ref={rootRef} className="min-h-screen flex" animate={exitControls}>
+    <motion.div
+      ref={rootRef}
+      className="rv-login min-h-screen flex"
+      animate={exitControls}
+    >
       <style>{STYLES}</style>
+      <PaperGrain />
 
-      {/* ── LEFT — brand panel ──────────────────────────────── */}
+      {/* ── LEFT — editorial sidebar ─────────────────────────── */}
       <motion.aside
-        className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 overflow-hidden bg-[#0a1530] text-white"
-        variants={brandContainer}
+        className="rv-login-side"
+        variants={sideContainer}
         initial={initial}
         animate="show"
       >
-        <motion.div
-          aria-hidden
-          variants={brandFade}
-          className="absolute inset-0 bg-cover bg-center brand-photo"
-          style={{ backgroundImage: "url('/assets/bg-showroom.png')" }}
-        />
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(10,21,48,0.65) 0%, rgba(10,21,48,0.85) 60%, rgba(10,21,48,0.95) 100%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(60% 50% at 18% 18%, rgba(31,95,255,0.28) 0%, transparent 60%)",
-          }}
-        />
+        <motion.header className="rv-login-side-header" variants={sideItem}>
+          <Wordmark />
+        </motion.header>
 
-        <motion.div className="relative z-20 flex items-center justify-between" variants={brandTop}>
-          <a href="/" className="flex items-center gap-3">
-            <img
-              src="/assets/revveal-icon.png"
-              alt=""
-              aria-hidden
-              className="w-9 h-9 rounded-[9px]"
-            />
-            <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
-          </a>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] opacity-60">Buyer's Intelligence</span>
-        </motion.div>
-
-        <div className="relative z-20 max-w-[26rem]">
-          <motion.div
-            variants={brandLine}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 backdrop-blur-sm mb-10"
-          >
-            <span className="rv-live-dot" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-80">Live · Last 24h</span>
+        <div className="rv-login-side-body">
+          <motion.div className="rv-login-side-eyebrow" variants={sideItem}>
+            <span className="rv-login-side-dot" />
+            <span>Updated 4 min ago · 12,408 listings today</span>
           </motion.div>
 
-          <h2 className="display text-[3.6rem] leading-[0.96] tracking-[-0.03em] mb-7 font-semibold">
-            <motion.span className="block" variants={brandLine}>Sign in.</motion.span>
-            <motion.span className="block rv-accent italic" variants={brandLine}>Stop guessing.</motion.span>
-          </h2>
+          <motion.h2 className="rv-display rv-login-side-title" variants={sideItem}>
+            {isRegister ? (
+              <>
+                Find <em className="rv-emph">underpriced</em><br />
+                cars before<br />
+                anyone else.
+              </>
+            ) : (
+              <>
+                Welcome <em className="rv-emph">back</em>.<br />
+                Your deals are<br />
+                waiting.
+              </>
+            )}
+          </motion.h2>
 
-          <motion.p
-            className="text-[15.5px] leading-[1.65] text-white/70 max-w-[22rem]"
-            variants={brandLine}
-          >
-            Save searches. Set drop alerts. The next great deal will go in hours — Revveal puts you on it first.
+          <motion.p className="rv-login-side-sub" variants={sideItem}>
+            {isRegister
+              ? "Save searches, set drop alerts, and move on a great deal in hours — not days. Free to start, no card needed."
+              : "Pick up where you left off — saved searches, drop alerts, and today's freshest deals across every major marketplace."}
           </motion.p>
-
-          <div className="mt-10 grid grid-cols-3 gap-4 max-w-[24rem]">
-            {STATS.map(s => (
-              <motion.div key={s.lbl} className="border-l border-white/15 pl-3.5" variants={brandStat}>
-                <div className="display text-[1.4rem] font-semibold leading-none">{s.val}</div>
-                <div className="font-mono text-[9.5px] uppercase tracking-[0.18em] opacity-55 mt-2">{s.lbl}</div>
-              </motion.div>
-            ))}
-          </div>
         </div>
 
-        {/* Static recent-deals strip — no auto-scroll */}
-        <motion.div className="relative z-20 border-t border-white/10 pt-6" variants={brandTicker}>
-          <div className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-55 mb-3">Most undervalued · last 24h</div>
-          <div className="grid grid-cols-3 gap-4 font-mono text-[12px]">
+        <motion.div className="rv-login-side-foot" variants={sideItem}>
+          <div className="rv-login-side-foot-k">Most undervalued · last 24 hours</div>
+          <ul className="rv-login-side-deals">
             {RECENT_DEALS.map((d) => (
-              <div key={d.label} className="flex items-baseline gap-2">
-                <span className="opacity-50">{d.tag}</span>
-                <span className="opacity-90 truncate">{d.label}</span>
-                <span className="ml-auto text-[#7da8ff]">{d.delta}</span>
-              </div>
+              <li key={d.label} className="rv-login-side-deal">
+                <span className="rv-login-side-deal-title">{d.label}</span>
+                <span className="rv-login-side-deal-loc">{d.loc}</span>
+                <span className="rv-login-side-deal-delta">{d.delta}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </motion.div>
-
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-[0.05] pointer-events-none z-[1]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
-            backgroundSize: "80px 80px",
-          }}
-        />
       </motion.aside>
 
-      {/* ── RIGHT — form ──────────────────────────────────── */}
-      <main className="flex-1 flex items-center justify-center px-6 py-14 relative bg-[var(--paper)]">
-
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(60% 50% at 90% 0%, rgba(31,95,255,0.06) 0%, transparent 60%), radial-gradient(40% 30% at 0% 100%, rgba(31,95,255,0.05) 0%, transparent 60%)",
-          }}
-        />
-
+      {/* ── RIGHT — form ─────────────────────────────────────── */}
+      <main className="rv-login-main">
         <motion.div
-          className="w-full max-w-[420px] relative"
+          className="rv-login-main-inner"
           variants={formContainer}
           initial={initial}
           animate="show"
         >
+          <motion.a href="/" className="rv-login-back" variants={formItem}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span>Back to home</span>
+          </motion.a>
 
-          <motion.div className="lg:hidden mb-12 flex items-center gap-3" variants={formLine}>
-            <img
-              src="/assets/revveal-icon.png"
-              alt=""
-              aria-hidden
-              className="w-9 h-9 rounded-[9px]"
-            />
-            <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
+          <motion.div className="lg:hidden mb-7" variants={formItem}>
+            <Wordmark />
           </motion.div>
 
-          <motion.div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-7"
-            variants={formLine}
-          >
-            <span className="rv-live-dot" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--blue-deep)]">
-              {isRegister ? "New buyer" : "Welcome back"}
-            </span>
-          </motion.div>
-
-          <motion.h1 className="display text-[2.6rem] leading-[1] tracking-[-0.03em] mb-3 font-semibold" variants={formLine}>
-            {isRegister ? (
-              <>Create your <span className="text-[var(--blue)] italic">account</span>.</>
-            ) : (
-              <>Welcome <span className="text-[var(--blue)] italic">back</span>.</>
-            )}
+          <motion.h1 className="rv-display rv-login-title" variants={formItem}>
+            {isRegister ? "Create your account." : "Sign in."}
           </motion.h1>
-          <motion.p className="text-[14.5px] text-[var(--ink-muted)] mb-9" variants={formLine}>
-            {isRegister ? "Start tracking deals before they go." : "Continue to your deal feed."}
+          <motion.p className="rv-login-sub" variants={formItem}>
+            {isRegister
+              ? "Takes under a minute. No credit card required."
+              : "Continue to your saved searches and alerts."}
           </motion.p>
 
-          <motion.div className="grid grid-cols-2 gap-3 mb-7" variants={formField}>
-            <SocialBtn icon={<GoogleIcon />} label="Google" />
-            <SocialBtn icon={<GitHubIcon />} label="GitHub" />
+          <motion.div className="rv-login-social" variants={formItem}>
+            <SocialBtn icon={<GoogleIcon />} label="Continue with Google" />
+            <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" />
           </motion.div>
 
-          <motion.div className="flex items-center gap-3 mb-7" variants={formField}>
-            <div className="h-px flex-1 bg-[var(--rule)]" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">or with email</span>
-            <div className="h-px flex-1 bg-[var(--rule)]" />
+          <motion.div className="rv-login-or" variants={formItem}>
+            <span>or use email</span>
           </motion.div>
 
-          <form onSubmit={handleSubmit} noValidate className="space-y-5">
-            <motion.div variants={formField}>
-              <Field label="Email address" error={errors.email}>
+          <form onSubmit={handleSubmit} noValidate className="rv-login-form">
+            <motion.div variants={formItem}>
+              <Field label="Email" error={errors.email}>
                 <input
                   type="email"
                   value={email}
-                  onChange={e => { setEmail(e.target.value); clearErr("email"); }}
+                  onChange={(e) => { setEmail(e.target.value); clearErr("email"); }}
                   placeholder="you@example.com"
-                  className={`field-input ${errors.email ? "err" : ""}`}
+                  className={`rv-input ${errors.email ? "rv-input-err" : ""}`}
+                  autoComplete="email"
                 />
               </Field>
             </motion.div>
 
-            <motion.div variants={formField}>
+            <motion.div variants={formItem}>
               <Field label="Password" error={errors.password}>
-                <div className="relative">
+                <div className="rv-password-wrap">
                   <input
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={e => { setPassword(e.target.value); clearErr("password"); }}
-                    placeholder="••••••••"
-                    className={`field-input pr-12 ${errors.password ? "err" : ""}`}
+                    onChange={(e) => { setPassword(e.target.value); clearErr("password"); }}
+                    placeholder={isRegister ? "At least 8 characters" : "Your password"}
+                    className={`rv-input rv-input-pw ${errors.password ? "rv-input-err" : ""}`}
+                    autoComplete={isRegister ? "new-password" : "current-password"}
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(s => !s)}
+                    onClick={() => setShowPassword((s) => !s)}
                     tabIndex={-1}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--ink-muted)] hover:text-[var(--ink)] transition-colors"
+                    className="rv-password-eye"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff /> : <Eye />}
                   </button>
@@ -321,33 +237,34 @@ export default function LoginPage({ onLogin }: Props) {
               </Field>
             </motion.div>
 
-            <motion.div className="flex items-center justify-between pt-1" variants={formField}>
-              <label className="flex items-center gap-2.5 cursor-pointer select-none" onClick={() => setRememberMe(v => !v)}>
-                <span
-                  className={`w-4 h-4 rounded-[4px] border-[1.5px] flex items-center justify-center transition-colors duration-150 ${rememberMe ? "bg-[var(--blue)] border-[var(--blue)]" : "bg-transparent border-[var(--rule-strong)]"}`}
-                >
+            <motion.div className="rv-login-row" variants={formItem}>
+              <label
+                className="rv-checkbox"
+                onClick={(e) => { e.preventDefault(); setRememberMe((v) => !v); }}
+              >
+                <span className={`rv-checkbox-box ${rememberMe ? "rv-checkbox-box-on" : ""}`}>
                   {rememberMe && (
-                    <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </span>
-                <span className="text-[13px] text-[var(--ink-soft)]">Remember me</span>
+                <span>Remember me</span>
               </label>
-              <button type="button" className="text-[13px] text-[var(--blue)] hover:text-[var(--blue-deep)] transition-colors font-medium">
-                Forgot password?
-              </button>
+              {!isRegister && (
+                <button type="button" className="rv-login-forgot">Forgot password?</button>
+              )}
             </motion.div>
 
-            <motion.div variants={formField}>
+            <motion.div variants={formItem}>
               <button
                 type="submit"
                 disabled={loading}
-                className="rv-submit"
+                className="rv-login-submit"
               >
                 {loading ? (
                   <>
-                    <svg className="w-4 h-4 spin" viewBox="0 0 24 24" fill="none">
+                    <svg className="w-4 h-4 rv-spin" viewBox="0 0 24 24" fill="none">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
                       <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -356,29 +273,56 @@ export default function LoginPage({ onLogin }: Props) {
                 ) : (
                   <>
                     <span>{isRegister ? "Create account" : "Sign in"}</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14M13 5l7 7-7 7" />
+                    </svg>
                   </>
                 )}
               </button>
             </motion.div>
 
             {formError && (
-              <p className="mt-2 text-[12.5px] text-[#dc2626] flex items-center gap-1.5">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] text-[#dc2626] font-bold text-[10px]">!</span>
+              <motion.p
+                className="rv-login-form-err"
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <span className="rv-login-form-err-mark">!</span>
                 {formError}
-              </p>
+              </motion.p>
             )}
           </form>
 
-          <motion.p className="mt-9 text-center text-[13px] text-[var(--ink-muted)]" variants={formField}>
-            {isRegister ? "Already have an account? " : "New here? "}
+          <motion.div className="rv-login-guest" variants={formItem}>
+            <span className="rv-login-guest-rule" />
             <button
               type="button"
-              onClick={toggleMode}
-              className="text-[var(--ink)] font-semibold underline underline-offset-4 decoration-[var(--blue)] decoration-2 hover:decoration-[var(--ink)] transition-colors"
+              onClick={() => exitThen(onGuest)}
+              className="rv-guest-btn"
             >
+              <span className="rv-guest-btn-icon">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="3.5" />
+                  <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
+                </svg>
+              </span>
+              <span>Continue as guest</span>
+              <svg className="rv-guest-btn-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M13 5l7 7-7 7" />
+              </svg>
+            </button>
+            <span className="rv-login-guest-hint">Just looking? Browse today&apos;s deals — no account needed.</span>
+          </motion.div>
+
+          <motion.p className="rv-login-toggle" variants={formItem}>
+            {isRegister ? "Already a member? " : "New here? "}
+            <button type="button" onClick={toggleMode} className="rv-login-toggle-btn">
               {isRegister ? "Sign in instead" : "Create an account"}
             </button>
+          </motion.p>
+
+          <motion.p className="rv-login-fine" variants={formItem}>
+            By {isRegister ? "creating an account" : "signing in"} you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.
           </motion.p>
         </motion.div>
       </main>
@@ -386,37 +330,54 @@ export default function LoginPage({ onLogin }: Props) {
   );
 }
 
+/* ── HELPERS ──────────────────────────────────────────────── */
+
 function parseAuthError(raw: string): string {
   if (/409/.test(raw) || /already registered/i.test(raw)) return "That email is already registered.";
   if (/401/.test(raw) || /Invalid email or password/i.test(raw)) return "Invalid email or password.";
-  if (/429/.test(raw)) return "Too many attempts — please try again in a minute.";
+  if (/429/.test(raw)) return "Too many attempts — try again in a minute.";
   if (/value is not a valid email/i.test(raw)) return "Enter a valid email.";
   if (/string_too_short/i.test(raw)) return "Password must be at least 8 characters.";
   return raw.length > 120 ? "Something went wrong." : raw;
 }
 
-const RECENT_DEALS = [
-  { tag: "AUS/TX", label: "2019 Civic", delta: "−20.5%" },
-  { tag: "PHX/AZ", label: "2018 Camry", delta: "−24.1%" },
-  { tag: "ATL/GA", label: "2017 Altima", delta: "−31.4%" },
-];
+function Wordmark() {
+  return (
+    <a href="/" className="rv-wordmark">
+      <span className="rv-wordmark-mark">
+        <svg viewBox="0 0 36 36" width="30" height="30" aria-hidden>
+          <circle cx="18" cy="18" r="17" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path
+            d="M11 25 V13 H19 a4 4 0 0 1 0 8 H13 M17 21 L23 25"
+            fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      <span className="rv-wordmark-name">Revveal</span>
+    </a>
+  );
+}
 
-const STATS = [
-  { val: "12.4k", lbl: "listings · today" },
-  { val: "$3.2k", lbl: "avg. savings" },
-  { val: "94%", lbl: "model accuracy" },
-];
+function PaperGrain() {
+  return (
+    <svg className="rv-grain" aria-hidden>
+      <filter id="rv-login-grain">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
+        <feColorMatrix values="0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0 0.03  0 0 0 0.5 0" />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#rv-login-grain)" />
+    </svg>
+  );
+}
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="text-[12px] font-medium text-[var(--ink-soft)] mb-2 block">
-        {label}
-      </label>
+    <div className="rv-field">
+      <label className="rv-field-label">{label}</label>
       {children}
       {error && (
-        <p className="mt-2 text-[12px] text-[#dc2626] flex items-center gap-1.5">
-          <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] text-[#dc2626] font-bold text-[10px]">!</span>
+        <p className="rv-field-err">
+          <span className="rv-field-err-mark">!</span>
           {error}
         </p>
       )}
@@ -426,10 +387,7 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 
 function SocialBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
-    <button
-      type="button"
-      className="flex items-center justify-center gap-2.5 px-4 py-3 bg-white border border-[var(--rule-strong)] rounded-[12px] text-[14px] font-medium text-[var(--ink)] hover:border-[var(--ink)] transition-colors duration-200"
-    >
+    <button type="button" className="rv-social-btn">
       {icon}
       <span>{label}</span>
     </button>
@@ -438,7 +396,7 @@ function SocialBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
 
 function Eye() {
   return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
     </svg>
@@ -446,7 +404,7 @@ function Eye() {
 }
 function EyeOff() {
   return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
     </svg>
   );
@@ -469,90 +427,599 @@ function GitHubIcon() {
   );
 }
 
-const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* ── DATA ─────────────────────────────────────────────────── */
 
-  :root {
-    --paper: #ffffff;
-    --blue-tint: #ebf1ff;
-    --ink: #0a1530;
-    --ink-soft: #475574;
-    --ink-muted: #8392ad;
-    --rule: #e3e9f3;
-    --rule-strong: #cfd8e6;
-    --blue: #1f5fff;
-    --blue-deep: #1648c4;
+const RECENT_DEALS = [
+  { label: "2018 Toyota Camry SE", loc: "Phoenix, AZ", delta: "−24.1%" },
+  { label: "2017 Nissan Altima",   loc: "Atlanta, GA", delta: "−31.4%" },
+  { label: "2019 Honda Civic EX",  loc: "Austin, TX",  delta: "−20.5%" },
+];
+
+/* ── STYLES ───────────────────────────────────────────────── */
+
+const STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+  .rv-login {
+    --paper:        #ece2cd;
+    --paper-deep:   #ddd0b4;
+    --paper-soft:   #f3eada;
+    --paper-pale:   #f7f0df;
+    --ink:          #18130a;
+    --ink-soft:     #2a2418;
+    --ink-muted:    #6f6244;
+    --ink-fade:     #968866;
+    --red:          #b8312e;
+    --red-deep:     #8a1d1c;
+    --brass:        #a3792c;
+    --err:          #b8312e;
+
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Newsreader', Georgia, serif;
+    font-feature-settings: "ss01", "ss02", "liga";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    position: relative;
+    overflow: hidden;
   }
 
-  body { font-family: 'Geist', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .rv-login .rv-display {
+    font-family: 'Fraunces', 'Times New Roman', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 0;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+  }
 
-  .display {
-    font-family: 'Bricolage Grotesque', serif;
-    font-variation-settings: "wdth" 100, "opsz" 96;
+  .rv-login .rv-emph {
+    font-style: italic;
+    color: var(--red);
+    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
+  }
+
+  /* Paper grain */
+  .rv-login .rv-grain {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.28;
+    mix-blend-mode: multiply;
+  }
+
+  /* ── WORDMARK ─────────────────────────────────────── */
+  .rv-login .rv-wordmark {
+    display: inline-flex; align-items: center; gap: 10px;
+    color: var(--ink); text-decoration: none;
+  }
+  .rv-login .rv-wordmark-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    background: var(--red); color: var(--paper);
+  }
+  .rv-login .rv-wordmark-name {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-weight: 700;
+    font-size: 21px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    line-height: 1;
+  }
+
+  /* ── SIDE (LEFT) ───────────────────────────────────── */
+  .rv-login .rv-login-side {
+    display: none;
+    position: relative;
+    width: 54%;
+    background: var(--ink);
+    color: var(--paper-pale);
+    padding: 44px 56px 36px;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    border-right: 1px solid var(--ink);
+    isolation: isolate;
+  }
+  @media (min-width: 1024px) {
+    .rv-login .rv-login-side { display: flex; }
+  }
+  .rv-login .rv-login-side .rv-wordmark { color: var(--paper-pale); }
+  .rv-login .rv-login-side .rv-wordmark-mark {
+    background: var(--red);
+    color: var(--paper-pale);
+  }
+  .rv-login .rv-login-side .rv-wordmark-name { color: var(--paper-pale); }
+
+  .rv-login .rv-login-side-header,
+  .rv-login .rv-login-side-body,
+  .rv-login .rv-login-side-foot {
+    position: relative;
+    z-index: 2;
+  }
+
+  .rv-login .rv-login-side-body {
+    max-width: 28rem;
+  }
+  .rv-login .rv-login-side-eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--paper-deep);
+    color: var(--paper-pale);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    margin-bottom: 28px;
+    opacity: 0.85;
+  }
+  .rv-login .rv-login-side-dot {
+    width: 6px; height: 6px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: rv-login-pulse 2s ease-in-out infinite;
+  }
+  @keyframes rv-login-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .rv-login .rv-login-side-title {
+    font-size: clamp(2.8rem, 5.5vw, 4.4rem);
+    line-height: 0.96;
+    letter-spacing: -0.025em;
+    color: var(--paper-pale);
+    margin: 0 0 22px;
+    font-weight: 600;
+    max-width: 16ch;
+  }
+  .rv-login .rv-login-side-sub {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--paper-deep);
+    margin: 0;
+    max-width: 36ch;
+  }
+
+  /* Recent deals strip — bottom of left side */
+  .rv-login .rv-login-side-foot {
+    padding-top: 22px;
+    border-top: 1px solid rgba(245, 235, 210, 0.20);
+  }
+  .rv-login .rv-login-side-foot-k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-fade);
+    margin-bottom: 14px;
     font-weight: 600;
   }
-
-  .rv-accent { color: #4d7fff; }
-
-  .brand-photo {
-    filter: saturate(0.85) contrast(1.05);
-    transform: scale(1.06);
+  .rv-login .rv-login-side-deals {
+    list-style: none;
+    padding: 0; margin: 0;
+    display: flex; flex-direction: column;
+    gap: 8px;
   }
-
-  .field-input {
-    width: 100%;
-    padding: 14px 16px;
-    background: white;
-    border: 1px solid var(--rule-strong);
-    border-radius: 12px;
-    font-size: 15px;
-    color: var(--ink);
-    outline: none;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
-    font-family: 'Geist', sans-serif;
+  .rv-login .rv-login-side-deal {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 18px;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(245, 235, 210, 0.18);
   }
-  .field-input::placeholder { color: var(--ink-muted); opacity: 0.7; }
-  .field-input:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 4px rgba(31,95,255,0.10);
-  }
-  .field-input.err {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 4px rgba(239,68,68,0.08);
-  }
-
-  .rv-submit {
-    width: 100%;
-    margin-top: 6px;
-    padding: 14px 24px;
-    background: var(--blue);
-    color: white;
+  .rv-login .rv-login-side-deal:last-child { border-bottom: none; }
+  .rv-login .rv-login-side-deal-title {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 18, "SOFT" 30;
     font-weight: 500;
     font-size: 15px;
-    border-radius: 999px;
-    transition: background-color 0.2s ease;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    box-shadow: 0 4px 14px rgba(31,95,255,0.26), inset 0 1px 0 rgba(255,255,255,0.16);
+    color: var(--paper-pale);
+    letter-spacing: -0.005em;
   }
-  .rv-submit:hover:not(:disabled) { background: var(--blue-deep); }
-  .rv-submit:disabled { opacity: 0.65; cursor: wait; }
-
-  .rv-live-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #4d7fff;
-    box-shadow: 0 0 0 0 rgba(77,127,255,0);
-    animation: liveBeat 2.4s ease-in-out infinite;
-    display: inline-block;
+  .rv-login .rv-login-side-deal-loc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--ink-fade);
+    letter-spacing: 0.06em;
   }
-  @keyframes liveBeat {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(77,127,255,0.45); }
-    50%      { box-shadow: 0 0 0 5px rgba(77,127,255,0); }
+  .rv-login .rv-login-side-deal-delta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+    font-variant-numeric: tabular-nums;
+    min-width: 56px;
+    text-align: right;
   }
 
-  @keyframes spin { to { transform: rotate(360deg); }}
-  .spin { animation: spin 0.7s linear infinite; }
+  /* ── MAIN (RIGHT) ─────────────────────────────────── */
+  .rv-login .rv-login-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 36px 22px 28px;
+    background: var(--paper);
+    position: relative;
+  }
+  .rv-login .rv-login-main-inner {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+  }
 
+  .rv-login .rv-login-back {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--ink-muted);
+    text-decoration: none;
+    margin-bottom: 36px;
+    transition: color 0.2s ease;
+  }
+  .rv-login .rv-login-back:hover { color: var(--red); }
+  .rv-login .rv-login-back svg { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+  .rv-login .rv-login-back:hover svg { transform: translateX(-3px); }
+
+  .rv-login .rv-login-title {
+    font-size: clamp(2.2rem, 4.2vw, 2.8rem);
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--ink);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  .rv-login .rv-login-sub {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ink-muted);
+    margin: 0 0 28px;
+  }
+
+  /* Social buttons */
+  .rv-login .rv-login-social {
+    display: flex; flex-direction: column;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .rv-login .rv-social-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .rv-login .rv-social-btn:hover {
+    background: var(--paper);
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .rv-login .rv-social-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+
+  /* Divider */
+  .rv-login .rv-login-or {
+    display: flex; align-items: center; gap: 14px;
+    margin: 24px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-fade);
+    font-weight: 600;
+  }
+  .rv-login .rv-login-or::before,
+  .rv-login .rv-login-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--ink-fade);
+    opacity: 0.5;
+  }
+
+  /* Form */
+  .rv-login .rv-login-form {
+    display: flex; flex-direction: column;
+    gap: 18px;
+  }
+  .rv-login .rv-field { display: flex; flex-direction: column; gap: 6px; }
+  .rv-login .rv-field-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 600;
+  }
+  .rv-login .rv-input {
+    width: 100%;
+    padding: 13px 14px;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-family: 'Newsreader', serif;
+    font-size: 15.5px;
+    line-height: 1.2;
+    border-radius: 0;
+    outline: none;
+    transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .rv-login .rv-input::placeholder { color: var(--ink-fade); }
+  .rv-login .rv-input:focus {
+    background: #ffffff;
+    box-shadow: 3px 3px 0 var(--red);
+    transform: translate(-1px, -1px);
+  }
+  .rv-login .rv-input-err {
+    border-color: var(--err);
+    background: rgba(184, 49, 46, 0.05);
+  }
+  .rv-login .rv-input-err:focus { box-shadow: 3px 3px 0 var(--err); }
+
+  .rv-login .rv-input-pw { padding-right: 44px; }
+  .rv-login .rv-password-wrap { position: relative; }
+  .rv-login .rv-password-eye {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    padding: 4px;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s ease;
+  }
+  .rv-login .rv-password-eye:hover { color: var(--ink); }
+
+  .rv-login .rv-field-err {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--err);
+    margin: 4px 0 0;
+  }
+  .rv-login .rv-field-err-mark {
+    width: 14px; height: 14px;
+    background: var(--err);
+    color: var(--paper-pale);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .rv-login .rv-login-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding-top: 2px;
+  }
+  .rv-login .rv-checkbox {
+    display: inline-flex; align-items: center; gap: 9px;
+    cursor: pointer;
+    user-select: none;
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .rv-login .rv-checkbox-box {
+    width: 16px; height: 16px;
+    border: 1.5px solid var(--ink);
+    background: var(--paper-pale);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--paper-pale);
+    transition: background 0.15s ease;
+  }
+  .rv-login .rv-checkbox-box-on { background: var(--ink); }
+  .rv-login .rv-login-forgot {
+    background: transparent; border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ink);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--ink);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .rv-login .rv-login-forgot:hover { color: var(--red); border-color: var(--red); }
+
+  /* Submit — matching homepage primary button */
+  .rv-login .rv-login-submit {
+    width: 100%;
+    margin-top: 6px;
+    padding: 14px 22px;
+    background: var(--red);
+    color: var(--paper-pale);
+    border: 1px solid var(--red);
+    border-radius: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .rv-login .rv-login-submit:hover:not(:disabled) {
+    background: var(--red-deep);
+    border-color: var(--red-deep);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .rv-login .rv-login-submit:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+  .rv-login .rv-login-submit:disabled { opacity: 0.7; cursor: wait; }
+
+  .rv-login .rv-spin { animation: rv-spin 0.7s linear infinite; width: 14px; height: 14px; }
+  @keyframes rv-spin { to { transform: rotate(360deg); } }
+
+  .rv-login .rv-login-form-err {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--err);
+    margin: 6px 0 0;
+    padding: 10px 12px;
+    background: rgba(184, 49, 46, 0.06);
+    border-left: 2px solid var(--err);
+  }
+  .rv-login .rv-login-form-err-mark {
+    width: 16px; height: 16px;
+    background: var(--err);
+    color: var(--paper-pale);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-style: normal;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* Guest path — tertiary, lighter than submit/social but same letterpress hover */
+  .rv-login .rv-login-guest {
+    display: flex; flex-direction: column; align-items: stretch;
+    gap: 12px;
+    margin-top: 22px;
+  }
+  .rv-login .rv-login-guest-rule {
+    height: 1px;
+    background: var(--ink-fade);
+    opacity: 0.4;
+    margin-bottom: 4px;
+  }
+  .rv-login .rv-guest-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 13px 18px;
+    background: transparent;
+    border: 1px dashed var(--ink);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease, color 0.2s ease;
+  }
+  .rv-login .rv-guest-btn:hover {
+    background: var(--paper-pale);
+    border-color: var(--ink);
+    border-style: solid;
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .rv-login .rv-guest-btn:active {
+    transform: translate(1px, 1px);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+  .rv-login .rv-guest-btn-icon { display: inline-flex; align-items: center; color: var(--ink-muted); transition: color 0.2s ease; }
+  .rv-login .rv-guest-btn:hover .rv-guest-btn-icon { color: var(--red); }
+  .rv-login .rv-guest-btn-arrow { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+  .rv-login .rv-guest-btn:hover .rv-guest-btn-arrow { transform: translateX(3px); }
+  .rv-login .rv-login-guest-hint {
+    text-align: center;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--ink-fade);
+    line-height: 1.5;
+  }
+
+  /* Toggle (login ↔ register) */
+  .rv-login .rv-login-toggle {
+    text-align: center;
+    margin: 28px 0 10px;
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    color: var(--ink-muted);
+  }
+  .rv-login .rv-login-toggle-btn {
+    background: transparent; border: none;
+    color: var(--ink);
+    font-family: 'Newsreader', serif;
+    font-size: 14px;
+    font-weight: 600;
+    font-style: italic;
+    cursor: pointer;
+    padding: 0;
+    border-bottom: 1px solid var(--red);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .rv-login .rv-login-toggle-btn:hover {
+    color: var(--red);
+  }
+
+  .rv-login .rv-login-fine {
+    text-align: center;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: var(--ink-fade);
+    margin: 0;
+    max-width: 36ch;
+    margin-left: auto; margin-right: auto;
+    line-height: 1.5;
+  }
+  .rv-login .rv-login-fine a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-color: var(--red);
+    text-underline-offset: 3px;
+  }
+  .rv-login .rv-login-fine a:hover { color: var(--red); }
+
+  /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    .rv-live-dot { animation: none; }
+    .rv-login .rv-login-side-dot { animation: none; }
+  }
+
+  /* Responsive */
+  @media (max-width: 1023px) {
+    .rv-login .rv-login-main { padding: 32px 20px; }
+  }
+  @media (max-width: 480px) {
+    .rv-login .rv-login-main { padding: 24px 18px; }
+    .rv-login .rv-login-back { margin-bottom: 24px; }
+    .rv-login .rv-login-title { font-size: 2rem; }
   }
 `;

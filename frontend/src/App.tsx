@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
-import { getToken } from "./api";
+import { getToken, isGuest, setGuestMode } from "./api";
 import {
   useDeals,
   useLogoutMutation,
@@ -54,18 +54,51 @@ const dashForm: Variants = {
 export default function App() {
   const me = useMe();
   const [showLogin, setShowLogin] = useState(false);
+  const [guest, setGuest] = useState(isGuest);
   const logoutMut = useLogoutMutation();
 
   const bootstrapping = !!getToken() && me.isLoading;
 
   function handleLogout() {
     logoutMut.mutate();
+    setGuest(false);
+    setShowLogin(false);
+  }
+
+  // Enter the dashboard without an account (browse-only).
+  function enterGuest() {
+    setGuestMode(true);
+    setGuest(true);
+    setShowLogin(false);
+  }
+
+  // Leave guest mode to make a real account (kicks the login page into view).
+  function goCreateAccount() {
+    setGuestMode(false);
+    setGuest(false);
+    setShowLogin(true);
+  }
+
+  // Leave guest mode back to the marketing page.
+  function exitGuest() {
+    setGuestMode(false);
+    setGuest(false);
+  }
+
+  // A real sign-in always supersedes a lingering guest flag.
+  function handleRealLogin() {
+    setGuestMode(false);
+    setGuest(false);
     setShowLogin(false);
   }
 
   if (bootstrapping) return <BootSplash />;
   if (me.data) return <Dashboard onLogout={handleLogout} />;
-  if (showLogin) return <LoginPage onLogin={() => setShowLogin(false)} />;
+  if (guest)
+    return (
+      <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />
+    );
+  if (showLogin) return <LoginPage onLogin={handleRealLogin} onGuest={enterGuest} />;
   return <HomePage onGetStarted={() => setShowLogin(true)} />;
 }
 
@@ -94,7 +127,17 @@ function BootSplash() {
   );
 }
 
-function Dashboard({ onLogout }: { onLogout: () => void }) {
+function Dashboard({
+  onLogout,
+  guest = false,
+  onCreateAccount,
+  onExitGuest,
+}: {
+  onLogout?: () => void;
+  guest?: boolean;
+  onCreateAccount?: () => void;
+  onExitGuest?: () => void;
+}) {
   const [city, setCity] = useState("austin");
   const [query, setQuery] = useState("honda civic");
   const [maxResults, setMaxResults] = useState(10);
@@ -109,6 +152,11 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    // Live search is account-only — nudge guests toward sign-up instead.
+    if (guest) {
+      onCreateAccount?.();
+      return;
+    }
     scrapeMutation.mutate(
       { city, query, maxResults },
       { onSuccess: (data) => setJobId(data.job_id) },
@@ -162,20 +210,37 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
               <span className="display text-[1.4rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
             </a>
             <span className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--blue-tint)] text-[var(--blue-deep)] font-mono text-[10px] uppercase tracking-[0.18em]">
-              <span className="rv-live-dot" /> Buyer's Console · v3.2
+              <span className="rv-live-dot" /> {guest ? "Guest preview" : "Buyer's Console · v3.2"}
             </span>
           </div>
-          <button
-            onClick={onLogout}
-            className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex items-center gap-1.5"
-          >
-            <span>Sign out</span>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-          </button>
+          {guest ? (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={onExitGuest}
+                className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+              >
+                Exit
+              </button>
+              <button onClick={onCreateAccount} className="rv-header-cta">
+                <span>Create account</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onLogout}
+              className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex items-center gap-1.5"
+            >
+              <span>Sign out</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
+          )}
         </div>
       </header>
 
@@ -214,7 +279,7 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
           <motion.form
             onSubmit={handleSearch}
             variants={dashForm}
-            className="bg-white border border-[var(--rule)] rounded-[20px] p-7 md:p-9 shadow-soft"
+            className="relative bg-white border border-[var(--rule)] rounded-[20px] p-7 md:p-9 shadow-soft"
           >
             <div className="flex items-center gap-3 mb-7">
               <span className="rv-tag rv-tag-blue">Parameters</span>
@@ -223,16 +288,16 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-              <Input label="City" value={city} onChange={setCity} placeholder="austin" />
-              <Input label="Search query" value={query} onChange={setQuery} placeholder="honda civic" />
-              <Input label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} />
-              <Input label="Min undervalue %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} />
+              <Input label="City" value={city} onChange={setCity} placeholder="austin" disabled={guest} />
+              <Input label="Search query" value={query} onChange={setQuery} placeholder="honda civic" disabled={guest} />
+              <Input label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} disabled={guest} />
+              <Input label="Min undervalue %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} disabled={guest} />
             </div>
 
             <div className="mt-7 flex items-center gap-6 flex-wrap">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || guest}
                 className="rv-primary"
               >
                 <span>{loading ? (stage ?? "Querying") : "Run search"}</span>
@@ -258,6 +323,8 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
                 </p>
               </div>
             )}
+
+            {guest && <GuestLock onCreateAccount={onCreateAccount} />}
           </motion.form>
         </section>
       </motion.div>
@@ -379,12 +446,14 @@ function Input({
   onChange,
   placeholder,
   type = "text",
+  disabled = false,
 }: {
   label: string;
   value: any;
   onChange: (v: any) => void;
   placeholder?: string;
   type?: string;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -395,9 +464,35 @@ function Input({
         type={type}
         value={value}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="rv-input"
+        className="rv-input disabled:opacity-55 disabled:cursor-not-allowed"
       />
+    </div>
+  );
+}
+
+function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
+  return (
+    <div className="rv-guest-lock">
+      <div className="rv-guest-lock-card">
+        <span className="rv-guest-lock-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+            <path d="M8 10.5V7a4 4 0 018 0v3.5" />
+          </svg>
+        </span>
+        <p className="display text-[1.25rem] leading-tight tracking-[-0.015em] font-semibold mb-1.5">
+          Live search is <span className="text-[var(--blue)] italic">account-only</span>
+        </p>
+        <p className="text-[13.5px] text-[var(--ink-soft)] max-w-[34ch] mb-5 leading-relaxed">
+          Create a free account to run live marketplace searches. Browsing today&apos;s deals stays free.
+        </p>
+        <button onClick={onCreateAccount} className="rv-primary">
+          <span>Create a free account</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7" /></svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -509,6 +604,56 @@ const SHARED_STYLES = `
   }
   .rv-primary:hover:not(:disabled) { background: var(--blue-deep); }
   .rv-primary:disabled { opacity: 0.65; cursor: wait; }
+
+  /* Guest header CTA — compact pill that mirrors the primary action */
+  .rv-header-cta {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 8px 16px;
+    background: var(--blue);
+    color: white;
+    font-size: 13px; font-weight: 500;
+    border-radius: 999px;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    box-shadow: 0 4px 14px rgba(31,95,255,0.26), inset 0 1px 0 rgba(255,255,255,0.16);
+  }
+  .rv-header-cta:hover { background: var(--blue-deep); transform: translateY(-1px); }
+  .rv-header-cta svg { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+  .rv-header-cta:hover svg { transform: translateX(3px); }
+
+  /* Guest lock — frosted overlay over the locked search form */
+  .rv-guest-lock {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+    border-radius: 20px;
+    background: rgba(247, 249, 252, 0.62);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    z-index: 5;
+    animation: rv-guest-lock-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes rv-guest-lock-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .rv-guest-lock-card {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+  }
+  .rv-guest-lock-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: var(--blue-tint);
+    color: var(--blue);
+    margin-bottom: 16px;
+    box-shadow: 0 4px 14px rgba(31,95,255,0.16);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rv-guest-lock { animation: none; }
+    .rv-header-cta:hover { transform: none; }
+  }
 
   .rv-deal-card-link {
     display: block;

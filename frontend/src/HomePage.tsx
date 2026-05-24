@@ -157,24 +157,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         }, 0.3);
       }
 
-      // Subtle parallax on the single hero ghost
-      gsap.to(".rv-hero-ghost", {
-        yPercent: -8, ease: "none",
-        scrollTrigger: { trigger: ".rv-hero", start: "top top", end: "bottom top", scrub: true },
-      });
-
-      // ── BULLETIN ─────────────────────────────────────
-      ScrollTrigger.create({
-        trigger: "[data-rv-section='features']",
-        start: "top 80%",
-        once: true,
-        onEnter: () => {
-          gsap.to("[data-rv-section='features'] .rv-bulletin-item", {
-            y: 0, opacity: 1, duration: 0.75, stagger: 0.07, ease: "expo.out", delay: 0.15,
-          });
-        },
-      });
-
       // ── HOW ──────────────────────────────────────────
       ScrollTrigger.create({
         trigger: "[data-rv-section='how']",
@@ -281,6 +263,35 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         },
       });
 
+      // ── STACKING DEPTH ───────────────────────────────
+      // Each panel is sticky (CSS); as the *next* panel slides up to cover it,
+      // ease the covered panel "back" — slight scale-down + dim + rounded
+      // corners — so the stack reads as layered cards, not a flat snap.
+      // Desktop only; the CSS already drops to normal flow below 900px.
+      if (window.matchMedia("(min-width: 901px)").matches) {
+        const panels = gsap.utils.toArray<HTMLElement>("[data-rv-panel]");
+        panels.forEach((panel, i) => {
+          const next = panels[i + 1];
+          if (!next) return; // last panel never gets covered
+          gsap.fromTo(
+            panel,
+            { scale: 1, filter: "brightness(1)", borderRadius: "0px" },
+            {
+              scale: 0.94,
+              filter: "brightness(0.82)",
+              borderRadius: "22px",
+              ease: "none",
+              scrollTrigger: {
+                trigger: next,
+                start: "top bottom",
+                end: "top top",
+                scrub: true,
+              },
+            },
+          );
+        });
+      }
+
       if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(() => ScrollTrigger.refresh());
       }
@@ -355,9 +366,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </nav>
 
       {/* ── HERO ─────────────────────────────────────────── */}
-      <section data-rv-section="hero" className="rv-hero">
-        <span className="rv-hero-ghost" aria-hidden>2026</span>
-
+      <section data-rv-section="hero" data-rv-panel className="rv-hero" style={{ zIndex: 1 }}>
         <div className="rv-hero-inner">
           <div className="rv-hero-grid">
             <div className="rv-hero-main">
@@ -381,7 +390,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               </svg>
 
               <p data-rv-hero-lede className="rv-hero-lede">
-                Revveal scans Marketplace, Craigslist, AutoTrader and dealer feeds every few minutes, compares each listing to fifty thousand comparable sales, and surfaces the ones priced below fair market value &mdash; with the math attached.
+                We scan every major marketplace and surface the used cars priced below fair market value &mdash; with the math attached.
               </p>
 
               <div className="rv-hero-cta-row">
@@ -447,34 +456,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         </div>
       </section>
 
-      {/* ── BULLETIN (FEATURES) ─────────────────────────── */}
-      <section id="features" data-rv-section="features" className="rv-section">
-        <div className="rv-section-inner">
-          <SectionHead
-            title="What we actually do."
-            sub="No paid placement. No mystery scores. Just listings ranked by how far below fair market value they're priced."
-          />
-
-          <div className="rv-bulletin-grid">
-            {FEATURES.map((f, i) => (
-              <article key={f.title} className="rv-bulletin-item" data-rv-reveal>
-                <div className="rv-bulletin-num-row">
-                  <span className="rv-bulletin-num">{String(i + 1).padStart(2, "0")}</span>
-                </div>
-                <h3 className="rv-display rv-bulletin-title">{f.title}</h3>
-                <p className="rv-bulletin-body">{f.body}</p>
-                <div className="rv-bulletin-foot">
-                  <span className="rv-bulletin-icon">{f.icon}</span>
-                  <span className="rv-bulletin-foot-text">{f.foot}</span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS — asymmetric ──────────────────── */}
-      <section id="how" data-rv-section="how" className="rv-section rv-section-paper">
+      {/* ── HOW IT WORKS / WHAT WE DO ──────────────────── */}
+      <section id="how" data-rv-section="how" data-rv-panel className="rv-section rv-section-paper" style={{ zIndex: 2 }}>
         <div className="rv-section-inner">
           <div className="rv-how-grid">
             <div className="rv-how-side">
@@ -482,7 +465,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                 How it works
               </h2>
               <p className="rv-how-side-sub">
-                Three things have to be true for a deal to make it in. Every listing gets the same treatment — no favors, no exceptions.
+                Every listing runs the same three steps. No favors, no paid placement.
               </p>
             </div>
 
@@ -503,7 +486,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </section>
 
       {/* ── INDEX (deals) — full product UI ─────────────── */}
-      <section id="deals" data-rv-section="deals" className="rv-section">
+      <section id="deals" data-rv-section="deals" data-rv-panel className="rv-section" style={{ zIndex: 3 }}>
         <div className="rv-section-inner">
           <SectionHead
             title="Today's deals"
@@ -696,7 +679,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </section>
 
       {/* ── MANIFESTO ────────────────────────────────────── */}
-      <section data-rv-section="compare" className="rv-section rv-section-paper rv-section-compact">
+      <section data-rv-section="compare" data-rv-panel className="rv-section rv-section-paper rv-section-compact" style={{ zIndex: 4 }}>
         <div className="rv-section-inner">
           <SectionHead
             title="Most sites work for sellers. <em class='rv-emph'>We work for buyers.</em>"
@@ -740,7 +723,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </section>
 
       {/* ── PRICING — comparison table ──────────────────── */}
-      <section id="pricing" data-rv-section="pricing" className="rv-section">
+      <section id="pricing" data-rv-section="pricing" data-rv-panel className="rv-section" style={{ zIndex: 5 }}>
         <div className="rv-section-inner">
           <SectionHead
             title="Pricing"
@@ -806,7 +789,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       </section>
 
       {/* ── CTA ──────────────────────────────────────────── */}
-      <section data-rv-section="cta" className="rv-section rv-section-ink rv-section-cta">
+      <section data-rv-section="cta" data-rv-panel className="rv-section rv-section-ink rv-section-cta" style={{ zIndex: 6 }}>
         <div className="rv-section-inner rv-cta-inner">
           <h2 data-rv-cta-headline className="rv-display rv-cta-headline">
             Stop overpaying.<br />
@@ -820,7 +803,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             </svg>
           </h2>
           <p data-rv-cta-sub className="rv-cta-lede">
-            Free for casual buyers. Pro for serious ones. No credit card required to start.
+            Free to start. No credit card required.
           </p>
           <div data-rv-cta-sub className="rv-cta-buttons">
             <button onClick={onGetStarted} className="rv-btn rv-btn-primary-on-dark rv-btn-xl">
@@ -961,7 +944,7 @@ function BuyerDesk() {
             </div>
             <h4 className="rv-display rv-desk-title">Ask a buyer.</h4>
             <p className="rv-desk-body">
-              Send a listing URL or a make/model you&apos;re after. A real person on the team replies — usually inside an hour.
+              Send a listing URL or what you&apos;re after. A real person replies, usually within the hour.
             </p>
           </div>
           {submitted ? (
@@ -1006,7 +989,6 @@ function BuyerDesk() {
 const NAV_LINKS: [string, string][] = [
   ["Deals", "deals"],
   ["How it works", "how"],
-  ["Features", "features"],
   ["Pricing", "pricing"],
 ];
 
@@ -1026,47 +1008,20 @@ const HERO_LOTS = [
   { title: "2020 Subaru Forester", loc: "Denver, CO", miles: "39k mi", price: "$18,900", delta: "−15.6%" },
 ];
 
-const FEATURES = [
-  {
-    title: "Fair-market pricing.",
-    body: "Every listing is scored against fifty thousand comparable sales — year, trim, mileage, region, condition. The math is visible on the deal page.",
-    foot: "Confidence intervals on every score",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M3 3v18h18" /><path d="M7 14l4-4 4 4 6-6" /></svg>,
-  },
-  {
-    title: "Every major source.",
-    body: "Facebook Marketplace, Craigslist, AutoTrader, CarGurus, dealer feeds. Refreshed every few minutes. Duplicates folded. Ghost listings flagged.",
-    foot: "47 metro markets, daily",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>,
-  },
-  {
-    title: "Title & history surfaced.",
-    body: "Salvage titles, branded titles, frame damage, odometer rollback signals — surfaced before you click. VIN history is one click from any listing.",
-    foot: "VIN check included on Pro",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2l8 3v7c0 4-3.4 8-8 9-4.6-1-8-5-8-9V5l8-3z" /><path d="M9 12l2 2 4-4" /></svg>,
-  },
-  {
-    title: "Alerts that move.",
-    body: "Saved searches send SMS and email within five minutes of a matching listing. Underpriced cars sell in hours — by the time the morning is over, the good ones are gone.",
-    foot: "Avg. delivery: 3.4 min",
-    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10 21a2 2 0 004 0" /></svg>,
-  },
-];
-
 const STEPS = [
   {
     title: "Pull every listing.",
-    body: "Marketplace, Craigslist, AutoTrader, CarGurus, dealer feeds — every major US market, refreshed every few minutes, deduped against the listings we already know about.",
+    body: "Marketplace, Craigslist, AutoTrader, CarGurus and dealer feeds — every major US market, refreshed every few minutes and deduped.",
     foot: "Live · 47 markets",
   },
   {
     title: "Compare to fair market.",
-    body: "Score each listing against fifty thousand comparable sales. Year, trim, mileage, region, condition, days-on-market — every input visible on the deal page.",
+    body: "We score each listing against thousands of comparable sales, then surface title, history and odometer flags.",
     foot: "Math published",
   },
   {
     title: "Surface the underpriced ones.",
-    body: "Rank by % below fair market value, with a confidence band. Save a search and we&apos;ll text you within five minutes when a match shows up.",
+    body: "Ranked by % below fair value, with a confidence band. Save a search and we&apos;ll text you within five minutes of a match.",
     foot: "Alerts in &lt; 5 min",
   },
 ];
@@ -1158,17 +1113,17 @@ const FEATURED: DealRow[] = [
 ];
 
 const LEGACY = [
-  "Dealers pay to rank higher in your search results.",
-  "Badges with no explanation of why a deal is good.",
-  "Private sellers and Marketplace listings hidden.",
-  "Pages clogged with sponsored inventory.",
+  "Dealers pay to rank higher in results.",
+  "Badges with no math behind them.",
+  "Private and Marketplace listings buried.",
+  "Pages full of sponsored inventory.",
 ];
 
 const REVVEAL_WAY = [
-  "Pure algorithmic ranking. No paid placement, ever.",
-  "Scores show the comps, deltas, and confidence behind them.",
-  "Marketplace, Craigslist, dealers — one combined index.",
-  "Built for buyers. Not for the inventory page.",
+  "Pure algorithmic ranking. No paid placement.",
+  "Every score shows its comps and confidence.",
+  "Marketplace, Craigslist, dealers — one index.",
+  "Built for buyers, not the inventory page.",
 ];
 
 const TIERS = [
@@ -1184,13 +1139,13 @@ const PRICING_FEATURES: FeatureRow[] = [
   { label: "Saved searches", values: ["1", "Unlimited", "Unlimited"] },
   { label: "Alert delivery", values: ["Daily email", "SMS + email, < 5 min", "SMS + email, < 5 min"] },
   { label: "Confidence intervals", values: [false, true, true] },
-  { label: "Advanced filters (trim, options, days-on-market)", values: [false, true, true] },
+  { label: "Advanced filters", values: [false, true, true] },
   { label: "VIN history checks", values: [false, "3 / month", "Unlimited"] },
   { label: "Title flag surfacing", values: [true, true, true] },
-  { label: "1-on-1 onboarding call", values: [false, false, true] },
-  { label: "We contact sellers on your behalf", values: [false, false, true] },
-  { label: "Pre-purchase inspection coordinated", values: [false, false, true] },
-  { label: "Negotiation script written per listing", values: [false, false, true] },
+  { label: "Onboarding call", values: [false, false, true] },
+  { label: "We contact sellers", values: [false, false, true] },
+  { label: "Inspection coordinated", values: [false, false, true] },
+  { label: "Negotiation scripts", values: [false, false, true] },
 ];
 
 /* ── STYLES ───────────────────────────────────────────────── */
@@ -1210,6 +1165,7 @@ const STYLES = `
     --red:          #b8312e;
     --red-deep:     #8a1d1c;
     --brass:        #a3792c;
+    --rv-nav-h:     62px;
 
     background: var(--paper);
     color: var(--ink);
@@ -1453,26 +1409,11 @@ const STYLES = `
     padding: 48px 24px 72px;
     overflow: hidden;
     isolation: isolate;
+    background: var(--paper);
   }
   .rv-catalog .rv-hero-inner {
     max-width: 1320px; margin: 0 auto;
     position: relative; z-index: 2;
-  }
-  .rv-catalog .rv-hero-ghost {
-    position: absolute;
-    top: 4%; right: -2%;
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 0;
-    font-weight: 900;
-    font-style: italic;
-    font-size: clamp(18rem, 28vw, 32rem);
-    line-height: 0.78;
-    color: var(--paper-deep);
-    opacity: 0.5;
-    pointer-events: none;
-    user-select: none;
-    z-index: 0;
-    letter-spacing: -0.04em;
   }
   .rv-catalog .rv-hero-grid {
     display: grid; grid-template-columns: 1fr; gap: 44px;
@@ -1668,6 +1609,7 @@ const STYLES = `
     position: relative;
     padding: 72px 24px 80px;
     border-top: 1px solid var(--ink);
+    background: var(--paper);
   }
   .rv-catalog .rv-section-paper { background: var(--paper-soft); }
   .rv-catalog .rv-section-ink {
@@ -1678,6 +1620,25 @@ const STYLES = `
   .rv-catalog .rv-section-inner {
     max-width: 1280px; margin: 0 auto;
     position: relative; z-index: 2;
+  }
+
+  /* ── STACKING PANELS — each section pins under the nav and the next
+        slides up to cover it; GSAP eases the covered panel back for depth.
+        Desktop-only enhancement; falls back to normal flow below. ─────── */
+  .rv-catalog [data-rv-panel] {
+    position: sticky;
+    top: var(--rv-nav-h, 62px);
+    min-height: calc(100vh - var(--rv-nav-h, 62px));
+    will-change: transform, filter;
+    transform-origin: 50% 0%;
+  }
+  @media (max-width: 900px) {
+    .rv-catalog [data-rv-panel] {
+      position: static;
+      min-height: 0;
+      transform: none;
+      filter: none;
+    }
   }
 
   /* ── SECTION HEAD ─────────────────────────────────── */
@@ -1702,81 +1663,6 @@ const STYLES = `
     color: var(--ink-muted);
     margin: 14px 0 0;
     max-width: 58ch;
-  }
-
-  /* ── BULLETIN (FEATURES) ──────────────────────────── */
-  .rv-catalog .rv-bulletin-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0;
-    border-top: 1.5px solid var(--ink);
-    border-bottom: 1.5px solid var(--ink);
-  }
-  @media (max-width: 1024px) {
-    .rv-catalog .rv-bulletin-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  @media (max-width: 600px) {
-    .rv-catalog .rv-bulletin-grid { grid-template-columns: 1fr; }
-  }
-  .rv-catalog .rv-bulletin-item {
-    padding: 26px 24px 28px;
-    border-right: 1px solid var(--ink);
-    display: flex; flex-direction: column;
-    min-height: 260px;
-    background: var(--paper);
-    will-change: transform, opacity;
-  }
-  .rv-catalog .rv-bulletin-item:last-child { border-right: none; }
-  @media (max-width: 1024px) {
-    .rv-catalog .rv-bulletin-item:nth-child(2n) { border-right: none; }
-    .rv-catalog .rv-bulletin-item:nth-child(-n+2) { border-bottom: 1px solid var(--ink); }
-  }
-  @media (max-width: 600px) {
-    .rv-catalog .rv-bulletin-item { border-right: none; border-bottom: 1px solid var(--ink); }
-    .rv-catalog .rv-bulletin-item:last-child { border-bottom: none; }
-  }
-  .rv-catalog .rv-bulletin-num-row {
-    display: flex; align-items: baseline; gap: 14px;
-    margin-bottom: 12px;
-  }
-  .rv-catalog .rv-bulletin-num {
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 30;
-    font-weight: 700;
-    font-size: 2.2rem;
-    line-height: 0.85;
-    color: var(--ink);
-    letter-spacing: -0.025em;
-    font-variant-numeric: tabular-nums;
-  }
-  .rv-catalog .rv-bulletin-title {
-    font-size: 1.25rem;
-    line-height: 1.1;
-    letter-spacing: -0.015em;
-    margin: 0 0 10px;
-    color: var(--ink);
-    font-weight: 600;
-  }
-  .rv-catalog .rv-bulletin-body {
-    font-family: 'Newsreader', serif;
-    font-variation-settings: "opsz" 16;
-    font-size: 14.5px;
-    line-height: 1.5;
-    color: var(--ink-soft);
-    flex: 1;
-  }
-  .rv-catalog .rv-bulletin-foot {
-    display: flex; align-items: center; gap: 10px;
-    padding-top: 14px; margin-top: 16px;
-    border-top: 1px dashed var(--ink-fade);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.10em;
-    color: var(--ink-muted);
-  }
-  .rv-catalog .rv-bulletin-icon {
-    color: var(--brass);
-    display: inline-flex; align-items: center;
   }
 
   /* ── HOW IT WORKS — asymmetric ────────────────────── */
@@ -2467,6 +2353,8 @@ const STYLES = `
     border-top: 1.5px solid var(--ink);
     padding: 32px 24px 24px;
     color: var(--ink);
+    position: relative;
+    z-index: 20;
   }
   .rv-catalog .rv-colophon-top {
     display: flex; align-items: center; gap: 24px;
@@ -2649,13 +2537,19 @@ const STYLES = `
     .rv-catalog .rv-legacy-item,
     .rv-catalog .rv-reveal-item,
     .rv-catalog .rv-step-row,
-    .rv-catalog .rv-bulletin-item,
     .rv-catalog .rv-lot-row,
     .rv-catalog .rv-hero-lot-preview,
     .rv-catalog .rv-price-col {
       opacity: 1 !important; transform: none !important;
     }
     .rv-catalog .rv-btn:hover { transform: none; }
+    /* Drop the sticky stack entirely — normal document flow. */
+    .rv-catalog [data-rv-panel] {
+      position: static;
+      min-height: 0;
+      transform: none !important;
+      filter: none !important;
+    }
   }
 
   /* ── RESPONSIVE ───────────────────────────────────── */
@@ -2666,7 +2560,6 @@ const STYLES = `
     .rv-catalog .rv-section-cta { padding: 72px 18px 80px; }
     .rv-catalog .rv-nav-inner { padding: 10px 18px; }
     .rv-catalog .rv-hero-side { padding: 18px 18px 16px; }
-    .rv-catalog .rv-bulletin-item { min-height: 0; padding: 24px 20px 26px; }
     .rv-catalog .rv-manifesto-col { padding: 26px 22px 28px; }
     .rv-catalog .rv-step-row { grid-template-columns: 54px 1fr; gap: 18px; padding: 18px 4px; }
     .rv-catalog .rv-step-num { font-size: 2.4rem; }
