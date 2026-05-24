@@ -304,7 +304,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
     `rv-nav-link${activeSection === id ? " rv-nav-link-active" : ""}`;
 
   return (
-    <div ref={scopeRef} className="rv-catalog min-h-screen overflow-x-hidden relative">
+    <div ref={scopeRef} className="rv-catalog min-h-screen overflow-x-clip relative">
       <style>{STYLES}</style>
       <PaperGrain />
 
