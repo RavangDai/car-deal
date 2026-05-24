@@ -81,8 +81,9 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
     try {
       await mutation.mutateAsync({ email, password });
       exitThen(onLogin);
-    } catch (err: any) {
-      setFormError(parseAuthError(err?.message ?? "Something went wrong."));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      setFormError(parseAuthError(message));
     }
   }
 
@@ -322,7 +323,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </motion.p>
 
           <motion.p className="rv-login-fine" variants={formItem}>
-            By {isRegister ? "creating an account" : "signing in"} you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.
+            By {isRegister ? "creating an account" : "signing in"} you agree to our <a href="#/terms">Terms</a> and <a href="#/privacy">Privacy Policy</a>.
           </motion.p>
         </motion.div>
       </main>
@@ -873,14 +874,14 @@ const STYLES = `
     transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
   .rv-login .rv-login-submit:hover:not(:disabled) {
-    background: var(--red-deep);
-    border-color: var(--red-deep);
+    background: var(--ink);
+    border-color: var(--ink);
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--ink);
+    box-shadow: 4px 4px 0 var(--red);
   }
   .rv-login .rv-login-submit:active:not(:disabled) {
     transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 var(--ink);
+    box-shadow: 1px 1px 0 var(--red);
   }
   .rv-login .rv-login-submit:disabled { opacity: 0.7; cursor: wait; }
 

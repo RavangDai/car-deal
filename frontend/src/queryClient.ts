@@ -12,18 +12,15 @@ import { queryKeys } from "./queryKeys";
 // UnauthorizedError (after apiFetch already cleared the token), we null out
 // `auth.me` so App.tsx re-renders into the unauthed branch.
 //
-// Built with `let` so the cache callbacks can reference `queryClient` after
-// it's assigned; React Query lifecycles run after construction so this is
-// safe.
-let queryClient: QueryClient;
-
+// `on401` references `queryClient` lexically; it only runs on a query/mutation
+// error — well after construction — so the closure is resolved by then.
 function on401<T>(err: T) {
   if (err instanceof UnauthorizedError) {
     queryClient.setQueryData(queryKeys.auth.me, null);
   }
 }
 
-queryClient = new QueryClient({
+const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: on401,
   }),

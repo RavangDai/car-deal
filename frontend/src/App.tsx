@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { getToken, isGuest, setGuestMode } from "./api";
 import {
@@ -10,7 +10,9 @@ import {
 } from "./hooks";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
-import { Tire, sourceCode, extractStateCode } from "./CarGlyphs";
+import LegalPage, { type LegalKind } from "./LegalPage";
+import { Tire } from "./CarGlyphs";
+import { sourceCode, extractStateCode } from "./carUtils";
 
 type Deal = {
   id: string;
@@ -51,11 +53,33 @@ const dashForm: Variants = {
   },
 };
 
+function readLegalHash(): LegalKind | null {
+  const h = window.location.hash;
+  if (h === "#/terms") return "terms";
+  if (h === "#/privacy") return "privacy";
+  return null;
+}
+
 export default function App() {
   const me = useMe();
   const [showLogin, setShowLogin] = useState(false);
   const [guest, setGuest] = useState(isGuest);
+  const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
   const logoutMut = useLogoutMutation();
+
+  // Hash-based routing for the standalone legal pages (#/terms, #/privacy) so
+  // footer/login links navigate without coupling to the auth-derived routing.
+  useEffect(() => {
+    const onHash = () => setLegal(readLegalHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  function closeLegal() {
+    // Drop the fragment without leaving a bare "#" in the URL.
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    setLegal(null);
+  }
 
   const bootstrapping = !!getToken() && me.isLoading;
 
@@ -92,6 +116,8 @@ export default function App() {
     setShowLogin(false);
   }
 
+  // Legal pages are reachable from any state (incl. while signed out / bootstrapping).
+  if (legal) return <LegalPage kind={legal} onBack={closeLegal} />;
   if (bootstrapping) return <BootSplash />;
   if (me.data) return <Dashboard onLogout={handleLogout} />;
   if (guest)
@@ -449,8 +475,8 @@ function Input({
   disabled = false,
 }: {
   label: string;
-  value: any;
-  onChange: (v: any) => void;
+  value: string | number;
+  onChange: (v: string) => void;
   placeholder?: string;
   type?: string;
   disabled?: boolean;

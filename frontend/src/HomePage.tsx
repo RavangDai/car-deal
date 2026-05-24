@@ -278,7 +278,35 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       }
     }, scopeRef);
 
-    return () => ctx.revert();
+    // Subtle pointer parallax on the hero's "top picks" card — a quiet premium
+    // touch. Desktop + hover-capable only, reduced-motion-safe, and written via
+    // gsap.quickTo so it stays on the compositor (transform-only, no layout).
+    let cleanupParallax: (() => void) | undefined;
+    const heroSide = root.querySelector<HTMLElement>(".rv-hero-side");
+    if (
+      !reduce &&
+      heroSide &&
+      window.matchMedia("(min-width: 901px) and (hover: hover)").matches
+    ) {
+      const xTo = gsap.quickTo(heroSide, "x", { duration: 0.7, ease: "power3.out" });
+      const yTo = gsap.quickTo(heroSide, "y", { duration: 0.7, ease: "power3.out" });
+      const onMove = (e: PointerEvent) => {
+        const dx = e.clientX / window.innerWidth - 0.5; // -0.5 … 0.5
+        const dy = e.clientY / window.innerHeight - 0.5;
+        xTo(dx * -16); // ≤ 8px drift
+        yTo(dy * -12); // ≤ 6px drift
+      };
+      window.addEventListener("pointermove", onMove, { passive: true });
+      cleanupParallax = () => {
+        window.removeEventListener("pointermove", onMove);
+        gsap.set(heroSide, { clearProps: "transform" });
+      };
+    }
+
+    return () => {
+      ctx.revert();
+      cleanupParallax?.();
+    };
   }, []);
 
   const navLinkClass = (id: string) =>
@@ -746,8 +774,14 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
 
           <div className="rv-colophon-bot">
             <div className="rv-colophon-links">
-              {["Privacy", "Terms", "Press", "Careers", "GitHub"].map((l) => (
-                <a key={l} href="#" className="rv-colophon-link">{l}</a>
+              {([
+                ["Privacy", "#/privacy"],
+                ["Terms", "#/terms"],
+                ["Press", "#"],
+                ["Careers", "#"],
+                ["GitHub", "#"],
+              ] as const).map(([l, h]) => (
+                <a key={l} href={h} className="rv-colophon-link">{l}</a>
               ))}
             </div>
             <div className="rv-colophon-copy">© 2026 Revveal · Built for buyers, not dealers.</div>
@@ -990,22 +1024,24 @@ function DonationStrip() {
 // Shows a one-time banner when the user returns from Stripe Checkout, then
 // strips the ?donate query param so it doesn't persist on reload.
 function DonateBanner() {
-  const [status, setStatus] = useState<"success" | "cancelled" | null>(null);
+  const [status, setStatus] = useState<"success" | "cancelled" | null>(() => {
+    const d = new URLSearchParams(window.location.search).get("donate");
+    return d === "success" || d === "cancelled" ? d : null;
+  });
 
+  // Strip the ?donate param once we've read it (no state update here).
   useEffect(() => {
+    if (!status) return;
     const params = new URLSearchParams(window.location.search);
-    const d = params.get("donate");
-    if (d === "success" || d === "cancelled") {
-      setStatus(d);
-      params.delete("donate");
-      const qs = params.toString();
-      window.history.replaceState(
-        {},
-        "",
-        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
-      );
-    }
-  }, []);
+    if (!params.has("donate")) return;
+    params.delete("donate");
+    const qs = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+    );
+  }, [status]);
 
   useEffect(() => {
     if (status !== "success") return;
@@ -1375,12 +1411,12 @@ const STYLES = `
     box-shadow: 3px 3px 0 var(--ink);
   }
   .rv-catalog .rv-btn-primary:hover {
-    background: var(--red-deep); border-color: var(--red-deep);
+    background: var(--ink); color: var(--paper-pale); border-color: var(--ink);
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--ink);
+    box-shadow: 4px 4px 0 var(--red);
   }
   .rv-catalog .rv-btn-primary:active {
-    transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink);
+    transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--red);
   }
 
   .rv-catalog .rv-btn-outline {
@@ -2345,14 +2381,14 @@ const STYLES = `
     transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
   }
   .rv-catalog .rv-donate-btn:hover:not(:disabled) {
-    background: var(--red-deep);
-    border-color: var(--red-deep);
+    background: var(--ink);
+    border-color: var(--ink);
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--ink);
+    box-shadow: 4px 4px 0 var(--red);
   }
   .rv-catalog .rv-donate-btn:active:not(:disabled) {
     transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 var(--ink);
+    box-shadow: 1px 1px 0 var(--red);
   }
   .rv-catalog .rv-donate-btn:disabled { opacity: 0.7; cursor: wait; }
   .rv-catalog .rv-donate-error {
