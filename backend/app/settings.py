@@ -12,6 +12,10 @@ class Settings(BaseSettings):
 
     allowed_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    # Donations (Stripe Checkout). Leave the key blank to disable the endpoint.
+    stripe_secret_key: str = ""
+    frontend_url: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

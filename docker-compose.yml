@@ -39,6 +39,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/cardeals
       REDIS_URL: redis://redis:6379
+      # Donations (Stripe). Set STRIPE_SECRET_KEY in .env to enable; blank = disabled.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     ports:
       - "8000:8000"
     depends_on:

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .auth import get_current_user, router as auth_router
 from .celery_app import celery_app
 from .db import engine, get_db
+from .donations import router as donations_router
 from .limiter import limiter
 from .models import Listing, User
 from .settings import settings
@@ -52,6 +53,7 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 
 app.include_router(auth_router)
+app.include_router(donations_router)
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────

@@ -143,7 +143,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
           <motion.p className="rv-login-side-sub" variants={sideItem}>
             {isRegister
-              ? "Save searches, set drop alerts, and move on a great deal in hours — not days. Free to start, no card needed."
+              ? "Save searches, set drop alerts, and move on a great deal in hours — not days. Free for buyers — start in under a minute."
               : "Pick up where you left off — saved searches, drop alerts, and today's freshest deals across every major marketplace."}
           </motion.p>
         </div>
@@ -186,7 +186,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </motion.h1>
           <motion.p className="rv-login-sub" variants={formItem}>
             {isRegister
-              ? "Takes under a minute. No credit card required."
+              ? "Takes under a minute. Free for buyers."
               : "Continue to your saved searches and alerts."}
           </motion.p>
 

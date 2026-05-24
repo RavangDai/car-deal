@@ -183,6 +183,22 @@ export async function getScrapeJob(jobId: string): Promise<ScrapeJobStatus> {
   return res.json();
 }
 
+// ── Donations ───────────────────────────────────────────────────────────────
+
+// Creates a Stripe Checkout Session and returns its hosted URL. Public — no auth.
+// The caller redirects the browser to `url`. A 503 means donations aren't
+// configured on the backend (no Stripe key set).
+export async function createDonationCheckout(
+  amountCents: number
+): Promise<{ url: string }> {
+  const res = await apiFetch("/donate", {
+    method: "POST",
+    body: JSON.stringify({ amount_cents: amountCents }),
+  });
+  await ensureOk(res);
+  return res.json();
+}
+
 export async function fetchDeals(minUndervaluePercent: number) {
   const params = new URLSearchParams({
     min_undervalue_percent: String(minUndervaluePercent),

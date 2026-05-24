@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "./lib/gsap";
+import { createDonationCheckout } from "./api";
 
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -221,26 +222,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         },
       });
 
-      // ── PRICING ──────────────────────────────────────
-      ScrollTrigger.create({
-        trigger: "[data-rv-section='pricing']",
-        start: "top 80%",
-        once: true,
-        onEnter: () => {
-          const h = root.querySelector<HTMLHeadingElement>("[data-rv-pricing-headline]");
-          if (h) {
-            const split = new SplitText(h, { type: "words" });
-            gsap.from(split.words, { y: 22, opacity: 0, duration: 0.7, stagger: 0.04, ease: "expo.out" });
-          }
-          gsap.from(".rv-price-col", {
-            y: 24, opacity: 0, duration: 0.7, stagger: 0.08, ease: "expo.out", delay: 0.2,
-          });
-          gsap.from(".rv-stamp", {
-            scale: 0.4, rotate: -28, opacity: 0, duration: 0.85, ease: "back.out(1.5)", delay: 0.7,
-          });
-        },
-      });
-
       // ── CTA ──────────────────────────────────────────
       ScrollTrigger.create({
         trigger: "[data-rv-section='cta']",
@@ -307,6 +288,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
     <div ref={scopeRef} className="rv-catalog min-h-screen overflow-x-clip relative">
       <style>{STYLES}</style>
       <PaperGrain />
+      <DonateBanner />
 
       {/* ── TOP TICKER ───────────────────────────────────── */}
       <div className="rv-ticker" role="presentation">
@@ -722,74 +704,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         </div>
       </section>
 
-      {/* ── PRICING — comparison table ──────────────────── */}
-      <section id="pricing" data-rv-section="pricing" data-rv-panel className="rv-section" style={{ zIndex: 5 }}>
-        <div className="rv-section-inner">
-          <SectionHead
-            title="Pricing"
-            sub="Free for casual buyers. Pro for serious ones. Cancel anytime."
-            headingRef="pricing"
-          />
-
-          <div className="rv-pricing">
-            {/* Header row */}
-            <div className="rv-price-grid rv-price-grid-head">
-              <div className="rv-price-col rv-price-col-features-head" />
-              {TIERS.map((tier) => (
-                <div key={tier.name} className={`rv-price-col rv-price-col-head ${tier.featured ? "rv-price-col-featured" : ""}`}>
-                  {tier.featured && (
-                    <span className="rv-stamp" aria-hidden>
-                      <span className="rv-stamp-inner">
-                        <span className="rv-stamp-top">★</span>
-                        <span className="rv-stamp-main">MOST<br />POPULAR</span>
-                        <span className="rv-stamp-bot">2026</span>
-                      </span>
-                    </span>
-                  )}
-                  <h3 className="rv-display rv-price-name">{tier.name}</h3>
-                  <span className="rv-price-tagline">{tier.tagline}</span>
-                  <div className="rv-price-amt-row">
-                    <span className="rv-display rv-price-amt">{tier.price}</span>
-                    <span className="rv-price-cad">{tier.cadence}</span>
-                  </div>
-                  <button onClick={onGetStarted} className={`rv-btn ${tier.featured ? "rv-btn-primary" : "rv-btn-outline"} rv-btn-sm w-full justify-center`}>
-                    <span>{tier.cta}</span>
-                    <Arrow size={11} />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Feature rows */}
-            {PRICING_FEATURES.map((row) => (
-              <div key={row.label} className="rv-price-grid rv-price-grid-row">
-                <div className="rv-price-col rv-price-col-feature">{row.label}</div>
-                {row.values.map((v, i) => (
-                  <div
-                    key={i}
-                    className={`rv-price-col rv-price-col-cell ${TIERS[i].featured ? "rv-price-col-featured" : ""}`}
-                  >
-                    {v === true ? (
-                      <span className="rv-price-check" aria-label="Included">
-                        <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
-                          <path d="M2 6.5 L5 9 L10 3" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </span>
-                    ) : v === false ? (
-                      <span className="rv-price-dash" aria-label="Not included">—</span>
-                    ) : (
-                      <span className="rv-price-value">{v}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── CTA ──────────────────────────────────────────── */}
-      <section data-rv-section="cta" data-rv-panel className="rv-section rv-section-ink rv-section-cta" style={{ zIndex: 6 }}>
+      <section data-rv-section="cta" data-rv-panel className="rv-section rv-section-ink rv-section-cta" style={{ zIndex: 5 }}>
         <div className="rv-section-inner rv-cta-inner">
           <h2 data-rv-cta-headline className="rv-display rv-cta-headline">
             Stop overpaying.<br />
@@ -803,7 +719,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             </svg>
           </h2>
           <p data-rv-cta-sub className="rv-cta-lede">
-            Free to start. No credit card required.
+            Free for buyers — we earn from dealers, not from you.
           </p>
           <div data-rv-cta-sub className="rv-cta-buttons">
             <button onClick={onGetStarted} className="rv-btn rv-btn-primary-on-dark rv-btn-xl">
@@ -825,6 +741,9 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             <span className="rv-colophon-rule" />
             <span className="rv-colophon-meta">Buyer-first used car index · 2026</span>
           </div>
+
+          <DonationStrip />
+
           <div className="rv-colophon-bot">
             <div className="rv-colophon-links">
               {["Privacy", "Terms", "Press", "Careers", "GitHub"].map((l) => (
@@ -984,12 +903,140 @@ function BuyerDesk() {
   );
 }
 
+/* ── DONATION ─────────────────────────────────────────────── */
+
+const DONATE_PRESETS = [3, 5, 10] as const;
+
+function DonationStrip() {
+  const [amount, setAmount] = useState<number>(5);
+  const [custom, setCustom] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // A typed custom value wins over the preset chips.
+  const cents = useMemo(() => {
+    const dollars = custom.trim() ? Number(custom) : amount;
+    return Number.isFinite(dollars) ? Math.round(dollars * 100) : 0;
+  }, [custom, amount]);
+
+  async function donate() {
+    if (cents < 100 || cents > 50000) {
+      setError("Enter an amount between $1 and $500.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const { url } = await createDonationCheckout(cents);
+      window.location.href = url; // hand off to Stripe Checkout
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "";
+      setError(
+        /503/.test(msg)
+          ? "Donations aren't set up yet — check back soon."
+          : "Couldn't start checkout. Please try again.",
+      );
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="rv-donate">
+      <div className="rv-donate-copy">
+        <span className="rv-donate-heart" aria-hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 21s-7.5-4.6-10-9.2C.4 8.4 2 5 5.3 5c2 0 3.4 1.2 4.2 2.4C10.3 6.2 11.7 5 13.7 5 17 5 18.6 8.4 17 11.8 14.5 16.4 12 21 12 21z" />
+          </svg>
+        </span>
+        <span className="rv-donate-text">
+          Revveal is free for buyers. <em className="rv-emph">Enjoying it?</em> Chip in — totally optional.
+        </span>
+      </div>
+
+      <div className="rv-donate-controls">
+        <div className="rv-donate-presets">
+          {DONATE_PRESETS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => { setAmount(d); setCustom(""); setError(null); }}
+              className={`rv-donate-chip ${!custom && amount === d ? "rv-donate-chip-on" : ""}`}
+            >
+              ${d}
+            </button>
+          ))}
+          <span className="rv-donate-custom">
+            <span className="rv-donate-custom-sign">$</span>
+            <input
+              type="number"
+              min={1}
+              max={500}
+              inputMode="numeric"
+              value={custom}
+              onChange={(e) => { setCustom(e.target.value); setError(null); }}
+              placeholder="custom"
+              className="rv-donate-custom-input"
+              aria-label="Custom donation amount in dollars"
+            />
+          </span>
+        </div>
+
+        <button type="button" onClick={donate} disabled={pending} className="rv-donate-btn">
+          <span>{pending ? "Redirecting…" : "Buy us a coffee"}</span>
+          <Arrow size={12} />
+        </button>
+      </div>
+
+      {error && <p className="rv-donate-error">{error}</p>}
+    </div>
+  );
+}
+
+// Shows a one-time banner when the user returns from Stripe Checkout, then
+// strips the ?donate query param so it doesn't persist on reload.
+function DonateBanner() {
+  const [status, setStatus] = useState<"success" | "cancelled" | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const d = params.get("donate");
+    if (d === "success" || d === "cancelled") {
+      setStatus(d);
+      params.delete("donate");
+      const qs = params.toString();
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash,
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status !== "success") return;
+    const t = setTimeout(() => setStatus(null), 6000);
+    return () => clearTimeout(t);
+  }, [status]);
+
+  if (!status) return null;
+
+  return (
+    <div className={`rv-donate-banner rv-donate-banner-${status}`} role="status">
+      <span className="rv-donate-banner-text">
+        {status === "success"
+          ? "Thank you for supporting Revveal ♥"
+          : "Checkout cancelled — no charge made."}
+      </span>
+      <button onClick={() => setStatus(null)} className="rv-donate-banner-close" aria-label="Dismiss">×</button>
+    </div>
+  );
+}
+
 /* ── DATA ─────────────────────────────────────────────────── */
 
 const NAV_LINKS: [string, string][] = [
   ["Deals", "deals"],
   ["How it works", "how"],
-  ["Pricing", "pricing"],
 ];
 
 const TICKER_ITEMS = [
@@ -1124,28 +1171,6 @@ const REVVEAL_WAY = [
   "Every score shows its comps and confidence.",
   "Marketplace, Craigslist, dealers — one index.",
   "Built for buyers, not the inventory page.",
-];
-
-const TIERS = [
-  { name: "Free", tagline: "For casual browsing.", price: "$0", cadence: "forever", featured: false, cta: "Get started" },
-  { name: "Pro", tagline: "When you're actively buying.", price: "$19", cadence: "per month", featured: true, cta: "Start 7-day trial" },
-  { name: "Concierge", tagline: "We do the legwork.", price: "$99", cadence: "per month", featured: false, cta: "Talk to us" },
-];
-
-type FeatureRow = { label: string; values: (string | boolean)[] };
-
-const PRICING_FEATURES: FeatureRow[] = [
-  { label: "Deals shown per day", values: ["10 / day", "Unlimited", "Unlimited"] },
-  { label: "Saved searches", values: ["1", "Unlimited", "Unlimited"] },
-  { label: "Alert delivery", values: ["Daily email", "SMS + email, < 5 min", "SMS + email, < 5 min"] },
-  { label: "Confidence intervals", values: [false, true, true] },
-  { label: "Advanced filters", values: [false, true, true] },
-  { label: "VIN history checks", values: [false, "3 / month", "Unlimited"] },
-  { label: "Title flag surfacing", values: [true, true, true] },
-  { label: "Onboarding call", values: [false, false, true] },
-  { label: "We contact sellers", values: [false, false, true] },
-  { label: "Inspection coordinated", values: [false, false, true] },
-  { label: "Negotiation scripts", values: [false, false, true] },
 ];
 
 /* ── STYLES ───────────────────────────────────────────────── */
@@ -2144,159 +2169,6 @@ const STYLES = `
     color: var(--ink);
   }
 
-  /* ── PRICING — comparison table ────────────────────── */
-  .rv-catalog .rv-pricing {
-    border: 1.5px solid var(--ink);
-    background: var(--paper-pale);
-  }
-  .rv-catalog .rv-price-grid {
-    display: grid;
-    grid-template-columns: minmax(260px, 1.5fr) repeat(3, minmax(0, 1fr));
-  }
-  .rv-catalog .rv-price-grid-head {
-    border-bottom: 1.5px solid var(--ink);
-    background: var(--paper);
-  }
-  .rv-catalog .rv-price-grid-row {
-    border-bottom: 1px solid var(--paper-deep);
-    transition: background 0.15s ease;
-  }
-  .rv-catalog .rv-price-grid-row:last-child { border-bottom: none; }
-  .rv-catalog .rv-price-grid-row:hover { background: var(--paper); }
-  .rv-catalog .rv-price-col {
-    padding: 12px 18px;
-    border-right: 1px solid var(--paper-deep);
-  }
-  .rv-catalog .rv-price-col:last-child { border-right: none; }
-  .rv-catalog .rv-price-col-feature {
-    font-family: 'Newsreader', serif;
-    font-variation-settings: "opsz" 16;
-    font-size: 14.5px;
-    color: var(--ink-soft);
-    border-right: 1.5px solid var(--ink);
-    padding-left: 22px;
-  }
-  .rv-catalog .rv-price-col-cell {
-    text-align: center;
-    font-family: 'Newsreader', serif;
-    font-size: 14px;
-    color: var(--ink);
-  }
-  .rv-catalog .rv-price-col-head {
-    padding: 28px 20px 24px;
-    border-right: 1px solid var(--ink);
-    position: relative;
-    text-align: center;
-    background: var(--paper);
-  }
-  .rv-catalog .rv-price-col-head:last-child { border-right: none; }
-  .rv-catalog .rv-price-col-featured {
-    background: var(--paper-pale);
-  }
-  .rv-catalog .rv-price-grid-head .rv-price-col-featured {
-    background: linear-gradient(180deg, var(--paper-pale) 0%, var(--paper) 100%);
-  }
-  .rv-catalog .rv-price-col-features-head {
-    border-right: 1.5px solid var(--ink);
-    padding: 0;
-  }
-  .rv-catalog .rv-price-name {
-    font-size: 1.5rem;
-    line-height: 1;
-    letter-spacing: -0.015em;
-    font-weight: 600;
-    color: var(--ink);
-    margin: 0 0 4px;
-  }
-  .rv-catalog .rv-price-tagline {
-    display: block;
-    font-family: 'Newsreader', serif;
-    font-style: italic;
-    font-size: 13px;
-    color: var(--ink-muted);
-    margin-bottom: 14px;
-  }
-  .rv-catalog .rv-price-amt-row {
-    display: flex; align-items: baseline; justify-content: center; gap: 6px;
-    margin-bottom: 16px;
-  }
-  .rv-catalog .rv-price-amt {
-    font-size: 2.4rem;
-    line-height: 0.85;
-    letter-spacing: -0.025em;
-    font-weight: 700;
-    color: var(--ink);
-    font-variation-settings: "opsz" 144, "SOFT" 30;
-    font-variant-numeric: tabular-nums;
-  }
-  .rv-catalog .rv-price-cad {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-  }
-  .rv-catalog .rv-price-check {
-    color: var(--red);
-    display: inline-flex; align-items: center; justify-content: center;
-  }
-  .rv-catalog .rv-price-dash {
-    color: var(--ink-fade);
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .rv-catalog .rv-price-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12.5px;
-    color: var(--ink);
-    font-weight: 500;
-  }
-
-  /* CERTIFIED stamp on featured plan */
-  .rv-catalog .rv-stamp {
-    position: absolute;
-    top: 14px; right: 14px;
-    width: 78px; height: 78px;
-    border: 2px solid var(--red);
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    transform: rotate(-12deg);
-    pointer-events: none;
-    box-shadow:
-      inset 0 0 0 2px var(--paper-pale),
-      inset 0 0 0 3px var(--red);
-    will-change: transform, opacity;
-    background: transparent;
-  }
-  .rv-catalog .rv-stamp-inner {
-    display: flex; flex-direction: column; align-items: center; gap: 0;
-    text-align: center;
-    color: var(--red);
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 24, "SOFT" 30;
-    font-weight: 700;
-    line-height: 0.95;
-  }
-  .rv-catalog .rv-stamp-top {
-    font-size: 8px;
-  }
-  .rv-catalog .rv-stamp-main {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8.5px;
-    letter-spacing: 0.06em;
-    line-height: 1.1;
-    padding: 2px 4px;
-    border-top: 1px solid var(--red);
-    border-bottom: 1px solid var(--red);
-    margin: 2px 0;
-    font-weight: 700;
-  }
-  .rv-catalog .rv-stamp-bot {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 7.5px;
-    letter-spacing: 0.16em;
-    font-weight: 700;
-  }
-
   /* ── CTA ──────────────────────────────────────────── */
   .rv-catalog .rv-section-cta {
     padding: 96px 24px 110px;
@@ -2397,6 +2269,137 @@ const STYLES = `
     font-size: 13px;
     color: var(--ink-muted);
   }
+
+  /* ── DONATION STRIP (footer) ──────────────────────── */
+  .rv-catalog .rv-donate {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    padding: 22px 0;
+    margin: 4px 0 20px;
+    border-top: 1px dashed var(--ink-fade);
+    border-bottom: 1px dashed var(--ink-fade);
+  }
+  .rv-catalog .rv-donate-copy {
+    display: inline-flex; align-items: baseline; gap: 9px;
+    max-width: 42ch;
+  }
+  .rv-catalog .rv-donate-heart { color: var(--red); position: relative; top: 1px; flex-shrink: 0; }
+  .rv-catalog .rv-donate-text {
+    font-family: 'Newsreader', serif;
+    font-variation-settings: "opsz" 18;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--ink-soft);
+  }
+  .rv-catalog .rv-donate-controls {
+    display: inline-flex; align-items: center; gap: 14px;
+    flex-wrap: wrap;
+  }
+  .rv-catalog .rv-donate-presets { display: inline-flex; align-items: center; gap: 8px; }
+  .rv-catalog .rv-donate-chip {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--ink);
+    padding: 8px 12px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+  }
+  .rv-catalog .rv-donate-chip:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .rv-catalog .rv-donate-chip-on {
+    background: var(--ink);
+    color: var(--paper-pale);
+  }
+  .rv-catalog .rv-donate-custom {
+    display: inline-flex; align-items: center;
+    border: 1px solid var(--ink);
+    background: var(--paper-pale);
+    padding: 0 10px;
+  }
+  .rv-catalog .rv-donate-custom-sign {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    color: var(--ink-muted);
+  }
+  .rv-catalog .rv-donate-custom-input {
+    width: 64px;
+    border: none; background: transparent; outline: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--ink);
+    padding: 8px 4px;
+  }
+  .rv-catalog .rv-donate-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: var(--paper-pale);
+    background: var(--red);
+    border: 1px solid var(--red);
+    padding: 11px 18px;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .rv-catalog .rv-donate-btn:hover:not(:disabled) {
+    background: var(--red-deep);
+    border-color: var(--red-deep);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .rv-catalog .rv-donate-btn:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--ink);
+  }
+  .rv-catalog .rv-donate-btn:disabled { opacity: 0.7; cursor: wait; }
+  .rv-catalog .rv-donate-error {
+    flex-basis: 100%;
+    margin: 0;
+    font-family: 'Newsreader', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--red);
+  }
+
+  /* Return-from-Stripe banner */
+  .rv-catalog .rv-donate-banner {
+    position: fixed;
+    top: 16px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 80;
+    display: inline-flex; align-items: center; gap: 14px;
+    padding: 11px 14px 11px 18px;
+    background: var(--ink);
+    color: var(--paper-pale);
+    border: 1px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    animation: rv-donate-banner-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .rv-catalog .rv-donate-banner-cancelled { box-shadow: 4px 4px 0 var(--ink-fade); }
+  @keyframes rv-donate-banner-in {
+    from { opacity: 0; transform: translate(-50%, -12px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .rv-catalog .rv-donate-banner-close {
+    background: transparent; border: none;
+    color: var(--paper-deep);
+    font-size: 18px; line-height: 1;
+    cursor: pointer; padding: 0 2px;
+    transition: color 0.2s ease;
+  }
+  .rv-catalog .rv-donate-banner-close:hover { color: var(--paper-pale); }
 
   /* ── BUYER DESK (floating widget) ─────────────────── */
   .rv-catalog .rv-desk {
@@ -2538,11 +2541,13 @@ const STYLES = `
     .rv-catalog .rv-reveal-item,
     .rv-catalog .rv-step-row,
     .rv-catalog .rv-lot-row,
-    .rv-catalog .rv-hero-lot-preview,
-    .rv-catalog .rv-price-col {
+    .rv-catalog .rv-hero-lot-preview {
       opacity: 1 !important; transform: none !important;
     }
     .rv-catalog .rv-btn:hover { transform: none; }
+    .rv-catalog .rv-donate-banner { animation: none; }
+    .rv-catalog .rv-donate-chip:hover,
+    .rv-catalog .rv-donate-btn:hover { transform: none; }
     /* Drop the sticky stack entirely — normal document flow. */
     .rv-catalog [data-rv-panel] {
       position: static;
