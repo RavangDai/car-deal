@@ -87,13 +87,7 @@ function Wordmark() {
   return (
     <span className="rv-legal-wordmark">
       <span className="rv-legal-wordmark-mark">
-        <svg viewBox="0 0 36 36" width="26" height="26" aria-hidden>
-          <circle cx="18" cy="18" r="17" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path
-            d="M11 25 V13 H19 a4 4 0 0 1 0 8 H13 M17 21 L23 25"
-            fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-          />
-        </svg>
+        <img src="/revveal-logo.png" alt="Revveal" className="rv-legal-wordmark-img" />
       </span>
       <span className="rv-legal-wordmark-name">Revveal</span>
     </span>
@@ -373,8 +367,9 @@ const STYLES = `
   .rv-legal .rv-legal-wordmark { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); }
   .rv-legal .rv-legal-wordmark-mark {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: 30px; background: var(--red); color: var(--paper);
+    width: 30px; height: 30px;
   }
+  .rv-legal .rv-legal-wordmark-img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .rv-legal .rv-legal-wordmark-name {
     font-family: 'Fraunces', serif;
     font-variation-settings: "opsz" 144, "SOFT" 30;

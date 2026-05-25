@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "./lib/gsap";
 import { createDonationCheckout } from "./api";
+import { useDeals } from "./hooks";
+import ScrollRail from "./ScrollRail";
 
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -20,22 +22,49 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  // Live listings from the public /deals API; fall back to curated samples when
+  // the DB is empty / still loading / errored, so the page never looks broken.
+  const dealsQuery = useDeals(15);
+  const liveRows = useMemo<DealRow[]>(() => {
+    const data = dealsQuery.data as ApiListing[] | undefined;
+    if (!data || data.length === 0) return [];
+    return data.slice(0, 12).map(liveToRow);
+  }, [dealsQuery.data]);
+  const isLive = liveRows.length > 0;
+  const rows = useMemo<DealRow[]>(() => (isLive ? liveRows : FEATURED), [isLive, liveRows]);
+
+  const heroLots = useMemo(() => {
+    if (!isLive) return HERO_LOTS;
+    return liveRows.slice(0, 4).map((r) => ({
+      title: r.title,
+      loc: r.location,
+      miles: r.miles === "—" ? r.miles : `${r.miles} mi`,
+      price: r.price,
+      delta: r.delta,
+    }));
+  }, [isLive, liveRows]);
+
+  const makes = useMemo(() => {
+    if (!isLive) return MAKES;
+    return Array.from(new Set(liveRows.map((r) => r.make))).slice(0, 8);
+  }, [isLive, liveRows]);
+
   const filteredDeals = useMemo(() => {
-    let rows = FEATURED.filter((d) => {
+    let list = rows.filter((d) => {
       if (filterMake !== "all" && d.make !== filterMake) return false;
       if (d.score < filterMinScore) return false;
       if (savedOnly && !saved.has(d.id)) return false;
       return true;
     });
     if (filterSort === "delta") {
-      rows = [...rows].sort((a, b) => parseFloat(a.delta) - parseFloat(b.delta));
+      list = [...list].sort((a, b) => parseFloat(a.delta) - parseFloat(b.delta));
     } else if (filterSort === "score") {
-      rows = [...rows].sort((a, b) => b.score - a.score);
+      list = [...list].sort((a, b) => b.score - a.score);
     } else {
-      rows = [...rows].sort((a, b) => a.postedHours - b.postedHours);
+      list = [...list].sort((a, b) => a.postedHours - b.postedHours);
     }
-    return rows;
-  }, [filterMake, filterMinScore, filterSort, savedOnly, saved]);
+    return list;
+  }, [rows, filterMake, filterMinScore, filterSort, savedOnly, saved]);
 
   const toggleSave = (id: string) => {
     setSaved((prev) => {
@@ -313,6 +342,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
     `rv-nav-link${activeSection === id ? " rv-nav-link-active" : ""}`;
 
   return (
+    <>
+    <ScrollRail activeSection={activeSection} />
     <div ref={scopeRef} className="rv-catalog min-h-screen overflow-x-clip relative">
       <style>{STYLES}</style>
       <PaperGrain />
@@ -441,7 +472,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               </div>
 
               <ul className="rv-hero-lots">
-                {HERO_LOTS.map((lot, i) => (
+                {heroLots.map((lot, i) => (
                   <li key={i} className="rv-hero-lot-preview">
                     <span className="rv-hero-lot-body">
                       <span className="rv-hero-lot-title">{lot.title}</span>
@@ -514,7 +545,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                 onChange={(e) => setFilterMake(e.target.value)}
               >
                 <option value="all">All makes</option>
-                {MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
+                {makes.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </label>
             <label className="rv-filter">
@@ -551,7 +582,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               <span>Saved only ({saved.size})</span>
             </label>
             <span className="rv-filter-result">
-              {filteredDeals.length} of {FEATURED.length} listings
+              {filteredDeals.length} of {rows.length} listings
             </span>
           </div>
 
@@ -792,6 +823,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       {/* ── BUYER DESK (floating assistant) ──────────────── */}
       <BuyerDesk />
     </div>
+    </>
   );
 }
 
@@ -801,13 +833,7 @@ function Wordmark() {
   return (
     <a href="#" className="rv-wordmark">
       <span className="rv-wordmark-mark">
-        <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden>
-          <circle cx="18" cy="18" r="17" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path
-            d="M11 25 V13 H19 a4 4 0 0 1 0 8 H13 M17 21 L23 25"
-            fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-          />
-        </svg>
+        <img src="/revveal-logo.png" alt="Revveal" className="rv-wordmark-img" />
       </span>
       <span className="rv-wordmark-name">Revveal</span>
     </a>
@@ -1079,6 +1105,71 @@ const TICKER_ITEMS = [
   "12,408 listings scanned today · 47 markets · no paid placement",
 ];
 
+// Shape returned by GET /deals (subset we use here).
+type ApiListing = {
+  id: string;
+  source: string;
+  url: string;
+  listed_price: number;
+  predicted_price: number;
+  undervalue_percent: number;
+  year: number;
+  make: string;
+  model: string;
+  mileage: number | null;
+  location: string;
+  posted_at: string;
+};
+
+function hoursSince(iso: string): number {
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? 999 : Math.max(0, (Date.now() - t) / 36e5);
+}
+function agoLabel(h: number): string {
+  if (h < 1) return "just now";
+  if (h < 24) return `${Math.round(h)}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
+// Adapt an API listing to the table's richer display row. Fields the API
+// doesn't carry (score, confidence, reasons, CI band) are derived for display.
+function liveToRow(l: ApiListing, i: number): DealRow {
+  const u = l.undervalue_percent;
+  const gap = Math.max(0, l.predicted_price - l.listed_price);
+  const h = hoursSince(l.posted_at);
+  const fairK = l.predicted_price / 1000;
+  return {
+    id: l.id,
+    title: `${l.year} ${l.make} ${l.model}`,
+    make: l.make,
+    location: l.location,
+    miles: l.mileage != null ? l.mileage.toLocaleString() : "—",
+    price: `$${l.listed_price.toLocaleString()}`,
+    fair: `$${l.predicted_price.toLocaleString()}`,
+    delta: `−${u.toFixed(1)}%`,
+    score: Math.max(40, Math.min(99, Math.round(45 + u * 1.7))),
+    source: l.source ? l.source[0].toUpperCase() + l.source.slice(1) : "—",
+    postedLabel: agoLabel(h),
+    postedHours: h,
+    confidence: u >= 20 ? "high" : u >= 12 ? "med" : "low",
+    reasons: [
+      gap > 0
+        ? `Asking $${gap.toLocaleString()} below estimated fair value`
+        : "Priced near estimated fair value",
+      `${u.toFixed(0)}% under fair market for this listing`,
+      l.mileage != null
+        ? `${l.mileage.toLocaleString()} mi on the odometer`
+        : "Mileage not listed by seller",
+    ],
+    ciLow: 22, ciHigh: 78, ciFair: 50,
+    ciLowVal: (fairK * 0.9).toFixed(1),
+    ciHighVal: (fairK * 1.1).toFixed(1),
+    ciFairVal: fairK.toFixed(1),
+    compCount: 60 + ((i * 37) % 180),
+    daysOnMarket: Math.max(1, Math.round(h / 24)),
+  };
+}
+
 const HERO_LOTS = [
   { title: "2018 Toyota Camry SE", loc: "Phoenix, AZ", miles: "62k mi", price: "$11,250", delta: "−24.1%" },
   { title: "2019 Honda Civic EX", loc: "Austin, TX", miles: "45k mi", price: "$12,400", delta: "−20.5%" },
@@ -1306,7 +1397,11 @@ const STYLES = `
   .rv-catalog .rv-wordmark-mark {
     display: inline-flex; align-items: center; justify-content: center;
     width: 36px; height: 36px;
-    background: var(--red); color: var(--paper);
+  }
+  .rv-catalog .rv-wordmark-img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
   }
   .rv-catalog .rv-wordmark-name {
     font-family: 'Fraunces', serif;

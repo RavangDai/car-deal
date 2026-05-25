@@ -1,10 +1,5 @@
-import { useRef, useState } from "react";
-import {
-  motion,
-  useAnimationControls,
-  useReducedMotion,
-  type Variants,
-} from "framer-motion";
+import { useState } from "react";
+import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 
 interface Props {
@@ -41,8 +36,6 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const exitControls = useAnimationControls();
   const prefersReduced = useReducedMotion();
 
   const loginMut = useLoginMutation();
@@ -51,12 +44,9 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const isRegister = mode === "register";
   const loading = loginMut.isPending || registerMut.isPending;
 
-  async function exitThen(cb: () => void) {
-    if (prefersReduced) { cb(); return; }
-    await exitControls.start({
-      opacity: 0,
-      transition: { duration: 0.34, ease: [0.33, 1, 0.68, 1] },
-    });
+  // The route-level AnimatePresence crossfade (App.tsx) owns the exit animation,
+  // so this just hands control back to the parent.
+  function exitThen(cb: () => void) {
     cb();
   }
 
@@ -101,11 +91,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const initial = prefersReduced ? "show" : "hidden";
 
   return (
-    <motion.div
-      ref={rootRef}
-      className="rv-login min-h-screen flex"
-      animate={exitControls}
-    >
+    <motion.div className="rv-login min-h-screen flex">
       <style>{STYLES}</style>
       <PaperGrain />
 
@@ -346,13 +332,7 @@ function Wordmark() {
   return (
     <a href="/" className="rv-wordmark">
       <span className="rv-wordmark-mark">
-        <svg viewBox="0 0 36 36" width="30" height="30" aria-hidden>
-          <circle cx="18" cy="18" r="17" fill="none" stroke="currentColor" strokeWidth="1.4" />
-          <path
-            d="M11 25 V13 H19 a4 4 0 0 1 0 8 H13 M17 21 L23 25"
-            fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-          />
-        </svg>
+        <img src="/revveal-logo.png" alt="Revveal" className="rv-wordmark-img" />
       </span>
       <span className="rv-wordmark-name">Revveal</span>
     </a>
@@ -496,7 +476,11 @@ const STYLES = `
   .rv-login .rv-wordmark-mark {
     display: inline-flex; align-items: center; justify-content: center;
     width: 34px; height: 34px;
-    background: var(--red); color: var(--paper);
+  }
+  .rv-login .rv-wordmark-img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    display: block;
   }
   .rv-login .rv-wordmark-name {
     font-family: 'Fraunces', serif;
@@ -526,10 +510,6 @@ const STYLES = `
     .rv-login .rv-login-side { display: flex; }
   }
   .rv-login .rv-login-side .rv-wordmark { color: var(--paper-pale); }
-  .rv-login .rv-login-side .rv-wordmark-mark {
-    background: var(--red);
-    color: var(--paper-pale);
-  }
   .rv-login .rv-login-side .rv-wordmark-name { color: var(--paper-pale); }
 
   .rv-login .rv-login-side-header,

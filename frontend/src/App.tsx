@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { getToken, isGuest, setGuestMode } from "./api";
 import {
   useDeals,
@@ -11,8 +11,9 @@ import {
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import LegalPage, { type LegalKind } from "./LegalPage";
-import { Tire } from "./CarGlyphs";
+import { Tire, GaugeDial } from "./CarGlyphs";
 import { sourceCode, extractStateCode } from "./carUtils";
+import { UndervalueHistogram, PriceScatter } from "./charts";
 
 type Deal = {
   id: string;
@@ -66,6 +67,7 @@ export default function App() {
   const [guest, setGuest] = useState(isGuest);
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
   const logoutMut = useLogoutMutation();
+  const prefersReduced = useReducedMotion();
 
   // Hash-based routing for the standalone legal pages (#/terms, #/privacy) so
   // footer/login links navigate without coupling to the auth-derived routing.
@@ -116,16 +118,48 @@ export default function App() {
     setShowLogin(false);
   }
 
-  // Legal pages are reachable from any state (incl. while signed out / bootstrapping).
-  if (legal) return <LegalPage kind={legal} onBack={closeLegal} />;
-  if (bootstrapping) return <BootSplash />;
-  if (me.data) return <Dashboard onLogout={handleLogout} />;
-  if (guest)
-    return (
-      <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />
-    );
-  if (showLogin) return <LoginPage onLogin={handleRealLogin} onGuest={enterGuest} />;
-  return <HomePage onGetStarted={() => setShowLogin(true)} />;
+  // Pick the active route. Legal pages are reachable from any state.
+  let routeKey: string;
+  let routeEl: ReactNode;
+  if (legal) {
+    routeKey = `legal-${legal}`;
+    routeEl = <LegalPage kind={legal} onBack={closeLegal} />;
+  } else if (bootstrapping) {
+    routeKey = "boot";
+    routeEl = <BootSplash />;
+  } else if (me.data) {
+    routeKey = "dashboard";
+    routeEl = <Dashboard onLogout={handleLogout} />;
+  } else if (guest) {
+    routeKey = "guest";
+    routeEl = <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />;
+  } else if (showLogin) {
+    routeKey = "login";
+    routeEl = <LoginPage onLogin={handleRealLogin} onGuest={enterGuest} />;
+  } else {
+    routeKey = "home";
+    routeEl = <HomePage onGetStarted={() => setShowLogin(true)} />;
+  }
+
+  // Opacity-only crossfade between routes. No transform — a transformed
+  // ancestor would create a containing block and break the landing page's
+  // sticky stacking panels + fixed nav / rail / car.
+  const fade = prefersReduced
+    ? {}
+    : {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.3, ease: EASE_OUT_EXPO },
+      };
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div key={routeKey} {...fade}>
+        {routeEl}
+      </motion.div>
+    </AnimatePresence>
+  );
 }
 
 function BootSplash() {
@@ -138,10 +172,10 @@ function BootSplash() {
       <div className="flex flex-col items-center gap-5 opacity-90">
         <div className="flex items-center gap-2.5">
           <img
-            src="/assets/revveal-icon.png"
+            src="/revveal-logo.png"
             alt=""
             aria-hidden
-            className="w-9 h-9 rounded-[9px] shadow-[0_4px_14px_rgba(31,95,255,0.22)]"
+            className="w-10 h-10 object-contain"
           />
           <span className="display text-[1.5rem] leading-none tracking-[-0.02em] font-semibold">
             Revveal
@@ -228,10 +262,10 @@ function Dashboard({
           <div className="flex items-center gap-8">
             <a href="#" className="flex items-center gap-2.5">
               <img
-                src="/assets/revveal-icon.png"
+                src="/revveal-logo.png"
                 alt=""
                 aria-hidden
-                className="w-8 h-8 rounded-[8px]"
+                className="w-9 h-9 object-contain"
               />
               <span className="display text-[1.4rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
             </a>
@@ -366,6 +400,19 @@ function Dashboard({
           </span>
         </div>
 
+        {!loading && deals.length > 0 && (
+          <div className="grid md:grid-cols-2 gap-5 mb-8">
+            <div className="bg-white border border-[var(--rule)] rounded-[18px] p-5 shadow-soft">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Undervalue distribution</div>
+              <UndervalueHistogram deals={deals} />
+            </div>
+            <div className="bg-white border border-[var(--rule)] rounded-[18px] p-5 shadow-soft">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Asking vs fair value</div>
+              <PriceScatter deals={deals} />
+            </div>
+          </div>
+        )}
+
         {!loading && deals.length === 0 && (
           <div className="border border-dashed border-[var(--rule-strong)] rounded-[20px] p-16 text-center bg-white">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--blue-tint)] text-[var(--blue)] mb-5">
@@ -407,7 +454,10 @@ function Dashboard({
                   {extractStateCode(deal.location) ?? sourceCode(deal.source)} · {String(i + 1).padStart(4, "0")} · {sourceCode(deal.source)}
                   <span className="rv-plate-dot" />
                 </span>
-                <DealScorePill value={deal.undervalue_percent} />
+                <span className="flex items-center gap-2 text-[var(--ink-soft)]">
+                  <GaugeDial value={deal.undervalue_percent} size={34} />
+                  <DealScorePill value={deal.undervalue_percent} />
+                </span>
               </div>
 
               <h3 className="display text-[1.3rem] leading-tight tracking-[-0.015em] mb-1 font-semibold">
