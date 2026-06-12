@@ -1,13 +1,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .cookies import SESSION_COOKIE, clear_session_cookies, set_session_cookies
 from .db import get_db
 from .limiter import limiter
 from .models import User
@@ -20,8 +20,6 @@ from .security import (
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 # Lazy dummy hash — used to equalize bcrypt timing on login so an attacker
 # can't tell "user doesn't exist" from "wrong password" via response time.
@@ -47,11 +45,6 @@ class LoginIn(BaseModel):
     password: str
 
 
-class TokenOut(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,7 +57,7 @@ class UserOut(BaseModel):
 # ── Current-user dependency ───────────────────────────────────────────────────
 
 async def get_current_user(
-    token: str | None = Depends(oauth2_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
     credentials_exc = HTTPException(
@@ -73,6 +66,7 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    token = request.cookies.get(SESSION_COOKIE)
     if not token:
         raise credentials_exc
 
@@ -107,6 +101,7 @@ async def get_current_user(
 @limiter.limit("5/minute")
 async def register(
     request: Request,
+    response: Response,
     body: RegisterIn,
     db: AsyncSession = Depends(get_db),
 ):
@@ -131,22 +126,28 @@ async def register(
             detail="Email already registered",
         )
     await db.refresh(user)
+
+    # Registration logs the user straight in (cookie session).
+    set_session_cookies(response, create_access_token(subject=str(user.id)))
     return user
 
 
-@router.post("/login", response_model=TokenOut)
+@router.post("/login", response_model=UserOut)
 @limiter.limit("10/minute")
 async def login(
     request: Request,
+    response: Response,
     body: LoginIn,
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if user is not None:
+    if user is not None and user.hashed_password is not None:
         valid = verify_password(body.password, user.hashed_password)
     else:
+        # No user, or an OAuth-only account with no local password — run the
+        # dummy hash so response timing doesn't leak which case it was.
         verify_password(body.password, _get_dummy_hash())
         valid = False
 
@@ -156,8 +157,15 @@ async def login(
             detail="Invalid email or password",
         )
 
-    token = create_access_token(subject=str(user.id))
-    return TokenOut(access_token=token)
+    set_session_cookies(response, create_access_token(subject=str(user.id)))
+    return user
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout():
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    clear_session_cookies(response)
+    return response
 
 
 @router.get("/me", response_model=UserOut)

@@ -23,6 +23,20 @@ class Settings(BaseSettings):
     )
     scraper_request_timeout: float = 20.0
 
+    # OAuth (social login). Leave a provider's id/secret blank to disable it.
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    # Public base URL of THIS backend — used to build the OAuth callback URLs.
+    oauth_redirect_base: str = "http://localhost:8000"
+
+    # Session cookie. In prod (cross-site frontend/backend) set
+    # cookie_secure=True + cookie_samesite="none".
+    cookie_secure: bool = False
+    cookie_samesite: str = "lax"
+    cookie_domain: str | None = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
