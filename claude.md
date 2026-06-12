@@ -27,7 +27,9 @@ car-deal-finder/
 │   │   ├── settings.py                Pydantic Settings — env-driven config
 │   │   ├── db.py                      Async + sync SQLAlchemy engines, get_db dep
 │   │   ├── models.py                  SQLAlchemy ORM (Listing, User)
-│   │   ├── auth.py                    /auth router + get_current_user dependency
+│   │   ├── auth.py                    /auth router (cookie sessions) + get_current_user
+│   │   ├── oauth.py                   OAuth router (Authlib Google + GitHub) + account upsert
+│   │   ├── cookies.py                 Session/CSRF/hint cookie helpers + require_csrf dep
 │   │   ├── security.py                Password hashing (bcrypt) + JWT encode/decode
 │   │   ├── limiter.py                 slowapi Limiter instance (shared)
 │   │   ├── celery_app.py              Celery instance — Redis broker + result backend
@@ -96,6 +98,7 @@ car-deal-finder/
 | Broker / result backend | Redis | 7-alpine (image) / redis-py 5.2.1 | Celery transport |
 | Database | PostgreSQL | 16-alpine (image) | Primary store |
 | Auth | python-jose 3.5.0, passlib[bcrypt] 1.7.4 | — | JWT (HS256) + bcrypt password hashing |
+| OAuth | Authlib 1.6.5 + itsdangerous 2.2.0 | — | Google/GitHub social login (Authorization Code + PKCE); itsdangerous signs the OAuth-state session |
 | Rate limiting | slowapi 0.1.9 | — | IP-based limits per endpoint, headers exposed |
 | Email validation | pydantic[email] / email-validator | 2.12.5 | EmailStr validation on register/login |
 | Config (frontend) | `VITE_API_URL` env var | — | Switch API base between dev / prod |
@@ -152,11 +155,16 @@ All endpoints below are rate-limited per IP via slowapi. Limits are enforced via
 
 | Method + path | Limit | Body | Returns |
 |---|---|---|---|
-| `POST /auth/register` | **5/minute** | `{ email, password }` (password ≥ 8 chars) | `UserOut` (201). 409 if email exists |
-| `POST /auth/login` | **10/minute** | `{ email, password }` | `{ access_token, token_type: "bearer" }`. 401 on bad creds |
-| `GET /auth/me` | default | — | `UserOut` (requires `Authorization: Bearer ...`) |
+| `POST /auth/register` | **5/minute** | `{ email, password }` (password ≥ 8 chars) | `UserOut` (201) **+ sets session cookie** (auto-login). 409 if email exists |
+| `POST /auth/login` | **10/minute** | `{ email, password }` | `UserOut` **+ sets session cookie**. 401 on bad creds |
+| `POST /auth/logout` | default | — | 204; clears session/CSRF/hint cookies |
+| `GET /auth/me` | default | — | `UserOut` (reads JWT from the `revveal_session` cookie) |
+| `GET /auth/oauth/{provider}/login` | **10/minute** | — | 302 → provider consent (`provider` = `google` \| `github`). 503 if provider not configured |
+| `GET /auth/oauth/{provider}/callback` | **10/minute** | — | 302 → frontend with session cookie set (or `/?auth_error=<code>` on failure) |
 
-JWT details: HS256, 24h expiry (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`), `sub` = user UUID. Login uses a lazy "dummy hash" to equalize bcrypt timing between "user not found" and "wrong password" — mitigates email enumeration via response timing.
+JWT details: HS256, 24h expiry (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`), `sub` = user UUID. The JWT lives in a **Secure, httpOnly, SameSite cookie** (`revveal_session`) — not localStorage — so JS/XSS can't read it. Unsafe authenticated requests require a **CSRF double-submit token**: the backend sets a readable `revveal_csrf` cookie that the SPA echoes back as an `X-CSRF-Token` header (validated by `require_csrf` in `app/cookies.py`). A non-sensitive `revveal_authed=1` hint cookie lets the SPA decide whether to call `/auth/me`. Password login uses a lazy "dummy hash" to equalize bcrypt timing between "user not found"/"OAuth-only account" and "wrong password" — mitigates email enumeration via response timing.
+
+**OAuth (Authlib)**: Authorization Code + PKCE + `state` (state/PKCE stored in the signed Starlette session). Google uses OIDC (verified email from the ID token); GitHub fetches the primary **verified** email from `/user/emails`. Account linking only auto-links an OAuth identity to an existing email account when the provider reports the email as **verified** (anti-takeover); our schema holds one provider identity per user.
 
 ### `GET /health`
 Health check. Returns `{ "status": "ok", "service": "car-deal-finder-api" }`.
@@ -316,8 +324,8 @@ User sets filters
   - **Default options**: `retry: false` (auth + scrape errors are not transient), `refetchOnWindowFocus: true`, `staleTime: 30s`
   - **Devtools**: `@tanstack/react-query-devtools` mounted in `main.tsx` only when `import.meta.env.DEV`
 - **API client** (`api.ts`):
-  - Centralized `apiFetch` wrapper attaches `Authorization: Bearer <token>` when `auth: true`, sets JSON content-type, and on 401 clears the token + throws `UnauthorizedError`
-  - Token lives in `localStorage["revveal_access_token"]`; `getToken`/`setToken`/`logout` exposed
+  - Centralized `apiFetch` wrapper sends `credentials:"include"` (so the httpOnly session cookie rides along), sets JSON content-type, attaches the `X-CSRF-Token` header (read from the `revveal_csrf` cookie) on unsafe methods, and on 401 throws `UnauthorizedError` when `auth: true`
+  - **No token in JS** — the JWT is an httpOnly cookie. `hasSessionHint()` reads the non-sensitive `revveal_authed` cookie to gate the `/auth/me` bootstrap; `oauthLogin(provider)` redirects to the backend OAuth login; `logout()` calls `POST /auth/logout`
   - `register(email, password)` → `POST /auth/register`
   - `login(email, password)` → `POST /auth/login`, stores token on success
   - `getMe()` → `GET /auth/me` (auth required)
@@ -350,7 +358,13 @@ User sets filters
 | `secret_key` | `"changeme-please-set-in-env"` | JWT signing key — **MUST be overridden in prod** |
 | `jwt_algorithm` | `"HS256"` | JWT alg |
 | `access_token_expire_minutes` | `60 * 24` (24h) | Token lifetime |
-| `allowed_origins` | `["http://localhost:5173", "http://127.0.0.1:5173"]` | CORS |
+| `allowed_origins` | `["http://localhost:5173", "http://127.0.0.1:5173"]` | CORS (with `allow_credentials=True` for cookies) |
+| `google_client_id` / `google_client_secret` | `""` | Google OAuth creds; blank = Google login disabled |
+| `github_client_id` / `github_client_secret` | `""` | GitHub OAuth creds; blank = GitHub login disabled |
+| `oauth_redirect_base` | `http://localhost:8000` | Backend public base URL — builds OAuth callback URLs |
+| `cookie_secure` | `False` | `True` in prod (HTTPS) — required when `samesite="none"` |
+| `cookie_samesite` | `"lax"` | `"none"` for cross-site prod (Vercel ↔ Railway); `"lax"` same-site dev |
+| `cookie_domain` | `None` | Optional cookie domain scope |
 
 Inside Docker Compose, `DATABASE_URL` and `REDIS_URL` are overridden to point at the `db` and `redis` service names.
 
@@ -464,10 +478,20 @@ pytest                                # offline scraper tests, no network/DB nee
 - **Tests**: `backend/tests/test_scraper_craigslist.py` — 25 offline tests against saved HTML fixtures (helpers, search parsing, detail parsing, mocked end-to-end, failure-degradation). Run: `cd backend && pytest`
 - No new runtime deps (`httpx` + `beautifulsoup4` were already present); `pytest` added via `requirements-dev.txt`
 
+### Done (Phase 8 — OAuth social login + httpOnly-cookie sessions)
+- **Security cutover**: the app JWT moved out of `localStorage` into a **Secure, httpOnly, SameSite cookie** (`revveal_session`). Added **CSRF double-submit** (`revveal_csrf` cookie ↔ `X-CSRF-Token` header, validated by `app/cookies.py::require_csrf`) and a JS-readable `revveal_authed` **hint** cookie that replaces the old `getToken()` gate.
+- **OAuth (Authlib)**: `app/oauth.py` — Google (OIDC) + GitHub, Authorization Code + PKCE + `state`. `GET /auth/oauth/{provider}/login` + `/callback`. Verified-email account linking (anti-takeover); `upsert_oauth_user` + pure `resolve_account_action`/`profile_from_*` helpers.
+- **auth.py cutover**: `get_current_user` reads the JWT from the cookie (not the `Authorization` header); `login`/`register` set the session cookie (register auto-logs-in); new `POST /auth/logout`.
+- **Schema**: migration `003_oauth_fields.py` — `hashed_password` now nullable; added `oauth_provider`, `oauth_subject`, `is_email_verified`, `full_name`, `avatar_url`; unique `(oauth_provider, oauth_subject)`.
+- **main.py**: Starlette `SessionMiddleware` (OAuth state), mounted `oauth_router`, `require_csrf` on `POST /scrape/craigslist`.
+- **Frontend**: `api.ts` uses `credentials:"include"` + CSRF header, `oauthLogin(provider)`, cookie `logout()`, `hasSessionHint()` (replaces `getToken`); `hooks.ts`/`App.tsx` use `hasSessionHint`; `LoginPage.tsx` wires the Google/GitHub buttons + surfaces `?auth_error`.
+- **Config**: `GOOGLE_/GITHUB_CLIENT_ID/SECRET`, `OAUTH_REDIRECT_BASE`, `COOKIE_SECURE`, `COOKIE_SAMESITE` (settings + docker-compose). Providers stay dormant until creds are set. New deps: `authlib`, `itsdangerous`.
+- **Tests**: `backend/tests/test_oauth.py` — 18 offline tests (provider profile extraction, the account-linking security matrix, `upsert_oauth_user` via a fake session, CSRF accept/reject, cookie-based `get_current_user`). README has the Google/GitHub app setup guide.
+
 ### Not Yet Implemented
 - **Phase 6 — Real ML pricing model** — still `listed_price × 1.15` heuristic
 - **GitHub Actions CI** — no automated test/build/lint pipeline yet
-- **Refresh tokens** — only access tokens are issued (24h); no rotation, no token blacklist on logout
+- **Refresh tokens** — a single 24h access JWT in the httpOnly cookie; logout clears the cookie, but there's no refresh-token rotation or server-side revocation list
 - **Email verification / password reset** — registration trusts the email; no confirmation flow
 - **Per-user rate limits / quotas** — limits are per IP, not per user identity
 - Additional marketplaces (Facebook Marketplace, AutoTrader, etc.)
@@ -483,7 +507,9 @@ pytest                                # offline scraper tests, no network/DB nee
 | File | Why it matters |
 |------|---------------|
 | `backend/app/main.py` | FastAPI endpoints, Pydantic schemas, middleware wiring |
-| `backend/app/auth.py` | `/auth/*` router + `get_current_user` dependency |
+| `backend/app/auth.py` | `/auth/*` router (cookie sessions, register/login/logout/me) + `get_current_user` |
+| `backend/app/oauth.py` | OAuth (Authlib Google + GitHub) router + `upsert_oauth_user` + account-linking logic |
+| `backend/app/cookies.py` | Session/CSRF/hint cookie helpers + `require_csrf` — single source of cookie truth |
 | `backend/app/security.py` | Password hashing + JWT — single point of auth-crypto truth |
 | `backend/app/limiter.py` | Shared slowapi Limiter — both `main.py` and `auth.py` import it |
 | `backend/app/celery_app.py` | Celery instance config — Redis URLs, serialization, time limits |

@@ -1,21 +1,32 @@
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
-const TOKEN_KEY = "revveal_access_token";
 const GUEST_KEY = "revveal_guest";
 
-// ── Token storage ─────────────────────────────────────────────────────────────
+// The session JWT now lives in a Secure, httpOnly cookie the browser sends
+// automatically — JS (and therefore XSS) cannot read it. We only read two
+// NON-sensitive cookies here: the CSRF token (to echo back as a header) and a
+// session "hint" (to decide whether to bother calling /auth/me).
+const CSRF_COOKIE = "revveal_csrf";
+const HINT_COOKIE = "revveal_authed";
+const CSRF_HEADER = "X-CSRF-Token";
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+function readCookie(name: string): string | null {
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
-export function setToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+// True when a session probably exists (set by the backend alongside the
+// httpOnly JWT). Replaces the old localStorage token check.
+export function hasSessionHint(): boolean {
+  return readCookie(HINT_COOKIE) === "1";
 }
 
 // ── Guest mode ──────────────────────────────────────────────────────────────
-// A frontend-only "browse without an account" flag. Guests hold no token, so the
-// auth-only /scrape endpoints stay naturally locked while public /deals works.
+// A frontend-only "browse without an account" flag. Guests hold no session, so
+// the auth-only /scrape endpoints stay naturally locked while public /deals works.
 
 export function isGuest(): boolean {
   return localStorage.getItem(GUEST_KEY) === "1";
@@ -42,16 +53,24 @@ async function apiFetch(
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  if (auth) {
-    const token = getToken();
-    if (!token) throw new UnauthorizedError("No token");
-    headers.set("Authorization", `Bearer ${token}`);
+
+  // Double-submit CSRF: echo the readable CSRF cookie back as a header on
+  // state-changing requests. A cross-site attacker can't read the cookie, so
+  // can't forge the header.
+  const method = (init.method ?? "GET").toUpperCase();
+  if (UNSAFE_METHODS.has(method)) {
+    const csrf = readCookie(CSRF_COOKIE);
+    if (csrf) headers.set(CSRF_HEADER, csrf);
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  // credentials:"include" sends the httpOnly session cookie cross-origin.
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers,
+    credentials: "include",
+  });
 
   if (auth && res.status === 401) {
-    setToken(null);
     throw new UnauthorizedError(await safeText(res));
   }
 
@@ -88,12 +107,12 @@ export type UserOut = {
   email: string;
   is_active: boolean;
   created_at: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
 };
 
-export type TokenOut = {
-  access_token: string;
-  token_type: string;
-};
+// Both register and login now set the session cookie server-side and return the
+// authenticated user; there is no token to store on the client.
 
 export async function register(email: string, password: string): Promise<UserOut> {
   const res = await apiFetch("/auth/register", {
@@ -104,15 +123,13 @@ export async function register(email: string, password: string): Promise<UserOut
   return res.json();
 }
 
-export async function login(email: string, password: string): Promise<TokenOut> {
+export async function login(email: string, password: string): Promise<UserOut> {
   const res = await apiFetch("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
   await ensureOk(res);
-  const token: TokenOut = await res.json();
-  setToken(token.access_token);
-  return token;
+  return res.json();
 }
 
 export async function getMe(): Promise<UserOut> {
@@ -121,8 +138,20 @@ export async function getMe(): Promise<UserOut> {
   return res.json();
 }
 
-export function logout() {
-  setToken(null);
+// Kick off a provider redirect. The backend handles the whole OAuth dance and
+// redirects back to the SPA with the session cookie set.
+export type OAuthProvider = "google" | "github";
+
+export function oauthLogin(provider: OAuthProvider) {
+  window.location.href = `${API_BASE}/auth/oauth/${provider}/login`;
+}
+
+export async function logout() {
+  try {
+    await apiFetch("/auth/logout", { method: "POST" });
+  } catch {
+    /* best-effort; clear local state regardless */
+  }
   setGuestMode(false);
 }
 

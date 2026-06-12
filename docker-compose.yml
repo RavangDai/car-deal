@@ -42,6 +42,15 @@ services:
       # Donations (Stripe). Set STRIPE_SECRET_KEY in .env to enable; blank = disabled.
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      # OAuth (social login). Set a provider's id/secret in .env to enable it.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      OAUTH_REDIRECT_BASE: ${OAUTH_REDIRECT_BASE:-http://localhost:8000}
+      # Session cookie. In prod (cross-site) set COOKIE_SECURE=true + COOKIE_SAMESITE=none.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
     ports:
       - "8000:8000"
     depends_on:

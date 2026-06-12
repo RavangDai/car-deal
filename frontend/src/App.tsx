@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
-import { getToken, isGuest, setGuestMode } from "./api";
+import { hasSessionHint, isGuest, setGuestMode } from "./api";
 import {
   useDeals,
   useLogoutMutation,
@@ -63,7 +63,11 @@ function readLegalHash(): LegalKind | null {
 
 export default function App() {
   const me = useMe();
-  const [showLogin, setShowLogin] = useState(false);
+  // An OAuth failure redirects back to "/?auth_error=..."; land on the login
+  // page so LoginPage can surface the message.
+  const [showLogin, setShowLogin] = useState(
+    () => new URLSearchParams(window.location.search).has("auth_error")
+  );
   const [guest, setGuest] = useState(isGuest);
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
   const logoutMut = useLogoutMutation();
@@ -83,7 +87,7 @@ export default function App() {
     setLegal(null);
   }
 
-  const bootstrapping = !!getToken() && me.isLoading;
+  const bootstrapping = hasSessionHint() && me.isLoading;
 
   function handleLogout() {
     logoutMut.mutate();

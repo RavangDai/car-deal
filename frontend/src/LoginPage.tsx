@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 
 interface Props {
@@ -40,6 +41,22 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
   const loginMut = useLoginMutation();
   const registerMut = useRegisterAndLoginMutation();
+
+  // Surface an OAuth failure bounced back as "/?auth_error=<code>", then strip
+  // the param so a refresh doesn't re-show it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("auth_error");
+    if (!code) return;
+    setFormError(parseOAuthError(code));
+    params.delete("auth_error");
+    const qs = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (qs ? `?${qs}` : "")
+    );
+  }, []);
 
   const isRegister = mode === "register";
   const loading = loginMut.isPending || registerMut.isPending;
@@ -178,8 +195,16 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </motion.p>
 
           <motion.div className="rv-login-social" variants={formItem}>
-            <SocialBtn icon={<GoogleIcon />} label="Continue with Google" />
-            <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" />
+            <SocialBtn
+              icon={<GoogleIcon />}
+              label="Continue with Google"
+              onClick={() => oauthLogin("google")}
+            />
+            <SocialBtn
+              icon={<GitHubIcon />}
+              label="Continue with GitHub"
+              onClick={() => oauthLogin("github")}
+            />
           </motion.div>
 
           <motion.div className="rv-login-or" variants={formItem}>
@@ -319,6 +344,19 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 
+function parseOAuthError(code: string): string {
+  switch (code) {
+    case "email_unverified":
+      return "An account with that email already exists. Sign in with your password to link it.";
+    case "already_linked":
+      return "That email is already linked to a different sign-in method.";
+    case "no_email":
+      return "Your provider account didn't share a usable email address.";
+    default:
+      return "Social sign-in failed. Please try again.";
+  }
+}
+
 function parseAuthError(raw: string): string {
   if (/409/.test(raw) || /already registered/i.test(raw)) return "That email is already registered.";
   if (/401/.test(raw) || /Invalid email or password/i.test(raw)) return "Invalid email or password.";
@@ -366,9 +404,17 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   );
 }
 
-function SocialBtn({ icon, label }: { icon: React.ReactNode; label: string }) {
+function SocialBtn({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
   return (
-    <button type="button" className="rv-social-btn">
+    <button type="button" className="rv-social-btn" onClick={onClick}>
       {icon}
       <span>{label}</span>
     </button>

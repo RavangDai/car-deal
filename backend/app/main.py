@@ -12,13 +12,16 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import get_current_user, router as auth_router
 from .celery_app import celery_app
+from .cookies import require_csrf
 from .db import engine, get_db
 from .donations import router as donations_router
 from .limiter import limiter
 from .models import Listing, User
+from .oauth import router as oauth_router
 from .settings import settings
 from .tasks import scrape_craigslist_task
 
@@ -50,9 +53,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Signed session — holds the OAuth state/PKCE between the login redirect and the
+# provider callback (Authlib's standard mechanism). Not used for app sessions.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    same_site=settings.cookie_samesite,
+    https_only=settings.cookie_secure,
+)
+
 # ── Routers ───────────────────────────────────────────────────────────────────
 
 app.include_router(auth_router)
+app.include_router(oauth_router)
 app.include_router(donations_router)
 
 
@@ -152,6 +165,7 @@ async def enqueue_craigslist_scrape(
     query: str,
     max_results: int = 10,
     user: User = Depends(get_current_user),
+    _csrf: None = Depends(require_csrf),
 ):
     async_result = scrape_craigslist_task.delay(
         city=city, query=query, max_results=max_results

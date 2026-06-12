@@ -9,14 +9,13 @@ import {
   fetchDeals,
   getMe,
   getScrapeJob,
-  getToken,
+  hasSessionHint,
   login,
   logout,
   register,
   runCraigslistScrape,
   type ScrapeJobAccepted,
   type ScrapeJobStatus,
-  type TokenOut,
   type UserOut,
 } from "./api";
 import { queryClient } from "./queryClient";
@@ -28,31 +27,31 @@ export function useMe() {
   return useQuery<UserOut>({
     queryKey: queryKeys.auth.me,
     queryFn: getMe,
-    enabled: !!getToken(),
+    enabled: hasSessionHint(),
     staleTime: 5 * 60_000,
   });
 }
 
 export function useLoginMutation() {
   const qc = useQueryClient();
-  return useMutation<TokenOut, Error, { email: string; password: string }>({
+  return useMutation<UserOut, Error, { email: string; password: string }>({
     mutationFn: ({ email, password }) => login(email, password),
-    onSuccess: () => {
+    onSuccess: (user) => {
+      // Seed the cache so the app flips to the dashboard without a round-trip.
+      qc.setQueryData(queryKeys.auth.me, user);
       qc.invalidateQueries({ queryKey: queryKeys.auth.me });
     },
   });
 }
 
-// Single mutation that registers then immediately logs in — the LoginPage's
-// register form expects to drop straight into the dashboard.
+// Register now also logs the user in (the backend sets the session cookie on
+// register), so the LoginPage register form drops straight into the dashboard.
 export function useRegisterAndLoginMutation() {
   const qc = useQueryClient();
-  return useMutation<TokenOut, Error, { email: string; password: string }>({
-    mutationFn: async ({ email, password }) => {
-      await register(email, password);
-      return login(email, password);
-    },
-    onSuccess: () => {
+  return useMutation<UserOut, Error, { email: string; password: string }>({
+    mutationFn: ({ email, password }) => register(email, password),
+    onSuccess: (user) => {
+      qc.setQueryData(queryKeys.auth.me, user);
       qc.invalidateQueries({ queryKey: queryKeys.auth.me });
     },
   });
@@ -62,7 +61,7 @@ export function useLogoutMutation() {
   const qc = useQueryClient();
   return useMutation<void, Error, void>({
     mutationFn: async () => {
-      logout();
+      await logout();
     },
     onSuccess: () => {
       qc.setQueryData(queryKeys.auth.me, null);
