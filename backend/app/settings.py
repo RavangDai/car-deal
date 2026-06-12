@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     frontend_url: str = "http://localhost:5173"
 
+    # Craigslist scraper
+    scraper_user_agent: str = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+    scraper_request_timeout: float = 20.0
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

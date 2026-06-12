@@ -32,9 +32,14 @@ car-deal-finder/
 │   │   ├── limiter.py                 slowapi Limiter instance (shared)
 │   │   ├── celery_app.py              Celery instance — Redis broker + result backend
 │   │   ├── tasks.py                   Celery tasks (scrape_craigslist_task)
-│   │   └── scraper_craigslist.py      Craigslist scraper (currently stubbed w/ mock data)
+│   │   └── scraper_craigslist.py      Craigslist scraper (real httpx + BeautifulSoup)
+│   ├── tests/
+│   │   ├── fixtures/                  Saved Craigslist HTML (search + detail pages)
+│   │   └── test_scraper_craigslist.py Offline unit tests for the scraper
 │   ├── Dockerfile                     Backend image (Python 3.12-slim)
-│   └── requirements.txt               Python dependencies
+│   ├── pytest.ini                     Pytest config (testpaths + pythonpath)
+│   ├── requirements.txt               Python dependencies
+│   └── requirements-dev.txt           Test-only deps (pytest) — includes requirements.txt
 │
 ├── frontend/
 │   ├── src/
@@ -394,6 +399,14 @@ celery -A app.celery_app:celery_app worker --loglevel=info   # in a 2nd shell
 cd frontend && npm run build   # output in dist/
 ```
 
+### Backend tests
+```bash
+cd backend
+.venv\Scripts\activate
+pip install -r requirements-dev.txt   # first time (adds pytest)
+pytest                                # offline scraper tests, no network/DB needed
+```
+
 ---
 
 ## Current Status
@@ -441,8 +454,17 @@ cd frontend && npm run build   # output in dist/
 - `App.tsx` session restore on mount (calls `/auth/me` if token present); `BootSplash` covers the bootstrap window
 - API version bumped to 0.5.0
 
+### Done (Phase 2 — Real Craigslist scraper)
+- `scraper_craigslist.py` rewritten from stub to real scraping (httpx `Client` + BeautifulSoup) — **same `search_craigslist_cars(city, query, max_results)` signature**, so `tasks.py` and the Celery pipeline are untouched
+- Scrapes Craigslist's **static no-JS search results** (`li.cl-static-search-result`) for url/title/price/location — more stable than the JS gallery
+- **Per-listing detail fetch** enriches each result with mileage (`odometer` attrgroup), exact `posted_at` (`<time datetime>`), and description (`#postingbody`, QR boilerplate stripped); throttled sequential fetches (`DETAIL_DELAY_RANGE`)
+- Title parsing helpers: `_parse_price`, `_parse_year`, `_parse_make_model` (against a `KNOWN_MAKES` map, `"Unknown"` fallback so the downstream contract always holds)
+- Resilience: search-request errors propagate to Celery's `autoretry_for`; per-listing detail failures are caught and degrade gracefully (keep search data, null mileage/description, `posted_at = now`); empty/changed layout returns `[]`
+- Config: `scraper_user_agent` + `scraper_request_timeout` in `settings.py`
+- **Tests**: `backend/tests/test_scraper_craigslist.py` — 25 offline tests against saved HTML fixtures (helpers, search parsing, detail parsing, mocked end-to-end, failure-degradation). Run: `cd backend && pytest`
+- No new runtime deps (`httpx` + `beautifulsoup4` were already present); `pytest` added via `requirements-dev.txt`
+
 ### Not Yet Implemented
-- **Real Craigslist scraper** — `scraper_craigslist.py` still returns mock listings; BeautifulSoup logic TBD
 - **Phase 6 — Real ML pricing model** — still `listed_price × 1.15` heuristic
 - **GitHub Actions CI** — no automated test/build/lint pipeline yet
 - **Refresh tokens** — only access tokens are issued (24h); no rotation, no token blacklist on logout
@@ -469,7 +491,8 @@ cd frontend && npm run build   # output in dist/
 | `backend/app/db.py` | Both engines (async + sync), `get_db` dep, sync-URL derivation |
 | `backend/app/models.py` | Source of truth for ORM models (Listing, User) |
 | `backend/app/settings.py` | All env-driven config including JWT settings |
-| `backend/app/scraper_craigslist.py` | Where real scraping logic will go (currently stubbed) |
+| `backend/app/scraper_craigslist.py` | Real Craigslist scraper (httpx + BeautifulSoup): static search results + per-listing detail enrichment |
+| `backend/tests/test_scraper_craigslist.py` | Offline, fixture-based unit tests for the scraper |
 | `backend/alembic/versions/` | Migration history (001 listings, 002 users) |
 | `docker-compose.yml` | Full local stack — db, redis, backend, worker |
 | `frontend/src/App.tsx` | Auth-derived page selection + Dashboard (mostly derived state) |
