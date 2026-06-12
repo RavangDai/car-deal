@@ -84,7 +84,7 @@ export function GaugeDial({
       {/* redline */}
       <path
         d={`M ${redStartX} ${redStartY} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        stroke="var(--red, #c41e3a)"
+        stroke="var(--red, #b8312e)"
         strokeWidth="1.6"
       />
       {/* tick marks at 0%, 50%, 100% */}
@@ -97,7 +97,7 @@ export function GaugeDial({
         y1={cy}
         x2={nx}
         y2={ny}
-        stroke={inRed ? "var(--red, #c41e3a)" : "currentColor"}
+        stroke={inRed ? "var(--red, #b8312e)" : "currentColor"}
         strokeWidth="1.7"
         strokeLinecap="round"
       />

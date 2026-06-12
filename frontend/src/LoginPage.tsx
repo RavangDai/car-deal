@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
+import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
 interface Props {
   onLogin: () => void;
@@ -36,7 +37,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<{ text: string; tone: "err" | "notice" } | null>(null);
   const prefersReduced = useReducedMotion();
 
   const loginMut = useLoginMutation();
@@ -90,7 +91,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
       exitThen(onLogin);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong.";
-      setFormError(parseAuthError(message));
+      setFormError({ text: parseAuthError(message), tone: "err" });
     }
   }
 
@@ -295,12 +296,12 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
             {formError && (
               <motion.p
-                className="rv-login-form-err"
+                className={`rv-login-form-err${formError.tone === "notice" ? " rv-login-form-err--notice" : ""}`}
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
               >
                 <span className="rv-login-form-err-mark">!</span>
-                {formError}
+                {formError.text}
               </motion.p>
             )}
           </form>
@@ -344,16 +345,17 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
 /* ── HELPERS ──────────────────────────────────────────────── */
 
-function parseOAuthError(code: string): string {
+function parseOAuthError(code: string): { text: string; tone: "err" | "notice" } {
+  // "notice" = guidance the user can act on (amber); "err" = a real failure (red).
   switch (code) {
     case "email_unverified":
-      return "An account with that email already exists. Sign in with your password to link it.";
+      return { text: "An account with that email already exists. Sign in with your password to link it.", tone: "notice" };
     case "already_linked":
-      return "That email is already linked to a different sign-in method.";
+      return { text: "That email is already linked to a different sign-in method.", tone: "notice" };
     case "no_email":
-      return "Your provider account didn't share a usable email address.";
+      return { text: "Your provider account didn't share a usable email address.", tone: "err" };
     default:
-      return "Social sign-in failed. Please try again.";
+      return { text: "Social sign-in failed. Please try again.", tone: "err" };
   }
 }
 
@@ -465,21 +467,10 @@ const RECENT_DEALS = [
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  ${FONT_IMPORT}
 
   .rv-login {
-    --paper:        #ece2cd;
-    --paper-deep:   #ddd0b4;
-    --paper-soft:   #f3eada;
-    --paper-pale:   #f7f0df;
-    --ink:          #18130a;
-    --ink-soft:     #2a2418;
-    --ink-muted:    #6f6244;
-    --ink-fade:     #968866;
-    --red:          #b8312e;
-    --red-deep:     #8a1d1c;
-    --brass:        #a3792c;
-    --err:          #b8312e;
+    ${THEME_TOKENS}
 
     background: var(--paper);
     color: var(--ink);
@@ -925,6 +916,13 @@ const STYLES = `
     background: rgba(184, 49, 46, 0.06);
     border-left: 2px solid var(--err);
   }
+  /* Amber variant — actionable guidance (e.g. "sign in to link"), not a failure. */
+  .rv-login .rv-login-form-err--notice {
+    color: var(--amber-deep);
+    background: rgba(176, 125, 43, 0.08);
+    border-left-color: var(--amber);
+  }
+  .rv-login .rv-login-form-err--notice .rv-login-form-err-mark { background: var(--amber); }
   .rv-login .rv-login-form-err-mark {
     width: 16px; height: 16px;
     background: var(--err);

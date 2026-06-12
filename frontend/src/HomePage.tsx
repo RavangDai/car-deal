@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "./lib/gsap";
+import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 import { createDonationCheckout } from "./api";
 import { useDeals } from "./hooks";
 import ScrollRail from "./ScrollRail";
@@ -890,7 +891,7 @@ function SectionHead({
 function ConfidenceBars({ level }: { level: "low" | "med" | "high" }) {
   const filled = level === "high" ? 3 : level === "med" ? 2 : 1;
   return (
-    <span className="rv-conf" aria-label={`Confidence: ${level}`}>
+    <span className={`rv-conf rv-conf-${level}`} aria-label={`Confidence: ${level}`}>
       {[0, 1, 2].map((i) => (
         <span key={i} className={`rv-conf-bar ${i < filled ? "rv-conf-bar-on" : ""}`} />
       ))}
@@ -1298,20 +1299,10 @@ const REVVEAL_WAY = [
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  ${FONT_IMPORT}
 
   .rv-catalog {
-    --paper:        #ece2cd;
-    --paper-deep:   #ddd0b4;
-    --paper-soft:   #f3eada;
-    --paper-pale:   #f7f0df;
-    --ink:          #18130a;
-    --ink-soft:     #2a2418;
-    --ink-muted:    #6f6244;
-    --ink-fade:     #968866;
-    --red:          #b8312e;
-    --red-deep:     #8a1d1c;
-    --brass:        #a3792c;
+    ${THEME_TOKENS}
     --rv-nav-h:     62px;
 
     background: var(--paper);
@@ -2113,6 +2104,10 @@ const STYLES = `
     border: 1px solid var(--ink-fade);
   }
   .rv-catalog .rv-conf-bar-on { background: var(--ink); border-color: var(--ink); }
+  /* Semantic confidence: green = trust, amber = caution, faded = thin data. */
+  .rv-catalog .rv-conf-high .rv-conf-bar-on { background: var(--green); border-color: var(--green); }
+  .rv-catalog .rv-conf-med  .rv-conf-bar-on { background: var(--amber); border-color: var(--amber); }
+  .rv-catalog .rv-conf-low  .rv-conf-bar-on { background: var(--ink-fade); border-color: var(--ink-fade); }
   .rv-catalog .rv-conf-label {
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
@@ -2173,7 +2168,7 @@ const STYLES = `
   }
   .rv-catalog .rv-confidence-bar-fill {
     position: absolute; top: 0; bottom: 0;
-    background: var(--red);
+    background: var(--green);
     opacity: 0.85;
   }
   .rv-catalog .rv-confidence-bar-mark {
@@ -2594,7 +2589,7 @@ const STYLES = `
   }
   .rv-catalog .rv-desk-status-dot {
     width: 6px; height: 6px;
-    background: #2c8c4f;
+    background: var(--green);
     border-radius: 50%;
     animation: rv-pulse 2s ease-in-out infinite;
   }
@@ -2649,7 +2644,7 @@ const STYLES = `
   }
   .rv-catalog .rv-desk-sent-mark {
     width: 20px; height: 20px;
-    background: var(--red);
+    background: var(--green);
     color: var(--paper-pale);
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 12px; font-weight: 700;

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
 export type LegalKind = "terms" | "privacy";
 
@@ -303,18 +304,10 @@ const PRIVACY: Doc = {
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  ${FONT_IMPORT}
 
   .rv-legal {
-    --paper:        #ece2cd;
-    --paper-deep:   #ddd0b4;
-    --paper-soft:   #f3eada;
-    --paper-pale:   #f7f0df;
-    --ink:          #18130a;
-    --ink-soft:     #2a2418;
-    --ink-muted:    #6f6244;
-    --ink-fade:     #968866;
-    --red:          #b8312e;
+    ${THEME_TOKENS}
 
     background: var(--paper);
     color: var(--ink);

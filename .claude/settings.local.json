@@ -52,7 +52,9 @@
       "Bash(URL=http://localhost:5174/ node verify-login.mjs)",
       "Bash(URL=http://localhost:5173/ node verify-login.mjs)",
       "Bash(URL=http://localhost:5173/ node verify-gsap.mjs)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)"
     ]
   }
 }

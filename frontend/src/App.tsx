@@ -11,9 +11,10 @@ import {
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import LegalPage, { type LegalKind } from "./LegalPage";
-import { Tire, GaugeDial } from "./CarGlyphs";
+import { Tire, GaugeDial, LicensePlate, Odometer } from "./CarGlyphs";
 import { sourceCode, extractStateCode } from "./carUtils";
 import { UndervalueHistogram, PriceScatter } from "./charts";
+import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
 type Deal = {
   id: string;
@@ -168,11 +169,8 @@ export default function App() {
 
 function BootSplash() {
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: "#ffffff", color: "#0a1530", fontFamily: "'Geist', system-ui, sans-serif" }}
-    >
-      <style>{SHARED_STYLES}</style>
+    <div className="rv-report min-h-screen flex items-center justify-center">
+      <style>{REPORT_STYLES}</style>
       <div className="flex flex-col items-center gap-5 opacity-90">
         <div className="flex items-center gap-2.5">
           <img
@@ -257,11 +255,11 @@ function Dashboard({
   const deals: Deal[] = (dealsQuery.data as Deal[] | undefined) ?? [];
 
   return (
-    <div className="min-h-screen bg-[var(--paper-warm)] text-[var(--ink)]" style={{ fontFamily: "'Geist', system-ui, sans-serif" }}>
-      <style>{SHARED_STYLES}</style>
+    <div className="rv-report min-h-screen">
+      <style>{REPORT_STYLES}</style>
 
       {/* ── HEADER ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[var(--rule)]">
+      <header className="sticky top-0 z-40 bg-[var(--paper)] border-b border-[var(--ink)]">
         <div className="px-6 md:px-10 h-[68px] flex items-center justify-between max-w-[1280px] mx-auto">
           <div className="flex items-center gap-8">
             <a href="#" className="flex items-center gap-2.5">
@@ -273,8 +271,8 @@ function Dashboard({
               />
               <span className="display text-[1.4rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
             </a>
-            <span className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--blue-tint)] text-[var(--blue-deep)] font-mono text-[10px] uppercase tracking-[0.18em]">
-              <span className="rv-live-dot" /> {guest ? "Guest preview" : "Buyer's Console · v3.2"}
+            <span className="hidden md:flex items-center gap-2 px-2.5 py-[5px] border border-[var(--ink)] bg-[var(--paper-pale)] text-[var(--ink-soft)] font-mono text-[10px] uppercase tracking-[0.18em]">
+              <span className="rv-live-dot" /> {guest ? "Guest preview" : "Buyer's Report · No. 047"}
             </span>
           </div>
           {guest ? (
@@ -317,19 +315,17 @@ function Dashboard({
       >
         <section className="px-6 md:px-10 pt-14 pb-10">
           <motion.div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--blue-tint)] border border-[var(--blue)]/15 mb-6"
+            className="inline-flex items-center gap-2.5 px-3 py-1.5 border border-[var(--ink-fade)] bg-[var(--paper-pale)] mb-6"
             variants={dashLine}
           >
-            <span className="rv-sparkle">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l2.39 8.61L23 11l-8.61 2.39L12 22l-2.39-8.61L1 11l8.61-2.39z"/></svg>
-            </span>
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--blue-deep)] font-medium">Run a Search</span>
+            <span className="rv-live-dot" />
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] font-medium">Field survey · Run a search</span>
           </motion.div>
           <motion.h1
             className="display text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.98] tracking-[-0.025em] mb-3 font-semibold"
             variants={dashLine}
           >
-            Find a deal <span className="text-[var(--blue)] italic">worth</span> the drive.
+            Find a deal <span className="rv-emph">worth</span> the drive.
           </motion.h1>
           <motion.p
             className="text-[15.5px] text-[var(--ink-soft)] max-w-[48ch]"
@@ -343,11 +339,11 @@ function Dashboard({
           <motion.form
             onSubmit={handleSearch}
             variants={dashForm}
-            className="relative bg-white border border-[var(--rule)] rounded-[20px] p-7 md:p-9 shadow-soft"
+            className="relative rv-sheet p-7 md:p-9"
           >
             <div className="flex items-center gap-3 mb-7">
-              <span className="rv-tag rv-tag-blue">Parameters</span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Cluster 02 · live index</span>
+              <span className="rv-tag rv-tag-red">Parameters</span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Worksheet 02 · live index</span>
               <span className="h-px flex-1 bg-[var(--rule)]" />
             </div>
 
@@ -372,8 +368,8 @@ function Dashboard({
                 )}
               </button>
               {error && (
-                <p className="text-[13px] text-[#dc2626] flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#fee2e2] font-bold text-[10px]">!</span>
+                <p className="text-[13.5px] italic text-[var(--err)] flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-4 h-4 bg-[var(--red)] text-[var(--paper-pale)] font-mono font-bold text-[10px] not-italic">!</span>
                   {error}
                 </p>
               )}
@@ -395,9 +391,9 @@ function Dashboard({
 
       {/* ── RESULTS ──────────────────────────────────────── */}
       <section className="px-6 md:px-10 pb-24 max-w-[1280px] mx-auto">
-        <div className="flex items-end justify-between mb-8 border-b border-[var(--rule)] pb-4">
+        <div className="flex items-end justify-between mb-8 border-b border-[var(--ink)] pb-4">
           <h2 className="display text-[1.7rem] leading-tight tracking-[-0.02em] font-semibold">
-            Results <span className="text-[var(--blue)] italic">— this run</span>
+            Results <span className="rv-emph">— this run</span>
           </h2>
           <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
             {loading ? (stage ?? "fetching...") : `${deals.length} listings`}
@@ -406,20 +402,20 @@ function Dashboard({
 
         {!loading && deals.length > 0 && (
           <div className="grid md:grid-cols-2 gap-5 mb-8">
-            <div className="bg-white border border-[var(--rule)] rounded-[18px] p-5 shadow-soft">
-              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Undervalue distribution</div>
+            <div className="rv-sheet p-5">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Fig. 1 — Undervalue distribution</div>
               <UndervalueHistogram deals={deals} />
             </div>
-            <div className="bg-white border border-[var(--rule)] rounded-[18px] p-5 shadow-soft">
-              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Asking vs fair value</div>
+            <div className="rv-sheet p-5">
+              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Fig. 2 — Asking vs fair value</div>
               <PriceScatter deals={deals} />
             </div>
           </div>
         )}
 
         {!loading && deals.length === 0 && (
-          <div className="border border-dashed border-[var(--rule-strong)] rounded-[20px] p-16 text-center bg-white">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[var(--blue-tint)] text-[var(--blue)] mb-5">
+          <div className="border border-dashed border-[var(--ink-fade)] rounded-[3px] p-16 text-center bg-[var(--paper-soft)]">
+            <div className="inline-flex items-center justify-center w-14 h-14 border border-[var(--ink)] bg-[var(--paper-deep)] text-[var(--ink)] mb-5">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
               </svg>
@@ -453,11 +449,9 @@ function Dashboard({
               variants={cardItem}
             >
               <div className="flex items-start justify-between mb-4 gap-3">
-                <span className="rv-plate-chip">
-                  <span className="rv-plate-dot" />
+                <LicensePlate className="text-[var(--ink-soft)]">
                   {extractStateCode(deal.location) ?? sourceCode(deal.source)} · {String(i + 1).padStart(4, "0")} · {sourceCode(deal.source)}
-                  <span className="rv-plate-dot" />
-                </span>
+                </LicensePlate>
                 <span className="flex items-center gap-2 text-[var(--ink-soft)]">
                   <GaugeDial value={deal.undervalue_percent} size={34} />
                   <DealScorePill value={deal.undervalue_percent} />
@@ -467,12 +461,16 @@ function Dashboard({
               <h3 className="display text-[1.3rem] leading-tight tracking-[-0.015em] mb-1 font-semibold">
                 {deal.year} {deal.make} {deal.model}
               </h3>
-              <p className="text-[12.5px] text-[var(--ink-muted)] mb-5">
-                {deal.location}
-                {deal.mileage ? ` · ${deal.mileage.toLocaleString()} mi` : ""}
-              </p>
+              <p className="text-[13px] italic text-[var(--ink-muted)] mb-3">{deal.location}</p>
+              <div className="mb-5 text-[var(--ink-muted)]">
+                {deal.mileage != null ? (
+                  <Odometer value={deal.mileage} />
+                ) : (
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-70">mileage unlisted</span>
+                )}
+              </div>
 
-              <div className="space-y-2 text-[13px] font-mono pt-4 border-t border-dashed border-[var(--rule)]">
+              <div className="space-y-2 text-[13px] font-mono pt-4 border-t border-dashed border-[var(--ink-fade)]">
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--ink-muted)]">Listed</span>
                   <span className="font-semibold text-[var(--ink)]">${deal.listed_price.toLocaleString()}</span>
@@ -482,14 +480,16 @@ function Dashboard({
                   <span className="text-[var(--ink-soft)]">${deal.predicted_price.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[var(--ink-muted)]">Differential</span>
-                  <span className="font-semibold text-[var(--green)]">−{deal.undervalue_percent.toFixed(1)}%</span>
+                  <span className="text-[var(--ink-muted)]">You save</span>
+                  <span className="font-semibold text-[var(--red)]">
+                    ${Math.max(0, deal.predicted_price - deal.listed_price).toLocaleString()} · −{deal.undervalue_percent.toFixed(1)}%
+                  </span>
                 </div>
               </div>
 
               <div className="mt-5 pt-3 border-t border-[var(--rule)] flex items-center justify-between text-[12px]">
                 <span className="font-mono uppercase tracking-[0.15em] text-[var(--ink-muted)]">Open listing</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--blue)] transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--red)] transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               </div>
             </motion.a>
           ))}
@@ -497,12 +497,12 @@ function Dashboard({
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────── */}
-      <footer className="border-t border-[var(--rule)] bg-white px-6 md:px-10 py-7">
+      <footer className="bg-[var(--ink)] text-[var(--paper)] px-6 md:px-10 py-7">
         <div className="max-w-[1280px] mx-auto flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] opacity-75">
             © 2026 Revveal · Buyer's Intelligence
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] opacity-75">
             Model v3.2 · updated 2m ago
           </span>
         </div>
@@ -537,7 +537,7 @@ function Input({
 }) {
   return (
     <div>
-      <label className="text-[12px] font-medium text-[var(--ink-soft)] mb-2 block">
+      <label className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-2 block">
         {label}
       </label>
       <input
@@ -563,7 +563,7 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
           </svg>
         </span>
         <p className="display text-[1.25rem] leading-tight tracking-[-0.015em] font-semibold mb-1.5">
-          Live search is <span className="text-[var(--blue)] italic">account-only</span>
+          Live search is <span className="rv-emph">account-only</span>
         </p>
         <p className="text-[13.5px] text-[var(--ink-soft)] max-w-[34ch] mb-5 leading-relaxed">
           Create a free account to run live marketplace searches. Browsing today&apos;s deals stays free.
@@ -578,135 +578,151 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
 }
 
 function DealScorePill({ value }: { value: number }) {
-  // map undervalue % to a 0-100ish badge color
-  const tier = value >= 25 ? "great" : value >= 15 ? "good" : "ok";
+  // Verdict stamp — green means "safe to proceed", amber means "thin cushion".
+  // The red savings figure on the card carries urgency; the stamp never does.
+  const tier = value >= 25 ? "best" : value >= 15 ? "rec" : "thin";
   const palette = {
-    great: { bg: "var(--green-soft)", fg: "var(--green)", label: "Great" },
-    good:  { bg: "var(--blue-tint)",  fg: "var(--blue-deep)", label: "Solid" },
-    ok:    { bg: "#f1f3f8",           fg: "var(--ink-soft)",  label: "Fair" },
+    best: { bg: "var(--green-tint)", fg: "var(--green-deep)", bd: "var(--green)", label: "Best buy" },
+    rec:  { bg: "transparent",       fg: "var(--green)",      bd: "var(--green)", label: "Recommended" },
+    thin: { bg: "var(--amber-tint)", fg: "var(--amber-deep)", bd: "var(--amber)", label: "Thin margin" },
   }[tier];
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-mono text-[10.5px] uppercase tracking-[0.14em] font-medium"
-      style={{ background: palette.bg, color: palette.fg }}
+      className="inline-flex items-center px-2 py-[5px] rounded-[2px] border-[1.5px] font-mono text-[9.5px] uppercase tracking-[0.16em] font-semibold leading-none whitespace-nowrap"
+      style={{ background: palette.bg, color: palette.fg, borderColor: palette.bd }}
     >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: palette.fg }} />
       {palette.label}
     </span>
   );
 }
 
-const SHARED_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+const REPORT_STYLES = `
+  ${FONT_IMPORT}
 
-  :root {
-    --paper: #ffffff;
-    --paper-warm: #f7f9fc;
-    --blue-tint: #ebf1ff;
-    --ink: #0a1530;
-    --ink-soft: #475574;
-    --ink-muted: #8392ad;
-    --rule: #e3e9f3;
-    --rule-strong: #cfd8e6;
-    --blue: #1f5fff;
-    --blue-deep: #1648c4;
-    --green: #16a34a;
-    --green-soft: #d9f4e7;
+  .rv-report {
+    ${THEME_TOKENS}
+
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Newsreader', Georgia, serif;
+    font-feature-settings: "ss01", "ss02", "liga";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  .display {
-    font-family: 'Bricolage Grotesque', serif;
-    font-variation-settings: "wdth" 100, "opsz" 96;
+  .rv-report .display {
+    font-family: 'Fraunces', 'Times New Roman', serif;
+    font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 0;
     font-weight: 600;
+    letter-spacing: -0.018em;
   }
 
-  .shadow-soft { box-shadow: 0 10px 36px -10px rgba(10,21,48,0.08), 0 4px 12px rgba(10,21,48,0.04); }
+  /* Red italic — used sparingly, mirrors the landing page's rv-emph. */
+  .rv-report .rv-emph {
+    font-style: italic;
+    color: var(--red);
+    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
+  }
 
-  .rv-tag {
+  /* Tailwind's font-mono doesn't know about JetBrains Mono — align it. */
+  .rv-report .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Report sheet — the one card surface: worksheet, figures, deal reports. */
+  .rv-report .rv-sheet {
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 5px 5px 0 rgba(24,19,10,0.07);
+  }
+
+  .rv-report .rv-tag {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 10px; border-radius: 999px;
+    padding: 5px 10px; border-radius: 2px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; font-weight: 500;
-    letter-spacing: 0.06em; text-transform: uppercase;
+    font-size: 10.5px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase;
     line-height: 1;
   }
-  .rv-tag-blue { background: var(--blue-tint); color: var(--blue-deep); }
+  .rv-report .rv-tag-red { border: 1.5px solid var(--red); color: var(--red-deep); background: transparent; }
 
-  .rv-live-dot {
+  /* Live scan dot — red per the palette (live/urgent), green when complete. */
+  .rv-report .rv-live-dot {
     width: 6px; height: 6px; border-radius: 50%;
-    background: var(--blue);
+    background: var(--red);
     animation: liveBeat 1.6s ease-in-out infinite;
     display: inline-block;
   }
-  .rv-live-dot-green { background: var(--green); animation: liveBeatGreen 1.6s ease-in-out infinite; }
+  .rv-report .rv-live-dot-green { background: var(--green); animation: liveBeatGreen 1.6s ease-in-out infinite; }
   @keyframes liveBeat {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(31,95,255,0.55); }
-    50% { box-shadow: 0 0 0 5px rgba(31,95,255,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(184,49,46,0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(184,49,46,0); }
   }
   @keyframes liveBeatGreen {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0.5); }
-    50% { box-shadow: 0 0 0 5px rgba(22,163,74,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(45,106,79,0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(45,106,79,0); }
   }
 
-  .rv-sparkle {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 16px; height: 16px; border-radius: 50%;
-    background: white; color: var(--blue);
-    box-shadow: 0 2px 6px rgba(31,95,255,0.22);
-  }
-
-  .rv-input {
+  .rv-report .rv-input {
     width: 100%;
-    padding: 12px 14px;
-    background: white;
-    border: 1px solid var(--rule-strong);
-    border-radius: 10px;
-    font-size: 14px;
+    padding: 11px 13px;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink-fade);
+    border-radius: 2px;
+    font-size: 14.5px;
     color: var(--ink);
     outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    font-family: 'Geist', sans-serif;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    font-family: 'Newsreader', Georgia, serif;
   }
-  .rv-input:focus {
-    border-color: var(--blue);
-    box-shadow: 0 0 0 4px rgba(31,95,255,0.10);
+  .rv-report .rv-input:focus {
+    border-color: var(--ink);
+    box-shadow: 3px 3px 0 var(--paper-deep);
   }
 
-  .rv-primary {
+  /* Primary action — letterpress red stamp. */
+  .rv-report .rv-primary {
     display: inline-flex; align-items: center; gap: 10px;
-    padding: 13px 22px;
-    background: var(--blue);
-    color: white;
-    font-size: 14px; font-weight: 500;
-    border-radius: 999px;
-    transition: background-color 0.2s ease;
-    box-shadow: 0 4px 14px rgba(31,95,255,0.26), inset 0 1px 0 rgba(255,255,255,0.16);
+    padding: 13px 24px;
+    background: var(--red);
+    color: var(--paper-pale);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    border-radius: 2px;
+    transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 3px 3px 0 rgba(24,19,10,0.2);
   }
-  .rv-primary:hover:not(:disabled) { background: var(--blue-deep); }
-  .rv-primary:disabled { opacity: 0.65; cursor: wait; }
+  .rv-report .rv-primary:hover:not(:disabled) {
+    background: var(--red-deep);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 rgba(24,19,10,0.24);
+  }
+  .rv-report .rv-primary:disabled { opacity: 0.65; cursor: wait; }
 
-  /* Guest header CTA — compact pill that mirrors the primary action */
-  .rv-header-cta {
+  /* Guest header CTA — compact version of the primary stamp */
+  .rv-report .rv-header-cta {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 8px 16px;
-    background: var(--blue);
-    color: white;
-    font-size: 13px; font-weight: 500;
-    border-radius: 999px;
+    background: var(--red);
+    color: var(--paper-pale);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    border-radius: 2px;
     transition: background-color 0.2s ease, transform 0.15s ease;
-    box-shadow: 0 4px 14px rgba(31,95,255,0.26), inset 0 1px 0 rgba(255,255,255,0.16);
+    box-shadow: 2px 2px 0 rgba(24,19,10,0.2);
   }
-  .rv-header-cta:hover { background: var(--blue-deep); transform: translateY(-1px); }
-  .rv-header-cta svg { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-  .rv-header-cta:hover svg { transform: translateX(3px); }
+  .rv-report .rv-header-cta:hover { background: var(--red-deep); transform: translateY(-1px); }
+  .rv-report .rv-header-cta svg { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+  .rv-report .rv-header-cta:hover svg { transform: translateX(3px); }
 
-  /* Guest lock — frosted overlay over the locked search form */
-  .rv-guest-lock {
+  /* Guest lock — paper-frosted overlay over the locked worksheet */
+  .rv-report .rv-guest-lock {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
-    border-radius: 20px;
-    background: rgba(247, 249, 252, 0.62);
+    border-radius: 3px;
+    background: rgba(236, 226, 205, 0.62);
     backdrop-filter: blur(7px);
     -webkit-backdrop-filter: blur(7px);
     z-index: 5;
@@ -716,48 +732,37 @@ const SHARED_STYLES = `
     from { opacity: 0; }
     to { opacity: 1; }
   }
-  .rv-guest-lock-card {
+  .rv-report .rv-guest-lock-card {
     display: flex; flex-direction: column; align-items: center;
     text-align: center;
   }
-  .rv-guest-lock-icon {
+  .rv-report .rv-guest-lock-icon {
     display: inline-flex; align-items: center; justify-content: center;
     width: 48px; height: 48px;
-    border-radius: 14px;
-    background: var(--blue-tint);
-    color: var(--blue);
+    border: 1px solid var(--ink);
+    background: var(--paper-deep);
+    color: var(--ink);
     margin-bottom: 16px;
-    box-shadow: 0 4px 14px rgba(31,95,255,0.16);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .rv-guest-lock { animation: none; }
-    .rv-header-cta:hover { transform: none; }
+    .rv-report .rv-guest-lock { animation: none; }
+    .rv-report .rv-header-cta:hover { transform: none; }
+    .rv-report .rv-live-dot, .rv-report .rv-live-dot-green { animation: none; }
   }
 
-  .rv-deal-card-link {
+  /* Deal card — a filed report sheet with a masthead rule. */
+  .rv-report .rv-deal-card-link {
     display: block;
-    background: white;
-    border: 1px solid var(--rule);
-    border-radius: 18px;
+    background: var(--paper-pale);
+    border: 1px solid var(--ink);
+    border-top-width: 3px;
+    border-radius: 3px;
     padding: 20px;
-    transition: border-color 0.2s ease, transform 0.2s ease;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
-  .rv-deal-card-link:hover { border-color: var(--rule-strong); transform: translateY(-2px); }
-
-  .rv-plate-chip {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 5px 10px; border-radius: 6px;
-    background: var(--paper-warm);
-    border: 1px solid var(--rule);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px; font-weight: 600;
-    letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--ink-soft);
-    line-height: 1;
-  }
-  .rv-plate-dot {
-    width: 3px; height: 3px; border-radius: 50%;
-    background: var(--ink-muted);
+  .rv-report .rv-deal-card-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 5px 5px 0 var(--paper-deep);
   }
 `;

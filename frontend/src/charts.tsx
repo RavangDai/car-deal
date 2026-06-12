@@ -41,7 +41,7 @@ export function UndervalueHistogram({ deals }: { deals: DealLike[] }) {
         const w = bw * 0.68;
         return (
           <g key={i}>
-            <rect x={x} y={y} width={w} height={h} rx="2" fill="var(--blue)" opacity={0.25 + 0.6 * (c / maxCount)} />
+            <rect x={x} y={y} width={w} height={h} rx="2" fill="var(--red)" opacity={0.25 + 0.6 * (c / maxCount)} />
             {c > 0 && (
               <text x={x + w / 2} y={y - 4} textAnchor="middle" fontSize="9" fontFamily="'JetBrains Mono', monospace" fill="var(--ink-soft)">{c}</text>
             )}
