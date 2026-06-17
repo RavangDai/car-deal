@@ -43,9 +43,9 @@ export function UndervalueHistogram({ deals }: { deals: DealLike[] }) {
           <g key={i}>
             <rect x={x} y={y} width={w} height={h} rx="2" fill="var(--red)" opacity={0.25 + 0.6 * (c / maxCount)} />
             {c > 0 && (
-              <text x={x + w / 2} y={y - 4} textAnchor="middle" fontSize="9" fontFamily="'JetBrains Mono', monospace" fill="var(--ink-soft)">{c}</text>
+              <text x={x + w / 2} y={y - 4} textAnchor="middle" fontSize="9" fontFamily="'Manrope', sans-serif" fill="var(--ink-soft)">{c}</text>
             )}
-            <text x={x + w / 2} y={H - 7} textAnchor="middle" fontSize="9" fontFamily="'JetBrains Mono', monospace" fill="var(--ink-muted)">{labels[i]}</text>
+            <text x={x + w / 2} y={H - 7} textAnchor="middle" fontSize="9" fontFamily="'Manrope', sans-serif" fill="var(--ink-muted)">{labels[i]}</text>
           </g>
         );
       })}
@@ -83,8 +83,8 @@ export function PriceScatter({ deals }: { deals: DealLike[] }) {
           opacity="0.8"
         />
       ))}
-      <text x={pad.l} y={H - 6} fontSize="8.5" fontFamily="'JetBrains Mono', monospace" fill="var(--ink-muted)">asking →</text>
-      <text x={pad.l - 24} y={pad.t + 6} fontSize="8.5" fontFamily="'JetBrains Mono', monospace" fill="var(--ink-muted)" transform={`rotate(-90 ${pad.l - 24} ${pad.t + 6})`}>fair →</text>
+      <text x={pad.l} y={H - 6} fontSize="8.5" fontFamily="'Manrope', sans-serif" fill="var(--ink-muted)">asking →</text>
+      <text x={pad.l - 24} y={pad.t + 6} fontSize="8.5" fontFamily="'Manrope', sans-serif" fill="var(--ink-muted)" transform={`rotate(-90 ${pad.l - 24} ${pad.t + 6})`}>fair →</text>
     </svg>
   );
 }
