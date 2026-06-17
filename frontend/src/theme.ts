@@ -1,40 +1,41 @@
 // frontend/src/theme.ts
-// Single source of truth for the editorial design tokens and font loading.
+// Single source of truth for typography + design tokens.
 // Each page injects these into its own scoped <style> string (.rv-catalog,
 // .rv-login, .rv-legal, .rv-report) — no :root stylesheet, so the existing
 // scoped-wrapper pattern stays intact.
 //
-// Semantic mapping (approved palette — "premium editorial + buyer-report"):
-//   red    → primary CTA, undervalue %, savings, live scan dot
-//   green  → confidence, verified, clean title, "good deal" range
-//   amber  → medium confidence, recalls, verify warnings
-//   ink    → text, footer, premium contrast blocks
-//   paper  → main background; paper-pale → cards and panels
+// Direction: clean, light, content-first. One typeface (Manrope) carries the
+// whole hierarchy through weight + size; one accent (red) carries CTA + savings.
+//
+// Semantic mapping:
+//   red    → primary CTA, undervalue %, savings
+//   green  → good deal / confidence / verified
+//   amber  → caution / thin margin / warnings
+//   ink    → text
+//   paper  → near-white background; paper-pale → cards/inputs (white)
 
-export const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');`;
+export const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');`;
 
 export const THEME_TOKENS = `
-    --paper:        #ece2cd;
-    --paper-deep:   #ddd0b4;
-    --paper-soft:   #f3eada;
-    --paper-pale:   #f7f0df;
-    --ink:          #18130a;
-    --ink-soft:     #2a2418;
-    --ink-muted:    #6f6244;
-    --ink-fade:     #968866;
+    --paper:        #fafafa;
+    --paper-deep:   #f0f0ee;
+    --paper-soft:   #f4f4f3;
+    --paper-pale:   #ffffff;
+    --ink:          #18181b;
+    --ink-soft:     #27272a;
+    --ink-muted:    #52525b;
+    --ink-fade:     #71717a;
     --red:          #b8312e;
     --red-deep:     #8a1d1c;
-    --red-tint:     #e3c2b0;
+    --red-tint:     #f3d9d4;
     --green:        #2d6a4f;
     --green-deep:   #1f4d3a;
-    --green-tint:   #d3d2bd;
+    --green-tint:   #dce9e2;
     --amber:        #b07d2b;
     --amber-deep:   #8a5f1d;
-    --amber-tint:   #e1d0b0;
-    --bone:         #efe9dd;
-    --rule:         var(--paper-deep);
-    --rule-strong:  var(--ink-fade);
+    --amber-tint:   #f3e6cf;
+    --bone:         #ffffff;
+    --rule:         #e5e5e3;
+    --rule-strong:  #d4d4d1;
     --err:          var(--red);
-    --red-lift:     #cf4a45;
-    --paper-rule:   rgba(236, 226, 205, 0.22);
 `;
