@@ -37,19 +37,21 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const [formError, setFormError] = useState<{ text: string; tone: "err" | "notice" } | null>(null);
+  // An OAuth failure bounces back as "/?auth_error=<code>" — surface it from
+  // the initial render rather than a setState-in-effect.
+  const [formError, setFormError] = useState<{ text: string; tone: "err" | "notice" } | null>(() => {
+    const code = new URLSearchParams(window.location.search).get("auth_error");
+    return code ? parseOAuthError(code) : null;
+  });
   const prefersReduced = useReducedMotion();
 
   const loginMut = useLoginMutation();
   const registerMut = useRegisterAndLoginMutation();
 
-  // Surface an OAuth failure bounced back as "/?auth_error=<code>", then strip
-  // the param so a refresh doesn't re-show it.
+  // Strip the auth_error param so a refresh doesn't re-show the notice.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const code = params.get("auth_error");
-    if (!code) return;
-    setFormError(parseOAuthError(code));
+    if (!params.has("auth_error")) return;
     params.delete("auth_error");
     const qs = params.toString();
     window.history.replaceState(

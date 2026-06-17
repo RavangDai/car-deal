@@ -35,4 +35,6 @@ export const THEME_TOKENS = `
     --rule:         var(--paper-deep);
     --rule-strong:  var(--ink-fade);
     --err:          var(--red);
+    --red-lift:     #cf4a45;
+    --paper-rule:   rgba(236, 226, 205, 0.22);
 `;

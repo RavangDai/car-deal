@@ -54,7 +54,11 @@
       "Bash(URL=http://localhost:5173/ node verify-gsap.mjs)",
       "Bash(git *)",
       "Bash(docker --version)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(git stash *)",
+      "Bash(git reflog *)",
+      "Bash(docker info *)",
+      "Bash(npm --version)"
     ]
   }
 }

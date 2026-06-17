@@ -11,7 +11,7 @@ import {
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import LegalPage, { type LegalKind } from "./LegalPage";
-import { Tire, GaugeDial, LicensePlate, Odometer } from "./CarGlyphs";
+import { Tire, GaugeDial, LicensePlate, Odometer, CarSilhouette } from "./CarGlyphs";
 import { sourceCode, extractStateCode } from "./carUtils";
 import { UndervalueHistogram, PriceScatter } from "./charts";
 import { FONT_IMPORT, THEME_TOKENS } from "./theme";
@@ -252,258 +252,336 @@ function Dashboard({
   const jobSummary =
     scrapeJob.data?.state === "SUCCESS" ? scrapeJob.data.result : null;
 
-  const deals: Deal[] = (dealsQuery.data as Deal[] | undefined) ?? [];
+  const dealsData = dealsQuery.data as Deal[] | undefined;
+  const deals: Deal[] = useMemo(() => dealsData ?? [], [dealsData]);
+
+  const issueDate = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    [],
+  );
+  const totalSavings = useMemo(
+    () => deals.reduce((sum, d) => sum + Math.max(0, d.predicted_price - d.listed_price), 0),
+    [deals],
+  );
 
   return (
-    <div className="rv-report min-h-screen">
+    <div className="rv-report min-h-screen flex flex-col">
       <style>{REPORT_STYLES}</style>
+      <ReportGrain />
 
-      {/* ── HEADER ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[var(--paper)] border-b border-[var(--ink)]">
-        <div className="px-6 md:px-10 h-[68px] flex items-center justify-between max-w-[1280px] mx-auto">
-          <div className="flex items-center gap-8">
-            <a href="#" className="flex items-center gap-2.5">
+      {/* ── MASTHEAD ─────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-[var(--ink)]">
+        <div className="border-b border-[var(--paper-rule)]">
+          <div className="max-w-[1240px] mx-auto px-6 md:px-10 py-[7px] flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.22em] text-[var(--paper-deep)] opacity-90">
+            <span>Vol. III · Buyer's intelligence</span>
+            <span className="hidden md:inline">{issueDate}</span>
+            <span className="flex items-center gap-2">
+              <span className="rv-live-dot" />
+              {guest ? "Guest copy" : "Subscriber edition"}
+            </span>
+          </div>
+        </div>
+        <div className="rv-masthead">
+          <div className="max-w-[1240px] mx-auto px-6 md:px-10 h-[58px] flex items-center justify-between gap-6">
+            <a href="#" className="flex items-center gap-2.5 min-w-0">
               <img
                 src="/revveal-logo.png"
                 alt=""
                 aria-hidden
-                className="w-9 h-9 object-contain"
+                className="w-8 h-8 object-contain"
               />
-              <span className="display text-[1.4rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
+              <span className="display text-[1.45rem] leading-none tracking-[-0.02em] font-semibold">Revveal</span>
+              <span className="hidden sm:inline font-mono text-[9px] uppercase tracking-[0.24em] text-[var(--paper-deep)] border-l border-[var(--paper-rule)] pl-3 ml-1.5 whitespace-nowrap">
+                The Buyer's Report
+              </span>
             </a>
-            <span className="hidden md:flex items-center gap-2 px-2.5 py-[5px] border border-[var(--ink)] bg-[var(--paper-pale)] text-[var(--ink-soft)] font-mono text-[10px] uppercase tracking-[0.18em]">
-              <span className="rv-live-dot" /> {guest ? "Guest preview" : "Buyer's Report · No. 047"}
-            </span>
-          </div>
-          {guest ? (
-            <div className="flex items-center gap-4">
+            {guest ? (
+              <div className="flex items-center gap-5">
+                <button
+                  onClick={onExitGuest}
+                  className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[var(--paper-deep)] hover:text-[var(--red-lift)] transition-colors"
+                >
+                  Exit
+                </button>
+                <button onClick={onCreateAccount} className="rv-header-cta">
+                  <span>Create account</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
               <button
-                onClick={onExitGuest}
-                className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors"
+                onClick={onLogout}
+                className="font-mono text-[10.5px] uppercase tracking-[0.16em] text-[var(--paper-deep)] hover:text-[var(--red-lift)] transition-colors flex items-center gap-1.5"
               >
-                Exit
-              </button>
-              <button onClick={onCreateAccount} className="rv-header-cta">
-                <span>Create account</span>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M13 5l7 7-7 7" />
+                <span>Sign out</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
               </button>
-            </div>
-          ) : (
-            <button
-              onClick={onLogout}
-              className="text-[13px] text-[var(--ink-soft)] hover:text-[var(--ink)] transition-colors flex items-center gap-1.5"
-            >
-              <span>Sign out</span>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-            </button>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
-      {/* ── PAGE TITLE + FORM (animated as one orchestrated group) ── */}
-      <motion.div
-        className="max-w-[1280px] mx-auto"
-        variants={dashContainer}
-        initial={initial}
-        animate="show"
-      >
-        <section className="px-6 md:px-10 pt-14 pb-10">
-          <motion.div
-            className="inline-flex items-center gap-2.5 px-3 py-1.5 border border-[var(--ink-fade)] bg-[var(--paper-pale)] mb-6"
-            variants={dashLine}
-          >
-            <span className="rv-live-dot" />
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] font-medium">Field survey · Run a search</span>
-          </motion.div>
-          <motion.h1
-            className="display text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.98] tracking-[-0.025em] mb-3 font-semibold"
-            variants={dashLine}
-          >
-            Find a deal <span className="rv-emph">worth</span> the drive.
-          </motion.h1>
-          <motion.p
-            className="text-[15.5px] text-[var(--ink-soft)] max-w-[48ch]"
-            variants={dashLine}
-          >
-            Set your parameters. The model returns each car ranked, scored, and explained.
-          </motion.p>
-        </section>
+      <main className="flex-1">
+        {/* ── COMMISSION DESK — headline + survey order form ── */}
+        <motion.section
+          className="max-w-[1240px] mx-auto w-full px-6 md:px-10 grid lg:grid-cols-[1.1fr_1fr] gap-12 lg:gap-16 pt-12 pb-16"
+          variants={dashContainer}
+          initial={initial}
+          animate="show"
+        >
+          <div>
+            <motion.p
+              className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--paper-deep)] mb-6 flex items-center gap-2.5"
+              variants={dashLine}
+            >
+              <span className="rv-live-dot" /> Field survey · live index
+            </motion.p>
+            <motion.h1
+              className="display text-[clamp(2.7rem,5.6vw,4.6rem)] leading-[0.92] tracking-[-0.025em] font-semibold mb-6"
+              variants={dashLine}
+            >
+              Smart buyers don't<br />pay <span className="rv-emph rv-emph--lift">full price.</span>
+            </motion.h1>
+            <motion.p
+              className="text-[16.5px] leading-relaxed text-[var(--paper-deep)] max-w-[42ch] italic"
+              variants={dashLine}
+            >
+              Name a city and a car. The worker walks the live listings, prices
+              each against the model, and files every undervalued lot into your
+              index below.
+            </motion.p>
 
-        <section className="px-6 md:px-10 mb-12">
+            <motion.div className="relative mt-12 hidden sm:block max-w-[340px]" variants={dashLine}>
+              <div className="rv-photoplate-back" aria-hidden />
+              <figure className="rv-photoplate">
+                <div className="rv-photoplate-img">
+                  <img src="/deal-corvette.png" alt="Corvette Stingray — example filed lot" />
+                </div>
+                <figcaption className="flex items-center justify-between pt-2.5 px-0.5">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[var(--ink-muted)]">
+                    Lot 0047 · filed today
+                  </span>
+                  <span className="rv-stamp rv-stamp--sm" style={{ color: "var(--green-deep)" }}>
+                    Best buy
+                  </span>
+                </figcaption>
+              </figure>
+            </motion.div>
+          </div>
+
           <motion.form
             onSubmit={handleSearch}
             variants={dashForm}
-            className="relative rv-sheet p-7 md:p-9"
+            className="relative rv-sheet p-6 md:p-8 self-start"
           >
-            <div className="flex items-center gap-3 mb-7">
-              <span className="rv-tag rv-tag-red">Parameters</span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Worksheet 02 · live index</span>
-              <span className="h-px flex-1 bg-[var(--rule)]" />
+            <div className="flex items-center justify-between mb-7 pb-3 border-b-2 border-[var(--ink)]">
+              <span className="font-mono text-[10px] uppercase tracking-[0.22em] font-bold">Survey order form</span>
+              <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">Form 02-B</span>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-              <Input label="City" value={city} onChange={setCity} placeholder="austin" disabled={guest} />
-              <Input label="Search query" value={query} onChange={setQuery} placeholder="honda civic" disabled={guest} />
-              <Input label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} disabled={guest} />
-              <Input label="Min undervalue %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} disabled={guest} />
+            <div className="space-y-6">
+              <LineInput label="City" value={city} onChange={setCity} placeholder="austin" disabled={guest} />
+              <LineInput label="Search query" value={query} onChange={setQuery} placeholder="honda civic" disabled={guest} />
+              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                <LineInput label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} disabled={guest} />
+                <LineInput label="Min save %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} disabled={guest} />
+              </div>
             </div>
 
-            <div className="mt-7 flex items-center gap-6 flex-wrap">
-              <button
-                type="submit"
-                disabled={loading || guest}
-                className="rv-primary"
-              >
-                <span>{loading ? (stage ?? "Querying") : "Run search"}</span>
+            <div className="mt-8 flex items-center justify-between gap-4 flex-wrap">
+              <button type="submit" disabled={loading || guest} className="rv-primary">
+                <span>{loading ? (stage ?? "Querying") : "Run survey"}</span>
                 {loading ? (
                   <Tire size={14} />
                 ) : (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                 )}
               </button>
-              {error && (
-                <p className="text-[13.5px] italic text-[var(--err)] flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-4 h-4 bg-[var(--red)] text-[var(--paper-pale)] font-mono font-bold text-[10px] not-italic">!</span>
-                  {error}
-                </p>
-              )}
+              <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-[var(--ink-fade)]">
+                No. {jobId ? jobId.slice(0, 8) : "— pending —"}
+              </span>
             </div>
+
+            {error && (
+              <p className="mt-5 text-[13.5px] italic text-[var(--err)] flex items-center gap-2">
+                <span className="inline-flex items-center justify-center w-4 h-4 bg-[var(--red)] text-[var(--paper-pale)] font-mono font-bold text-[10px] not-italic">!</span>
+                {error}
+              </p>
+            )}
 
             {jobSummary && !loading && (
               <div className="mt-5 flex items-center gap-2 text-[var(--ink-muted)]">
                 <span className="rv-live-dot rv-live-dot-green" />
-                <p className="font-mono text-[11px] uppercase tracking-[0.16em]">
-                  Job complete · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
+                <p className="font-mono text-[10.5px] uppercase tracking-[0.16em]">
+                  Filed · {jobSummary.fetched} fetched · {jobSummary.inserted} inserted · {jobSummary.skipped} skipped
                 </p>
               </div>
             )}
 
             {guest && <GuestLock onCreateAccount={onCreateAccount} />}
           </motion.form>
-        </section>
-      </motion.div>
+        </motion.section>
 
-      {/* ── RESULTS ──────────────────────────────────────── */}
-      <section className="px-6 md:px-10 pb-24 max-w-[1280px] mx-auto">
-        <div className="flex items-end justify-between mb-8 border-b border-[var(--ink)] pb-4">
-          <h2 className="display text-[1.7rem] leading-tight tracking-[-0.02em] font-semibold">
-            Results <span className="rv-emph">— this run</span>
-          </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--ink-muted)]">
-            {loading ? (stage ?? "fetching...") : `${deals.length} listings`}
-          </span>
+        {/* ── THE INDEX — the printed report sheet on the desk ── */}
+        <div className="px-4 md:px-8 pb-12">
+          <div className="rv-bodysheet max-w-[1280px] mx-auto">
+            <section className="grid lg:grid-cols-[1fr_300px] gap-10 lg:gap-14 px-6 md:px-12 pt-10 pb-16">
+          <div>
+            <div className="flex items-baseline justify-between gap-4 mb-5">
+              <h2 className="display text-[1.9rem] leading-tight tracking-[-0.02em] font-semibold">
+                The index <span className="rv-emph">— this run</span>
+              </h2>
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] whitespace-nowrap">
+                {loading ? (stage ?? "fetching") : `${deals.length} lots on file`}
+              </span>
+            </div>
+
+            {loading && (
+              <div className="flex items-center gap-3 border-y border-dashed border-[var(--ink-fade)] py-3 mb-4 text-[var(--ink-soft)]">
+                <Tire size={14} />
+                <p className="font-mono text-[10.5px] uppercase tracking-[0.18em]">Wire transmission · {stage ?? "starting"}…</p>
+              </div>
+            )}
+
+            {!loading && deals.length === 0 && (
+              <div className="border-t-2 border-[var(--ink)] pt-16 pb-12 text-center">
+                <CarSilhouette size={72} className="mx-auto mb-6 text-[var(--ink-fade)]" />
+                <p className="display text-[1.5rem] mb-2 font-semibold">No lots on file.</p>
+                <p className="text-[14.5px] italic text-[var(--ink-muted)]">
+                  Commission a survey above to open today's index.
+                </p>
+              </div>
+            )}
+
+            {deals.length > 0 && (
+              <motion.ol
+                className="rv-lotindex list-none m-0 p-0"
+                variants={cardGrid}
+                initial="hidden"
+                animate="show"
+                key={`${deals.length}-${dealsQuery.dataUpdatedAt}`}
+              >
+                {deals.map((deal, i) => (
+                  <motion.li key={deal.id} variants={cardItem}>
+                    <a
+                      href={deal.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rv-lotrow group"
+                    >
+                      <span className="rv-lotrow-num display" aria-hidden>
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+
+                      <span className="rv-lotrow-thumb" aria-hidden>
+                        <CarSilhouette size={46} />
+                      </span>
+
+                      <div className="min-w-0">
+                        <h3 className="display text-[clamp(1.25rem,2.2vw,1.6rem)] leading-tight tracking-[-0.015em] font-semibold mb-2">
+                          {deal.year} {deal.make} {deal.model}
+                        </h3>
+                        <div className="flex items-center flex-wrap gap-x-3.5 gap-y-2 mb-4 text-[var(--ink-muted)]">
+                          <LicensePlate className="text-[var(--ink-soft)]">
+                            {extractStateCode(deal.location) ?? sourceCode(deal.source)} · {String(i + 1).padStart(4, "0")} · {sourceCode(deal.source)}
+                          </LicensePlate>
+                          <span className="text-[13px] italic">{deal.location}</span>
+                          {deal.mileage != null && <Odometer value={deal.mileage} />}
+                        </div>
+                        <div className="max-w-[380px] space-y-1.5">
+                          <div className="rv-leader">
+                            <span className="text-[var(--ink-muted)]">Listed</span>
+                            <span className="rv-leader-dots" />
+                            <span className="font-semibold">${deal.listed_price.toLocaleString()}</span>
+                          </div>
+                          <div className="rv-leader">
+                            <span className="text-[var(--ink-muted)]">Fair value</span>
+                            <span className="rv-leader-dots" />
+                            <span className="text-[var(--ink-soft)]">${deal.predicted_price.toLocaleString()}</span>
+                          </div>
+                          <div className="rv-leader">
+                            <span className="text-[var(--ink-muted)]">You save</span>
+                            <span className="rv-leader-dots" />
+                            <span className="font-bold text-[var(--red)]">
+                              ${Math.max(0, deal.predicted_price - deal.listed_price).toLocaleString()} · −{deal.undervalue_percent.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rv-lotrow-right">
+                        <GaugeDial value={deal.undervalue_percent} size={54} className="text-[var(--ink-soft)]" />
+                        <VerdictStamp value={deal.undervalue_percent} />
+                        <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] inline-flex items-center gap-1.5 group-hover:text-[var(--red)] transition-colors whitespace-nowrap">
+                          Open listing
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+                        </span>
+                      </div>
+                    </a>
+                  </motion.li>
+                ))}
+              </motion.ol>
+            )}
+          </div>
+
+          {/* Margin column — figures + survey notes */}
+          <aside className="space-y-6 lg:sticky lg:top-[112px] self-start">
+            {!loading && deals.length > 0 && (
+              <>
+                <figure className="rv-sheet p-5 m-0">
+                  <figcaption className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)] mb-3">
+                    Fig. 1 — Undervalue distribution
+                  </figcaption>
+                  <UndervalueHistogram deals={deals} />
+                </figure>
+                <figure className="rv-sheet p-5 m-0">
+                  <figcaption className="font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--ink-muted)] mb-3">
+                    Fig. 2 — Asking vs fair value
+                  </figcaption>
+                  <PriceScatter deals={deals} />
+                </figure>
+              </>
+            )}
+            <div className="border-t-2 border-[var(--ink)] pt-4">
+              <h3 className="font-mono text-[10px] uppercase tracking-[0.22em] font-bold mb-3">Survey notes</h3>
+              <p className="text-[13.5px] italic leading-relaxed text-[var(--ink-soft)]">
+                Fair value is the model's estimate from comparable listings.
+                Verdicts: <span className="text-[var(--green)] font-semibold not-italic">green</span> means
+                safe to proceed, <span className="text-[var(--amber-deep)] font-semibold not-italic">amber</span> means
+                a thin cushion. Red figures are money left on the table.
+              </p>
+              {deals.length > 0 && (
+                <p className="mt-4 font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--ink-soft)]">
+                  Combined savings on file:{" "}
+                  <span className="text-[var(--red)] font-bold">${totalSavings.toLocaleString()}</span>
+                </p>
+              )}
+            </div>
+              </aside>
+            </section>
+          </div>
         </div>
+      </main>
 
-        {!loading && deals.length > 0 && (
-          <div className="grid md:grid-cols-2 gap-5 mb-8">
-            <div className="rv-sheet p-5">
-              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Fig. 1 — Undervalue distribution</div>
-              <UndervalueHistogram deals={deals} />
-            </div>
-            <div className="rv-sheet p-5">
-              <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-[var(--ink-muted)] mb-3">Fig. 2 — Asking vs fair value</div>
-              <PriceScatter deals={deals} />
-            </div>
-          </div>
-        )}
-
-        {!loading && deals.length === 0 && (
-          <div className="border border-dashed border-[var(--ink-fade)] rounded-[3px] p-16 text-center bg-[var(--paper-soft)]">
-            <div className="inline-flex items-center justify-center w-14 h-14 border border-[var(--ink)] bg-[var(--paper-deep)] text-[var(--ink)] mb-5">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
-              </svg>
-            </div>
-            <p className="display text-[1.4rem] mb-2 text-[var(--ink)] font-semibold">No results yet.</p>
-            <p className="text-[13.5px] text-[var(--ink-muted)]">Run a search to populate your index.</p>
-          </div>
-        )}
-
-        {loading && (
-          <div className="flex items-center gap-2.5 text-[var(--ink-soft)] mb-6">
-            <Tire size={14} />
-            <p className="font-mono text-[12.5px]">worker · {stage ?? "starting"}…</p>
-          </div>
-        )}
-
-        <motion.div
-          className="grid md:grid-cols-2 lg:grid-cols-3 gap-5"
-          variants={cardGrid}
-          initial="hidden"
-          animate="show"
-          key={`${deals.length}-${dealsQuery.dataUpdatedAt}`}
-        >
-          {deals.map((deal, i) => (
-            <motion.a
-              key={deal.id}
-              href={deal.url}
-              target="_blank"
-              rel="noreferrer"
-              className="rv-deal-card-link group"
-              variants={cardItem}
-            >
-              <div className="flex items-start justify-between mb-4 gap-3">
-                <LicensePlate className="text-[var(--ink-soft)]">
-                  {extractStateCode(deal.location) ?? sourceCode(deal.source)} · {String(i + 1).padStart(4, "0")} · {sourceCode(deal.source)}
-                </LicensePlate>
-                <span className="flex items-center gap-2 text-[var(--ink-soft)]">
-                  <GaugeDial value={deal.undervalue_percent} size={34} />
-                  <DealScorePill value={deal.undervalue_percent} />
-                </span>
-              </div>
-
-              <h3 className="display text-[1.3rem] leading-tight tracking-[-0.015em] mb-1 font-semibold">
-                {deal.year} {deal.make} {deal.model}
-              </h3>
-              <p className="text-[13px] italic text-[var(--ink-muted)] mb-3">{deal.location}</p>
-              <div className="mb-5 text-[var(--ink-muted)]">
-                {deal.mileage != null ? (
-                  <Odometer value={deal.mileage} />
-                ) : (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-70">mileage unlisted</span>
-                )}
-              </div>
-
-              <div className="space-y-2 text-[13px] font-mono pt-4 border-t border-dashed border-[var(--ink-fade)]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[var(--ink-muted)]">Listed</span>
-                  <span className="font-semibold text-[var(--ink)]">${deal.listed_price.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[var(--ink-muted)]">Fair value</span>
-                  <span className="text-[var(--ink-soft)]">${deal.predicted_price.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[var(--ink-muted)]">You save</span>
-                  <span className="font-semibold text-[var(--red)]">
-                    ${Math.max(0, deal.predicted_price - deal.listed_price).toLocaleString()} · −{deal.undervalue_percent.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-5 pt-3 border-t border-[var(--rule)] flex items-center justify-between text-[12px]">
-                <span className="font-mono uppercase tracking-[0.15em] text-[var(--ink-muted)]">Open listing</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--red)] transition-transform group-hover:translate-x-0.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-              </div>
-            </motion.a>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* ── FOOTER ───────────────────────────────────────── */}
-      <footer className="bg-[var(--ink)] text-[var(--paper)] px-6 md:px-10 py-7">
-        <div className="max-w-[1280px] mx-auto flex items-center justify-between">
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] opacity-75">
-            © 2026 Revveal · Buyer's Intelligence
+      {/* ── COLOPHON ─────────────────────────────────────── */}
+      <footer className="border-t border-[var(--paper-rule)]">
+        <div className="max-w-[1240px] mx-auto px-6 md:px-10 py-8 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <span className="display text-[1.1rem] leading-none">
+            Revveal <span className="italic font-normal text-[var(--paper-deep)]">— the buyer's report.</span>
           </span>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] opacity-75">
-            Model v3.2 · updated 2m ago
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] opacity-70">
+            © 2026 · Model v3.2 · Set in Fraunces &amp; Newsreader
           </span>
         </div>
       </footer>
@@ -520,7 +598,8 @@ const cardItem: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE_OUT_EXPO } },
 };
 
-function Input({
+// Fill-in-the-blank form line: mono label, italic serif "handwriting" input.
+function LineInput({
   label,
   value,
   onChange,
@@ -536,19 +615,19 @@ function Input({
   disabled?: boolean;
 }) {
   return (
-    <div>
-      <label className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-[var(--ink-muted)] mb-2 block">
+    <label className="flex items-baseline gap-3">
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--ink-muted)] whitespace-nowrap w-[96px] shrink-0">
         {label}
-      </label>
+      </span>
       <input
         type={type}
         value={value}
         placeholder={placeholder}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="rv-input disabled:opacity-55 disabled:cursor-not-allowed"
+        className="rv-input-line"
       />
-    </div>
+    </label>
   );
 }
 
@@ -556,17 +635,15 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
   return (
     <div className="rv-guest-lock">
       <div className="rv-guest-lock-card">
-        <span className="rv-guest-lock-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
-            <path d="M8 10.5V7a4 4 0 018 0v3.5" />
-          </svg>
+        <span className="rv-stamp text-[11px] mb-5" style={{ color: "var(--red)" }}>
+          Account required
         </span>
         <p className="display text-[1.25rem] leading-tight tracking-[-0.015em] font-semibold mb-1.5">
-          Live search is <span className="rv-emph">account-only</span>
+          Live surveys are <span className="rv-emph">subscriber-only</span>
         </p>
-        <p className="text-[13.5px] text-[var(--ink-soft)] max-w-[34ch] mb-5 leading-relaxed">
-          Create a free account to run live marketplace searches. Browsing today&apos;s deals stays free.
+        <p className="text-[13.5px] italic text-[var(--ink-soft)] max-w-[34ch] mb-5 leading-relaxed">
+          Create a free account to commission live marketplace surveys.
+          Browsing today's index stays free.
         </p>
         <button onClick={onCreateAccount} className="rv-primary">
           <span>Create a free account</span>
@@ -577,22 +654,32 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
   );
 }
 
-function DealScorePill({ value }: { value: number }) {
-  // Verdict stamp — green means "safe to proceed", amber means "thin cushion".
-  // The red savings figure on the card carries urgency; the stamp never does.
+// Rubber-stamp verdict — green means "safe to proceed", amber means "thin
+// cushion". The red savings figure on the row carries urgency; never the stamp.
+function VerdictStamp({ value }: { value: number }) {
   const tier = value >= 25 ? "best" : value >= 15 ? "rec" : "thin";
-  const palette = {
-    best: { bg: "var(--green-tint)", fg: "var(--green-deep)", bd: "var(--green)", label: "Best buy" },
-    rec:  { bg: "transparent",       fg: "var(--green)",      bd: "var(--green)", label: "Recommended" },
-    thin: { bg: "var(--amber-tint)", fg: "var(--amber-deep)", bd: "var(--amber)", label: "Thin margin" },
+  const verdict = {
+    best: { color: "var(--green-deep)", label: "Best buy" },
+    rec:  { color: "var(--green)",      label: "Recommended" },
+    thin: { color: "var(--amber-deep)", label: "Thin margin" },
   }[tier];
   return (
-    <span
-      className="inline-flex items-center px-2 py-[5px] rounded-[2px] border-[1.5px] font-mono text-[9.5px] uppercase tracking-[0.16em] font-semibold leading-none whitespace-nowrap"
-      style={{ background: palette.bg, color: palette.fg, borderColor: palette.bd }}
-    >
-      {palette.label}
+    <span className="rv-stamp" style={{ color: verdict.color }}>
+      {verdict.label}
     </span>
+  );
+}
+
+// Same fractal-noise paper texture the landing page uses.
+function ReportGrain() {
+  return (
+    <svg className="rv-report-grain" aria-hidden>
+      <filter id="rv-report-grain-f">
+        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
+        <feColorMatrix values="0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0 0.03  0 0 0 0.5 0" />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#rv-report-grain-f)" />
+    </svg>
   );
 }
 
@@ -602,8 +689,8 @@ const REPORT_STYLES = `
   .rv-report {
     ${THEME_TOKENS}
 
-    background: var(--paper);
-    color: var(--ink);
+    background: var(--ink);
+    color: var(--paper);
     font-family: 'Newsreader', Georgia, serif;
     font-feature-settings: "ss01", "ss02", "liga";
     -webkit-font-smoothing: antialiased;
@@ -623,27 +710,75 @@ const REPORT_STYLES = `
     color: var(--red);
     font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
   }
+  /* Brighter red for emphasis sitting directly on the charcoal frame. */
+  .rv-report .rv-emph--lift { color: var(--red-lift); }
 
   /* Tailwind's font-mono doesn't know about JetBrains Mono — align it. */
   .rv-report .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
-  /* Report sheet — the one card surface: worksheet, figures, deal reports. */
-  .rv-report .rv-sheet {
-    background: var(--paper-pale);
-    border: 1px solid var(--ink);
-    border-radius: 3px;
-    box-shadow: 5px 5px 0 rgba(24,19,10,0.07);
+  /* Paper grain overlay */
+  .rv-report .rv-report-grain {
+    position: fixed; inset: 0;
+    width: 100vw; height: 100vh;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.28;
+    mix-blend-mode: multiply;
   }
 
-  .rv-report .rv-tag {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 5px 10px; border-radius: 2px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; font-weight: 600;
-    letter-spacing: 0.1em; text-transform: uppercase;
-    line-height: 1;
+  /* Masthead — classic newspaper double rule, inked in cream on charcoal. */
+  .rv-report .rv-masthead { border-bottom: 4px double rgba(236,226,205,0.55); }
+
+  /* Report sheet — cream panel floating on the charcoal desk. */
+  .rv-report .rv-sheet {
+    background: var(--paper-pale);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    box-shadow: 8px 8px 0 rgba(0,0,0,0.32);
   }
-  .rv-report .rv-tag-red { border: 1.5px solid var(--red); color: var(--red-deep); background: transparent; }
+
+  /* The body sheet — the printed report itself, laid on the desk. */
+  .rv-report .rv-bodysheet {
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 5px;
+    box-shadow: 0 22px 60px rgba(0,0,0,0.45);
+  }
+
+  /* Filed photo plates — polaroid-style cards fanned on the charcoal. */
+  .rv-report .rv-photoplate {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    background: var(--paper-pale);
+    color: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 3px;
+    padding: 10px;
+    transform: rotate(-2deg);
+    box-shadow: 10px 12px 0 rgba(0,0,0,0.35);
+  }
+  .rv-report .rv-photoplate-back {
+    position: absolute; inset: 0;
+    background: var(--paper-deep);
+    border: 1px solid rgba(0,0,0,0.5);
+    border-radius: 3px;
+    transform: rotate(3deg) translate(16px, -8px);
+    opacity: 0.9;
+  }
+  .rv-report .rv-photoplate-img {
+    background: #ffffff;
+    border: 1px solid var(--ink-fade);
+    overflow: hidden;
+  }
+  .rv-report .rv-photoplate-img img {
+    display: block;
+    width: 100%;
+    height: 160px;
+    object-fit: contain;
+    padding: 6px 14px;
+  }
 
   /* Live scan dot — red per the palette (live/urgent), green when complete. */
   .rv-report .rv-live-dot {
@@ -651,6 +786,7 @@ const REPORT_STYLES = `
     background: var(--red);
     animation: liveBeat 1.6s ease-in-out infinite;
     display: inline-block;
+    flex-shrink: 0;
   }
   .rv-report .rv-live-dot-green { background: var(--green); animation: liveBeatGreen 1.6s ease-in-out infinite; }
   @keyframes liveBeat {
@@ -662,22 +798,28 @@ const REPORT_STYLES = `
     50% { box-shadow: 0 0 0 5px rgba(45,106,79,0); }
   }
 
-  .rv-report .rv-input {
+  /* Order-form inputs — fill-in-the-blank lines, italic serif "handwriting". */
+  .rv-report .rv-input-line {
     width: 100%;
-    padding: 11px 13px;
-    background: var(--paper-pale);
-    border: 1px solid var(--ink-fade);
-    border-radius: 2px;
-    font-size: 14.5px;
-    color: var(--ink);
-    outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px dotted var(--ink-fade);
+    border-radius: 0;
     font-family: 'Newsreader', Georgia, serif;
+    font-style: italic;
+    font-size: 16.5px;
+    color: var(--ink);
+    padding: 1px 2px 5px;
+    outline: none;
+    transition: border-color 0.15s ease;
   }
-  .rv-report .rv-input:focus {
-    border-color: var(--ink);
-    box-shadow: 3px 3px 0 var(--paper-deep);
-  }
+  .rv-report .rv-input-line:focus { border-bottom: 1.5px solid var(--red); }
+  .rv-report .rv-input-line:disabled { opacity: 0.55; cursor: not-allowed; }
+  .rv-report .rv-input-line::placeholder { color: var(--ink-fade); }
+  .rv-report .rv-input-line::-webkit-outer-spin-button,
+  .rv-report .rv-input-line::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .rv-report .rv-input-line[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
   /* Primary action — letterpress red stamp. */
   .rv-report .rv-primary {
@@ -716,7 +858,105 @@ const REPORT_STYLES = `
   .rv-report .rv-header-cta svg { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
   .rv-report .rv-header-cta:hover svg { transform: translateX(3px); }
 
-  /* Guest lock — paper-frosted overlay over the locked worksheet */
+  /* Rubber-stamp verdict — double border, tilted, pressed into the paper. */
+  .rv-report .rv-stamp {
+    position: relative;
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    line-height: 1;
+    padding: 6px 9px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+    transform: rotate(-5deg);
+    mix-blend-mode: multiply;
+    opacity: 0.92;
+  }
+  .rv-report .rv-stamp::after {
+    content: "";
+    position: absolute; inset: 2px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    opacity: 0.5;
+  }
+  .rv-report .rv-stamp--sm { font-size: 8.5px; padding: 4px 7px; }
+
+  /* The index — full-width lot register rows. */
+  .rv-report .rv-lotindex { border-top: 2px solid var(--ink); }
+  .rv-report .rv-lotindex li:first-child .rv-lotrow { border-top: none; }
+  .rv-report .rv-lotrow {
+    display: grid;
+    grid-template-columns: 64px 88px minmax(0, 1fr) auto;
+    gap: 8px 22px;
+    padding: 24px 6px;
+    text-decoration: none;
+    color: inherit;
+    border-top: 1px solid var(--ink-fade);
+    transition: background-color 0.2s ease;
+  }
+  .rv-report .rv-lotrow:hover { background: var(--paper-pale); }
+
+  /* Spec plate thumbnail — listings carry no photos, so file a silhouette. */
+  .rv-report .rv-lotrow-thumb {
+    display: flex; align-items: center; justify-content: center;
+    width: 88px; height: 58px;
+    background: var(--paper-deep);
+    border: 1px solid var(--ink-fade);
+    border-radius: 2px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+
+  /* Outlined lot numerals — hollow type that inks in red on hover. */
+  .rv-report .rv-lotrow-num {
+    font-size: 3.1rem;
+    line-height: 0.85;
+    color: var(--paper-deep);
+    transition: color 0.2s ease;
+  }
+  @supports (-webkit-text-stroke: 1px black) {
+    .rv-report .rv-lotrow-num {
+      color: transparent;
+      -webkit-text-stroke: 1.3px var(--ink-fade);
+      transition: -webkit-text-stroke-color 0.2s ease, color 0.2s ease;
+    }
+  }
+  .rv-report .rv-lotrow:hover .rv-lotrow-num {
+    color: var(--red);
+    -webkit-text-stroke-color: var(--red);
+  }
+
+  .rv-report .rv-lotrow-right {
+    display: flex; flex-direction: column;
+    align-items: flex-end; justify-content: space-between;
+    gap: 12px;
+  }
+  @media (max-width: 760px) {
+    .rv-report .rv-lotrow { grid-template-columns: 46px minmax(0, 1fr); }
+    .rv-report .rv-lotrow-thumb { display: none; }
+    .rv-report .rv-lotrow-num { font-size: 2rem; -webkit-text-stroke-width: 1px; }
+    .rv-report .rv-lotrow-right {
+      grid-column: 1 / -1;
+      flex-direction: row; align-items: center;
+      margin-top: 6px;
+    }
+  }
+
+  /* Dot leaders — catalog-style price lines: "Listed ······· $8,900". */
+  .rv-report .rv-leader {
+    display: flex; align-items: baseline; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .rv-report .rv-leader-dots {
+    flex: 1;
+    min-width: 28px;
+    border-bottom: 2px dotted var(--ink-fade);
+    transform: translateY(-3px);
+  }
+
+  /* Guest lock — paper-frosted overlay over the locked order form */
   .rv-report .rv-guest-lock {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -736,33 +976,10 @@ const REPORT_STYLES = `
     display: flex; flex-direction: column; align-items: center;
     text-align: center;
   }
-  .rv-report .rv-guest-lock-icon {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 48px; height: 48px;
-    border: 1px solid var(--ink);
-    background: var(--paper-deep);
-    color: var(--ink);
-    margin-bottom: 16px;
-  }
 
   @media (prefers-reduced-motion: reduce) {
     .rv-report .rv-guest-lock { animation: none; }
     .rv-report .rv-header-cta:hover { transform: none; }
     .rv-report .rv-live-dot, .rv-report .rv-live-dot-green { animation: none; }
-  }
-
-  /* Deal card — a filed report sheet with a masthead rule. */
-  .rv-report .rv-deal-card-link {
-    display: block;
-    background: var(--paper-pale);
-    border: 1px solid var(--ink);
-    border-top-width: 3px;
-    border-radius: 3px;
-    padding: 20px;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
-  }
-  .rv-report .rv-deal-card-link:hover {
-    transform: translateY(-2px);
-    box-shadow: 5px 5px 0 var(--paper-deep);
   }
 `;

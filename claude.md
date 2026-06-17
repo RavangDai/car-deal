@@ -54,8 +54,8 @@ car-deal-finder/
 │   │   ├── queryKeys.ts               Central query-key factory
 │   │   ├── hooks.ts                   useMe / useLogin* / useDeals / useScrape* hooks
 │   │   ├── api/deals.ts               Deprecated duplicate, unused
+│   │   ├── theme.ts                   Shared editorial design tokens (FONT_IMPORT + THEME_TOKENS)
 │   │   ├── main.tsx                   React root + QueryClientProvider + Devtools (dev only)
-│   │   ├── App.css                    Component styles (mostly unused, Tailwind primary)
 │   │   ├── index.css                  Global Tailwind directives
 │   │   └── assets/                    Static assets
 │   ├── index.html                     HTML shell
@@ -344,6 +344,7 @@ User sets filters
   - `Tire` — `animate-spin` wheel with spokes (loading states)
 - **Dashboard worker UX**: button label and results subtitle reflect live `stage` (`queued` → `scraping` → `persisting` → `loading deals`); job summary line shows `N fetched · N inserted · N skipped` after success
 - **Dead code**: `src/api/deals.ts` is an older duplicate, unreferenced — leave for now / delete in cleanup pass
+- **Design system (`theme.ts`)** — single source of truth for the "premium editorial + buyer-report" palette. `FONT_IMPORT` (Fraunces / Newsreader / JetBrains Mono) + `THEME_TOKENS` (CSS custom properties) are interpolated into each page's scoped `<style>` string (`.rv-catalog`, `.rv-login`, `.rv-legal`, `.rv-report`) — no `:root` stylesheet. Semantic mapping: **red** `#b8312e` = CTA / undervalue / savings / live scan dot; **green** `#2d6a4f` = confidence / verified / "safe to proceed"; **amber** `#b07d2b` = medium confidence / warnings / actionable notices; **ink** `#18130a` = text + charcoal contrast blocks (footer); **paper** `#ece2cd` = background; **paper-pale** `#f7f0df` = cards. Rule of thumb: red never means "good deal" — the verdict stamp (`VerdictStamp`: Best buy / Recommended / Thin margin) is green/amber, while the red number carries the savings. Dashboard lives under the `.rv-report` scope (`REPORT_STYLES` in `App.tsx`): a **charcoal desk frame** (page bg = ink, with `--red-lift`/`--paper-rule` dark-frame helpers) holding cream sheets — newspaper masthead with double rule, "Smart buyers don't pay full price." hero with a fanned polaroid photo plate (`/deal-corvette.png`), a cream "survey order form" (`rv-sheet`, fill-in-the-blank `rv-input-line` inputs), and the index as a floating cream `rv-bodysheet` of numbered `rv-lotrow`s (outlined Fraunces numerals, `CarSilhouette` spec-plate thumbs, dot-leader price ledgers, tilted `rv-stamp` verdicts) with sticky Fig. 1/2 charts + survey notes in the margin column.
 
 ---
 
@@ -487,6 +488,12 @@ pytest                                # offline scraper tests, no network/DB nee
 - **Frontend**: `api.ts` uses `credentials:"include"` + CSRF header, `oauthLogin(provider)`, cookie `logout()`, `hasSessionHint()` (replaces `getToken`); `hooks.ts`/`App.tsx` use `hasSessionHint`; `LoginPage.tsx` wires the Google/GitHub buttons + surfaces `?auth_error`.
 - **Config**: `GOOGLE_/GITHUB_CLIENT_ID/SECRET`, `OAUTH_REDIRECT_BASE`, `COOKIE_SECURE`, `COOKIE_SAMESITE` (settings + docker-compose). Providers stay dormant until creds are set. New deps: `authlib`, `itsdangerous`.
 - **Tests**: `backend/tests/test_oauth.py` — 18 offline tests (provider profile extraction, the account-linking security matrix, `upsert_oauth_user` via a fake session, CSRF accept/reject, cookie-based `get_current_user`). README has the Google/GitHub app setup guide.
+
+### Done (Editorial retheme — unified buyer-report design system)
+- New `frontend/src/theme.ts` — shared `FONT_IMPORT` + `THEME_TOKENS`; the duplicated per-page token blocks in HomePage/LoginPage/LegalPage now interpolate it. Added `--green`/`--amber` families (base + `-deep` + paper-mixed `-tint`), `--bone`, `--rule` aliases; dropped unused `--brass`.
+- **Dashboard reimagined** (`App.tsx`): cool-blue SaaS layout replaced wholesale under a `.rv-report` scope — a charcoal "desk" frame with cream report sheets on it (reference: `frontend/public/image.png`). Structure: dark newspaper masthead (Vol. strip + 4px double rule), "Smart buyers don't pay full price." Fraunces hero with fanned photo plates, cream **survey order form** with fill-in-the-blank dotted inputs (Form 02-B), and **the index** — a floating cream body sheet of numbered lot rows: outlined hollow numerals (ink red on hover), `CarSilhouette` spec-plate thumbnails, `LicensePlate` + `Odometer` glyphs, catalog dot-leader price lines, tilted rubber-stamp verdicts (Best buy ≥25% / Recommended ≥15% / Thin margin <15%, green/amber), red "You save $N · −X%" line, sticky Fig. 1/Fig. 2 charts + survey notes in a margin column, paper-grain overlay, charcoal colophon footer.
+- **Semantic color layer**: confidence bars green/amber/faded by level; CI band red→green; buyer-desk dot + sent-mark green; histogram bars red (savings story); scatter dots green (model trust); OAuth guidance notices (`email_unverified`, `already_linked`) render amber instead of red on LoginPage.
+- Cleanups: hardcoded `#dc2626`/`#2c8c4f`/`#c41e3a` → tokens; deleted unused `App.css`; `formError` state carries a `tone` and is initialized lazily (fixes a `react-hooks/set-state-in-effect` lint error).
 
 ### Not Yet Implemented
 - **Phase 6 — Real ML pricing model** — still `listed_price × 1.15` heuristic

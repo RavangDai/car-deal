@@ -1305,7 +1305,8 @@ const STYLES = `
     ${THEME_TOKENS}
     --rv-nav-h:     62px;
 
-    background: var(--paper);
+    /* The charcoal desk — dark frame; content sections sit on it as cream sheets. */
+    background: var(--ink);
     color: var(--ink);
     font-family: 'Newsreader', Georgia, serif;
     font-feature-settings: "ss01", "ss02", "liga";
@@ -1363,16 +1364,16 @@ const STYLES = `
     to   { transform: translateX(-50%); }
   }
 
-  /* ── NAV ──────────────────────────────────────────── */
+  /* ── NAV — dark masthead with a newspaper double rule ── */
   .rv-catalog .rv-nav {
     position: sticky; top: 0;
     z-index: 50;
-    background: var(--paper);
-    border-bottom: 1px solid var(--ink);
+    background: var(--ink);
+    border-bottom: 4px double rgba(236, 226, 205, 0.55);
     transition: box-shadow 0.3s ease;
   }
   .rv-catalog .rv-nav-pinned {
-    box-shadow: 0 1px 0 var(--ink), 0 6px 14px -10px rgba(20,15,8,0.18);
+    box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.6);
   }
   .rv-catalog .rv-nav-inner {
     max-width: 1320px; margin: 0 auto;
@@ -1403,45 +1404,47 @@ const STYLES = `
     color: var(--ink);
     line-height: 1;
   }
+  /* The wordmark rides the dark nav as cream; the footer keeps it ink. */
+  .rv-catalog .rv-nav .rv-wordmark-name { color: var(--paper-pale); }
 
   .rv-catalog .rv-nav-link {
     font-family: 'Fraunces', serif;
     font-variation-settings: "opsz" 14, "SOFT" 30;
     font-weight: 500;
     font-size: 15px;
-    color: var(--ink);
+    color: var(--paper-deep);
     padding: 8px 14px;
     text-decoration: none;
     transition: color 0.2s ease;
     position: relative;
   }
-  .rv-catalog .rv-nav-link:hover { color: var(--red); }
-  .rv-catalog .rv-nav-link-active { color: var(--red); }
+  .rv-catalog .rv-nav-link:hover { color: var(--red-lift); }
+  .rv-catalog .rv-nav-link-active { color: var(--red-lift); }
   .rv-catalog .rv-nav-link-active::before {
     content: "·"; position: absolute; left: 4px; top: 50%;
-    transform: translateY(-50%); color: var(--red); font-size: 18px;
+    transform: translateY(-50%); color: var(--red-lift); font-size: 18px;
   }
   .rv-catalog .rv-nav-login {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--ink);
+    color: var(--paper-deep);
     background: transparent; border: none;
     padding: 8px 4px; cursor: pointer;
     transition: color 0.2s ease;
   }
-  .rv-catalog .rv-nav-login:hover { color: var(--red); }
+  .rv-catalog .rv-nav-login:hover { color: var(--red-lift); }
 
   .rv-catalog .rv-burger {
     width: 38px; height: 38px;
     display: inline-flex; flex-direction: column; gap: 4px;
     align-items: center; justify-content: center;
-    background: transparent; border: 1px solid var(--ink);
+    background: transparent; border: 1px solid var(--paper-rule);
     cursor: pointer;
   }
   .rv-catalog .rv-burger-bar {
-    width: 16px; height: 1.4px; background: var(--ink);
+    width: 16px; height: 1.4px; background: var(--paper-pale);
     transition: transform 0.3s ease, opacity 0.2s ease, width 0.3s ease;
     transform-origin: center;
   }
@@ -1450,23 +1453,23 @@ const STYLES = `
   .rv-catalog .rv-burger-bar-bot-open { transform: translateY(-5px) rotate(-45deg); }
 
   .rv-catalog .rv-mobile-panel {
-    background: var(--paper);
-    border-top: 1px solid var(--ink);
-    border-bottom: 1px solid var(--ink);
+    background: var(--ink);
+    border-top: 1px solid var(--paper-rule);
+    border-bottom: 1px solid var(--paper-rule);
   }
   .rv-catalog .rv-mobile-link {
     font-family: 'Fraunces', serif;
     font-variation-settings: "opsz" 36, "SOFT" 40;
     font-weight: 500;
     font-size: 20px;
-    color: var(--ink);
+    color: var(--paper-pale);
     background: transparent; border: none;
     padding: 8px 0; cursor: pointer;
     text-decoration: none;
     transition: color 0.2s ease, transform 0.2s ease;
   }
-  .rv-catalog .rv-mobile-link:hover { color: var(--red); transform: translateX(3px); }
-  .rv-catalog .rv-rule-static { height: 1px; background: var(--ink); opacity: 0.4; }
+  .rv-catalog .rv-mobile-link:hover { color: var(--red-lift); transform: translateX(3px); }
+  .rv-catalog .rv-rule-static { height: 1px; background: var(--paper-pale); opacity: 0.3; }
 
   /* ── BUTTONS ──────────────────────────────────────── */
   .rv-catalog .rv-btn {
@@ -1545,14 +1548,27 @@ const STYLES = `
     cursor: pointer; font: inherit;
   }
 
-  /* ── HERO ─────────────────────────────────────────── */
+  /* ── HERO — dark spread on the charcoal desk ───────── */
   .rv-catalog .rv-hero {
     position: relative;
     padding: 48px 24px 72px;
     overflow: hidden;
     isolation: isolate;
-    background: var(--paper);
+    background: var(--ink);
+    color: var(--paper-pale);
   }
+  /* Dark-surface button tuning (nav + hero) — keep the letterpress, swap the
+     ink shadow for black, and flip the hover so the button doesn't dissolve
+     into the charcoal. */
+  .rv-catalog .rv-nav .rv-btn-primary,
+  .rv-catalog .rv-hero .rv-btn-primary { box-shadow: 3px 3px 0 rgba(0,0,0,0.5); }
+  .rv-catalog .rv-nav .rv-btn-primary:hover,
+  .rv-catalog .rv-hero .rv-btn-primary:hover {
+    background: var(--paper-pale); color: var(--ink); border-color: var(--paper-pale);
+    box-shadow: 4px 4px 0 var(--red);
+  }
+  .rv-catalog .rv-hero .rv-btn-ghost { color: var(--paper-pale); border-bottom-color: var(--paper-pale); }
+  .rv-catalog .rv-hero .rv-btn-ghost:hover { color: var(--red-lift); border-bottom-color: var(--red-lift); }
   .rv-catalog .rv-hero-inner {
     max-width: 1320px; margin: 0 auto;
     position: relative; z-index: 2;
@@ -1570,9 +1586,9 @@ const STYLES = `
   .rv-catalog .rv-hero-eyebrow {
     display: inline-flex; align-items: center; gap: 10px;
     padding: 6px 12px;
-    background: var(--paper-pale);
-    border: 1px solid var(--ink);
-    color: var(--ink);
+    background: rgba(236, 226, 205, 0.06);
+    border: 1px solid var(--paper-rule);
+    color: var(--paper-deep);
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     letter-spacing: 0.10em;
@@ -1591,16 +1607,17 @@ const STYLES = `
     line-height: 0.98;
     letter-spacing: -0.025em;
     margin: 4px 0 6px;
-    color: var(--ink);
+    color: var(--paper-pale);
     font-weight: 600;
     max-width: 18ch;
   }
+  .rv-catalog .rv-hero-headline .rv-emph { color: var(--red-lift); }
   .rv-catalog .rv-hero-underline-svg {
     display: block;
     width: 100%;
     max-width: 320px;
     height: 12px;
-    color: var(--red);
+    color: var(--red-lift);
     margin-top: -4px;
     overflow: visible;
   }
@@ -1610,7 +1627,7 @@ const STYLES = `
     font-variation-settings: "opsz" 18;
     font-size: clamp(1.05rem, 1.4vw, 1.18rem);
     line-height: 1.55;
-    color: var(--ink-soft);
+    color: var(--paper-deep);
     max-width: 56ch;
     margin: 24px 0 28px;
     font-weight: 400;
@@ -1625,7 +1642,7 @@ const STYLES = `
   .rv-catalog .rv-hero-meta { max-width: 640px; }
   .rv-catalog .rv-hero-meta-svg {
     display: block; width: 100%; height: 4px;
-    color: var(--ink); overflow: visible;
+    color: rgba(236, 226, 205, 0.5); overflow: visible;
     margin-bottom: 14px;
   }
   .rv-catalog .rv-hero-meta-row {
@@ -1640,7 +1657,7 @@ const STYLES = `
     font-weight: 600;
     font-size: 1.45rem;
     line-height: 1;
-    color: var(--ink);
+    color: var(--paper-pale);
     letter-spacing: -0.01em;
   }
   .rv-catalog .rv-hero-meta-k {
@@ -1648,7 +1665,8 @@ const STYLES = `
     font-size: 10px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--ink-muted);
+    color: var(--paper-deep);
+    opacity: 0.8;
   }
 
   /* Hero side — practical lot preview, no journal cosplay */
@@ -1657,7 +1675,9 @@ const STYLES = `
     background: var(--paper-pale);
     border: 1px solid var(--ink);
     padding: 20px 22px 18px;
-    box-shadow: 5px 5px 0 var(--ink);
+    /* Cream sheet lifted off the charcoal desk — black offset reads on dark
+       where the old ink letterpress went invisible. */
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.4);
   }
   .rv-catalog .rv-hero-side-head {
     display: flex; align-items: baseline; justify-content: space-between;
