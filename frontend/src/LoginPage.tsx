@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
+import { Spinner } from "./Spinner";
 import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
 interface Props {
@@ -13,21 +14,13 @@ type Mode = "login" | "register";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-const sideContainer: Variants = {
-  hidden: {},
-  show: { transition: { delayChildren: 0.15, staggerChildren: 0.07 } },
-};
-const sideItem: Variants = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.85, ease: EASE_OUT_EXPO } },
-};
 const formContainer: Variants = {
   hidden: {},
-  show: { transition: { delayChildren: 0.28, staggerChildren: 0.06 } },
+  show: { transition: { delayChildren: 0.05, staggerChildren: 0.05 } },
 };
 const formItem: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: EASE_OUT_EXPO } },
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE_OUT_EXPO } },
 };
 
 export default function LoginPage({ onLogin, onGuest }: Props) {
@@ -64,12 +57,6 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const isRegister = mode === "register";
   const loading = loginMut.isPending || registerMut.isPending;
 
-  // The route-level AnimatePresence crossfade (App.tsx) owns the exit animation,
-  // so this just hands control back to the parent.
-  function exitThen(cb: () => void) {
-    cb();
-  }
-
   function validate() {
     const e: { email?: string; password?: string } = {};
     if (!email) e.email = "Email is required";
@@ -90,7 +77,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
     const mutation = isRegister ? registerMut : loginMut;
     try {
       await mutation.mutateAsync({ email, password });
-      exitThen(onLogin);
+      onLogin();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong.";
       setFormError({ text: parseAuthError(message), tone: "err" });
@@ -111,52 +98,33 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const initial = prefersReduced ? "show" : "hidden";
 
   return (
-    <motion.div className="rv-login min-h-screen flex">
+    <div className="rv-login min-h-screen flex">
       <style>{STYLES}</style>
-      <PaperGrain />
 
-      {/* ── LEFT — editorial sidebar ─────────────────────────── */}
-      <motion.aside
-        className="rv-login-side"
-        variants={sideContainer}
-        initial={initial}
-        animate="show"
-      >
-        <motion.header className="rv-login-side-header" variants={sideItem}>
+      {/* ── LEFT — brand panel ───────────────────────────────── */}
+      <aside className="rv-login-side">
+        <header>
           <Wordmark />
-        </motion.header>
+        </header>
 
         <div className="rv-login-side-body">
-          <motion.div className="rv-login-side-eyebrow" variants={sideItem}>
-            <span className="rv-login-side-dot" />
-            <span>Updated 4 min ago · 12,408 listings today</span>
-          </motion.div>
-
-          <motion.h2 className="rv-display rv-login-side-title" variants={sideItem}>
+          <p className="rv-eyebrow">Buyer-first car index</p>
+          <h2 className="display rv-login-side-title">
             {isRegister ? (
-              <>
-                Find <em className="rv-emph">underpriced</em><br />
-                cars before<br />
-                anyone else.
-              </>
+              <>Find <em className="rv-emph">underpriced</em> cars before anyone else.</>
             ) : (
-              <>
-                Welcome <em className="rv-emph">back</em>.<br />
-                Your deals are<br />
-                waiting.
-              </>
+              <>Welcome <em className="rv-emph">back</em>. Your deals are waiting.</>
             )}
-          </motion.h2>
-
-          <motion.p className="rv-login-side-sub" variants={sideItem}>
+          </h2>
+          <p className="rv-login-side-sub">
             {isRegister
-              ? "Save searches, set drop alerts, and move on a great deal in hours — not days. Free for buyers — start in under a minute."
-              : "Pick up where you left off — saved searches, drop alerts, and today's freshest deals across every major marketplace."}
-          </motion.p>
+              ? "Save searches, set drop alerts, and move on a great deal in hours — not days."
+              : "Pick up where you left off — saved searches, alerts, and today's freshest deals."}
+          </p>
         </div>
 
-        <motion.div className="rv-login-side-foot" variants={sideItem}>
-          <div className="rv-login-side-foot-k">Most undervalued · last 24 hours</div>
+        <div className="rv-login-side-foot">
+          <p className="rv-eyebrow mb-3">Most undervalued · last 24 hours</p>
           <ul className="rv-login-side-deals">
             {RECENT_DEALS.map((d) => (
               <li key={d.label} className="rv-login-side-deal">
@@ -166,8 +134,8 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
               </li>
             ))}
           </ul>
-        </motion.div>
-      </motion.aside>
+        </div>
+      </aside>
 
       {/* ── RIGHT — form ─────────────────────────────────────── */}
       <main className="rv-login-main">
@@ -188,7 +156,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
             <Wordmark />
           </motion.div>
 
-          <motion.h1 className="rv-display rv-login-title" variants={formItem}>
+          <motion.h1 className="display rv-login-title" variants={formItem}>
             {isRegister ? "Create your account." : "Sign in."}
           </motion.h1>
           <motion.p className="rv-login-sub" variants={formItem}>
@@ -198,16 +166,8 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </motion.p>
 
           <motion.div className="rv-login-social" variants={formItem}>
-            <SocialBtn
-              icon={<GoogleIcon />}
-              label="Continue with Google"
-              onClick={() => oauthLogin("google")}
-            />
-            <SocialBtn
-              icon={<GitHubIcon />}
-              label="Continue with GitHub"
-              onClick={() => oauthLogin("github")}
-            />
+            <SocialBtn icon={<GoogleIcon />} label="Continue with Google" onClick={() => oauthLogin("google")} />
+            <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" onClick={() => oauthLogin("github")} />
           </motion.div>
 
           <motion.div className="rv-login-or" variants={formItem}>
@@ -272,17 +232,10 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
             </motion.div>
 
             <motion.div variants={formItem}>
-              <button
-                type="submit"
-                disabled={loading}
-                className="rv-login-submit"
-              >
+              <button type="submit" disabled={loading} className="rv-login-submit">
                 {loading ? (
                   <>
-                    <svg className="w-4 h-4 rv-spin" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
-                      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
+                    <Spinner size={15} className="text-current" />
                     <span>{isRegister ? "Creating account" : "Signing in"}</span>
                   </>
                 ) : (
@@ -310,23 +263,13 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
           <motion.div className="rv-login-guest" variants={formItem}>
             <span className="rv-login-guest-rule" />
-            <button
-              type="button"
-              onClick={() => exitThen(onGuest)}
-              className="rv-guest-btn"
-            >
-              <span className="rv-guest-btn-icon">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="3.5" />
-                  <path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" />
-                </svg>
-              </span>
+            <button type="button" onClick={onGuest} className="rv-guest-btn">
               <span>Continue as guest</span>
               <svg className="rv-guest-btn-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 5l7 7-7 7" />
               </svg>
             </button>
-            <span className="rv-login-guest-hint">Just looking? Browse today&apos;s deals — no account needed.</span>
+            <span className="rv-login-guest-hint">Just looking? Browse today's deals — no account needed.</span>
           </motion.div>
 
           <motion.p className="rv-login-toggle" variants={formItem}>
@@ -341,7 +284,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </motion.p>
         </motion.div>
       </main>
-    </motion.div>
+    </div>
   );
 }
 
@@ -373,23 +316,9 @@ function parseAuthError(raw: string): string {
 function Wordmark() {
   return (
     <a href="/" className="rv-wordmark">
-      <span className="rv-wordmark-mark">
-        <img src="/revveal-logo.png" alt="Revveal" className="rv-wordmark-img" />
-      </span>
+      <img src="/revveal-logo.png" alt="" aria-hidden className="rv-wordmark-img" />
       <span className="rv-wordmark-name">Revveal</span>
     </a>
-  );
-}
-
-function PaperGrain() {
-  return (
-    <svg className="rv-grain" aria-hidden>
-      <filter id="rv-login-grain">
-        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-        <feColorMatrix values="0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0 0.03  0 0 0 0.5 0" />
-      </filter>
-      <rect width="100%" height="100%" filter="url(#rv-login-grain)" />
-    </svg>
   );
 }
 
@@ -473,580 +402,90 @@ const STYLES = `
 
   .rv-login {
     ${THEME_TOKENS}
-
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Newsreader', Georgia, serif;
-    font-feature-settings: "ss01", "ss02", "liga";
+    font-family: 'Manrope', sans-serif;
     -webkit-font-smoothing: antialiased;
-    text-rendering: optimizeLegibility;
-    position: relative;
-    overflow: hidden;
   }
+  .rv-login .display { font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+  .rv-login .rv-emph { color: var(--red); }
+  .rv-login .rv-eyebrow { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
 
-  .rv-login .rv-display {
-    font-family: 'Fraunces', 'Times New Roman', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 0;
-    font-weight: 600;
-    letter-spacing: -0.018em;
-  }
+  .rv-login .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
+  .rv-login .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
+  .rv-login .rv-wordmark-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
 
-  .rv-login .rv-emph {
-    font-style: italic;
-    color: var(--red);
-    font-variation-settings: "opsz" 144, "SOFT" 100, "WONK" 1;
-  }
-
-  /* Paper grain */
-  .rv-login .rv-grain {
-    position: fixed; inset: 0;
-    width: 100vw; height: 100vh;
-    pointer-events: none;
-    z-index: 50;
-    opacity: 0.28;
-    mix-blend-mode: multiply;
-  }
-
-  /* ── WORDMARK ─────────────────────────────────────── */
-  .rv-login .rv-wordmark {
-    display: inline-flex; align-items: center; gap: 10px;
-    color: var(--ink); text-decoration: none;
-  }
-  .rv-login .rv-wordmark-mark {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 34px; height: 34px;
-  }
-  .rv-login .rv-wordmark-img {
-    width: 100%; height: 100%;
-    object-fit: contain;
-    display: block;
-  }
-  .rv-login .rv-wordmark-name {
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 30;
-    font-weight: 700;
-    font-size: 21px;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    line-height: 1;
-  }
-
-  /* ── SIDE (LEFT) ───────────────────────────────────── */
+  /* Left brand panel */
   .rv-login .rv-login-side {
     display: none;
-    position: relative;
-    width: 54%;
-    background: var(--ink);
-    color: var(--paper-pale);
-    padding: 44px 56px 36px;
-    flex-direction: column;
-    justify-content: space-between;
-    overflow: hidden;
-    border-right: 1px solid var(--ink);
-    isolation: isolate;
+    width: 42%; max-width: 540px;
+    padding: 40px;
+    flex-direction: column; justify-content: space-between; gap: 40px;
+    background: var(--paper-soft);
+    border-right: 1px solid var(--rule);
   }
-  @media (min-width: 1024px) {
-    .rv-login .rv-login-side { display: flex; }
-  }
-  .rv-login .rv-login-side .rv-wordmark { color: var(--paper-pale); }
-  .rv-login .rv-login-side .rv-wordmark-name { color: var(--paper-pale); }
+  @media (min-width: 1024px) { .rv-login .rv-login-side { display: flex; } }
+  .rv-login .rv-login-side-title { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1.05; margin-top: 18px; }
+  .rv-login .rv-login-side-sub { margin-top: 18px; font-size: 16px; line-height: 1.55; color: var(--ink-muted); max-width: 40ch; }
+  .rv-login .rv-login-side-deals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rv-login .rv-login-side-deal { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 11px 0; border-top: 1px solid var(--rule); font-size: 13.5px; }
+  .rv-login .rv-login-side-deal-title { font-weight: 600; }
+  .rv-login .rv-login-side-deal-loc { color: var(--ink-muted); font-size: 12.5px; }
+  .rv-login .rv-login-side-deal-delta { font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
 
-  .rv-login .rv-login-side-header,
-  .rv-login .rv-login-side-body,
-  .rv-login .rv-login-side-foot {
-    position: relative;
-    z-index: 2;
-  }
+  /* Right form */
+  .rv-login .rv-login-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+  .rv-login .rv-login-main-inner { width: 100%; max-width: 400px; }
+  .rv-login .rv-login-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-bottom: 28px; transition: color .15s ease; }
+  .rv-login .rv-login-back:hover { color: var(--ink); }
+  .rv-login .rv-login-title { font-size: clamp(1.8rem, 4vw, 2.3rem); line-height: 1.05; }
+  .rv-login .rv-login-sub { margin-top: 8px; font-size: 15px; color: var(--ink-muted); }
 
-  .rv-login .rv-login-side-body {
-    max-width: 28rem;
-  }
-  .rv-login .rv-login-side-eyebrow {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 6px 12px;
-    background: transparent;
-    border: 1px solid var(--paper-deep);
-    color: var(--paper-pale);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.12em;
-    font-weight: 600;
-    margin-bottom: 28px;
-    opacity: 0.85;
-  }
-  .rv-login .rv-login-side-dot {
-    width: 6px; height: 6px;
-    background: var(--red);
-    border-radius: 50%;
-    animation: rv-login-pulse 2s ease-in-out infinite;
-  }
-  @keyframes rv-login-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .rv-login .rv-login-social { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+  .rv-login .rv-social-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 16px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-pale); font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 600; color: var(--ink); transition: border-color .15s ease, background-color .15s ease; }
+  .rv-login .rv-social-btn:hover { border-color: var(--ink); background: var(--paper-soft); }
 
-  .rv-login .rv-login-side-title {
-    font-size: clamp(2.8rem, 5.5vw, 4.4rem);
-    line-height: 0.96;
-    letter-spacing: -0.025em;
-    color: var(--paper-pale);
-    margin: 0 0 22px;
-    font-weight: 600;
-    max-width: 16ch;
-  }
-  .rv-login .rv-login-side-sub {
-    font-family: 'Newsreader', serif;
-    font-variation-settings: "opsz" 18;
-    font-size: 16px;
-    line-height: 1.55;
-    color: var(--paper-deep);
-    margin: 0;
-    max-width: 36ch;
-  }
+  .rv-login .rv-login-or { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--ink-fade); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .rv-login .rv-login-or::before, .rv-login .rv-login-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
 
-  /* Recent deals strip — bottom of left side */
-  .rv-login .rv-login-side-foot {
-    padding-top: 22px;
-    border-top: 1px solid rgba(245, 235, 210, 0.20);
-  }
-  .rv-login .rv-login-side-foot-k {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-fade);
-    margin-bottom: 14px;
-    font-weight: 600;
-  }
-  .rv-login .rv-login-side-deals {
-    list-style: none;
-    padding: 0; margin: 0;
-    display: flex; flex-direction: column;
-    gap: 8px;
-  }
-  .rv-login .rv-login-side-deal {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    gap: 18px;
-    align-items: baseline;
-    padding: 6px 0;
-    border-bottom: 1px dashed rgba(245, 235, 210, 0.18);
-  }
-  .rv-login .rv-login-side-deal:last-child { border-bottom: none; }
-  .rv-login .rv-login-side-deal-title {
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 18, "SOFT" 30;
-    font-weight: 500;
-    font-size: 15px;
-    color: var(--paper-pale);
-    letter-spacing: -0.005em;
-  }
-  .rv-login .rv-login-side-deal-loc {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    color: var(--ink-fade);
-    letter-spacing: 0.06em;
-  }
-  .rv-login .rv-login-side-deal-delta {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--red);
-    font-variant-numeric: tabular-nums;
-    min-width: 56px;
-    text-align: right;
-  }
-
-  /* ── MAIN (RIGHT) ─────────────────────────────────── */
-  .rv-login .rv-login-main {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 36px 22px 28px;
-    background: var(--paper);
-    position: relative;
-  }
-  .rv-login .rv-login-main-inner {
-    width: 100%;
-    max-width: 420px;
-    position: relative;
-  }
-
-  .rv-login .rv-login-back {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-weight: 600;
-    color: var(--ink-muted);
-    text-decoration: none;
-    margin-bottom: 36px;
-    transition: color 0.2s ease;
-  }
-  .rv-login .rv-login-back:hover { color: var(--red); }
-  .rv-login .rv-login-back svg { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
-  .rv-login .rv-login-back:hover svg { transform: translateX(-3px); }
-
-  .rv-login .rv-login-title {
-    font-size: clamp(2.2rem, 4.2vw, 2.8rem);
-    line-height: 1;
-    letter-spacing: -0.025em;
-    color: var(--ink);
-    font-weight: 600;
-    margin: 0 0 10px;
-  }
-  .rv-login .rv-login-sub {
-    font-family: 'Newsreader', serif;
-    font-variation-settings: "opsz" 18;
-    font-size: 15.5px;
-    line-height: 1.5;
-    color: var(--ink-muted);
-    margin: 0 0 28px;
-  }
-
-  /* Social buttons */
-  .rv-login .rv-login-social {
-    display: flex; flex-direction: column;
-    gap: 10px;
-    margin-bottom: 24px;
-  }
-  .rv-login .rv-social-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    gap: 10px;
-    width: 100%;
-    padding: 12px 16px;
-    background: var(--paper-pale);
-    border: 1px solid var(--ink);
-    color: var(--ink);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    line-height: 1;
-    cursor: pointer;
-    border-radius: 0;
-    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .rv-login .rv-social-btn:hover {
-    background: var(--paper);
-    transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 var(--ink);
-  }
-  .rv-login .rv-social-btn:active {
-    transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0 var(--ink);
-  }
-
-  /* Divider */
-  .rv-login .rv-login-or {
-    display: flex; align-items: center; gap: 14px;
-    margin: 24px 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ink-fade);
-    font-weight: 600;
-  }
-  .rv-login .rv-login-or::before,
-  .rv-login .rv-login-or::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: var(--ink-fade);
-    opacity: 0.5;
-  }
-
-  /* Form */
-  .rv-login .rv-login-form {
-    display: flex; flex-direction: column;
-    gap: 18px;
-  }
+  .rv-login .rv-login-form { display: flex; flex-direction: column; gap: 16px; }
   .rv-login .rv-field { display: flex; flex-direction: column; gap: 6px; }
-  .rv-login .rv-field-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--ink-muted);
-    font-weight: 600;
-  }
-  .rv-login .rv-input {
-    width: 100%;
-    padding: 13px 14px;
-    background: var(--paper-pale);
-    border: 1px solid var(--ink);
-    color: var(--ink);
-    font-family: 'Newsreader', serif;
-    font-size: 15.5px;
-    line-height: 1.2;
-    border-radius: 0;
-    outline: none;
-    transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-  }
+  .rv-login .rv-field-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); }
+  .rv-login .rv-input { width: 100%; background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 15px; color: var(--ink); padding: 11px 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease; }
+  .rv-login .rv-input:focus { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-tint); }
   .rv-login .rv-input::placeholder { color: var(--ink-fade); }
-  .rv-login .rv-input:focus {
-    background: #ffffff;
-    box-shadow: 3px 3px 0 var(--red);
-    transform: translate(-1px, -1px);
-  }
-  .rv-login .rv-input-err {
-    border-color: var(--err);
-    background: rgba(184, 49, 46, 0.05);
-  }
-  .rv-login .rv-input-err:focus { box-shadow: 3px 3px 0 var(--err); }
-
-  .rv-login .rv-input-pw { padding-right: 44px; }
+  .rv-login .rv-input-err { border-color: var(--red); }
   .rv-login .rv-password-wrap { position: relative; }
-  .rv-login .rv-password-eye {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: transparent;
-    border: none;
-    color: var(--ink-muted);
-    cursor: pointer;
-    padding: 4px;
-    display: inline-flex;
-    align-items: center;
-    transition: color 0.2s ease;
-  }
+  .rv-login .rv-input-pw { padding-right: 44px; }
+  .rv-login .rv-password-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 6px; color: var(--ink-fade); border-radius: 6px; transition: color .15s ease; }
   .rv-login .rv-password-eye:hover { color: var(--ink); }
+  .rv-login .rv-field-err { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--err); }
+  .rv-login .rv-field-err-mark, .rv-login .rv-login-form-err-mark { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; flex-shrink: 0; }
 
-  .rv-login .rv-field-err {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-family: 'Newsreader', serif;
-    font-style: italic;
-    font-size: 13px;
-    color: var(--err);
-    margin: 4px 0 0;
-  }
-  .rv-login .rv-field-err-mark {
-    width: 14px; height: 14px;
-    background: var(--err);
-    color: var(--paper-pale);
-    display: inline-flex; align-items: center; justify-content: center;
-    font-style: normal;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-  }
+  .rv-login .rv-login-row { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+  .rv-login .rv-checkbox { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-muted); cursor: pointer; }
+  .rv-login .rv-checkbox-box { width: 17px; height: 17px; border: 1px solid var(--rule-strong); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: background-color .15s ease, border-color .15s ease; }
+  .rv-login .rv-checkbox-box-on { background: var(--red); border-color: var(--red); }
+  .rv-login .rv-login-forgot { font-size: 13.5px; font-weight: 600; color: var(--red); }
 
-  .rv-login .rv-login-row {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px;
-    padding-top: 2px;
-  }
-  .rv-login .rv-checkbox {
-    display: inline-flex; align-items: center; gap: 9px;
-    cursor: pointer;
-    user-select: none;
-    font-family: 'Newsreader', serif;
-    font-size: 14px;
-    color: var(--ink-soft);
-  }
-  .rv-login .rv-checkbox-box {
-    width: 16px; height: 16px;
-    border: 1.5px solid var(--ink);
-    background: var(--paper-pale);
-    display: inline-flex; align-items: center; justify-content: center;
-    color: var(--paper-pale);
-    transition: background 0.15s ease;
-  }
-  .rv-login .rv-checkbox-box-on { background: var(--ink); }
-  .rv-login .rv-login-forgot {
-    background: transparent; border: none;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--ink);
-    font-weight: 600;
-    cursor: pointer;
-    padding: 4px 0;
-    border-bottom: 1px solid var(--ink);
-    transition: color 0.2s ease, border-color 0.2s ease;
-  }
-  .rv-login .rv-login-forgot:hover { color: var(--red); border-color: var(--red); }
+  .rv-login .rv-login-submit { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 12px 18px; margin-top: 4px; background: var(--red); color: #fff; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; border-radius: 10px; transition: background-color .18s ease; }
+  .rv-login .rv-login-submit:hover:not(:disabled) { background: var(--red-deep); }
+  .rv-login .rv-login-submit:disabled { opacity: 0.65; cursor: wait; }
 
-  /* Submit — matching homepage primary button */
-  .rv-login .rv-login-submit {
-    width: 100%;
-    margin-top: 6px;
-    padding: 14px 22px;
-    background: var(--red);
-    color: var(--paper-pale);
-    border: 1px solid var(--red);
-    border-radius: 0;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    line-height: 1;
-    display: inline-flex; align-items: center; justify-content: center;
-    gap: 10px;
-    cursor: pointer;
-    box-shadow: 3px 3px 0 var(--ink);
-    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
-  }
-  .rv-login .rv-login-submit:hover:not(:disabled) {
-    background: var(--ink);
-    border-color: var(--ink);
-    transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 var(--red);
-  }
-  .rv-login .rv-login-submit:active:not(:disabled) {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 var(--red);
-  }
-  .rv-login .rv-login-submit:disabled { opacity: 0.7; cursor: wait; }
-
-  .rv-login .rv-spin { animation: rv-spin 0.7s linear infinite; width: 14px; height: 14px; }
-  @keyframes rv-spin { to { transform: rotate(360deg); } }
-
-  .rv-login .rv-login-form-err {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: 'Newsreader', serif;
-    font-style: italic;
-    font-size: 13.5px;
-    color: var(--err);
-    margin: 6px 0 0;
-    padding: 10px 12px;
-    background: rgba(184, 49, 46, 0.06);
-    border-left: 2px solid var(--err);
-  }
-  /* Amber variant — actionable guidance (e.g. "sign in to link"), not a failure. */
-  .rv-login .rv-login-form-err--notice {
-    color: var(--amber-deep);
-    background: rgba(176, 125, 43, 0.08);
-    border-left-color: var(--amber);
-  }
+  .rv-login .rv-login-form-err { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--err); }
+  .rv-login .rv-login-form-err--notice { color: var(--amber-deep); }
   .rv-login .rv-login-form-err--notice .rv-login-form-err-mark { background: var(--amber); }
-  .rv-login .rv-login-form-err-mark {
-    width: 16px; height: 16px;
-    background: var(--err);
-    color: var(--paper-pale);
-    display: inline-flex; align-items: center; justify-content: center;
-    font-style: normal;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1;
-    flex-shrink: 0;
-  }
 
-  /* Guest path — tertiary, lighter than submit/social but same letterpress hover */
-  .rv-login .rv-login-guest {
-    display: flex; flex-direction: column; align-items: stretch;
-    gap: 12px;
-    margin-top: 22px;
-  }
-  .rv-login .rv-login-guest-rule {
-    height: 1px;
-    background: var(--ink-fade);
-    opacity: 0.4;
-    margin-bottom: 4px;
-  }
-  .rv-login .rv-guest-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    gap: 10px;
-    width: 100%;
-    padding: 13px 18px;
-    background: transparent;
-    border: 1px dashed var(--ink);
-    color: var(--ink);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    line-height: 1;
-    cursor: pointer;
-    border-radius: 0;
-    transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease, color 0.2s ease;
-  }
-  .rv-login .rv-guest-btn:hover {
-    background: var(--paper-pale);
-    border-color: var(--ink);
-    border-style: solid;
-    transform: translate(-1px, -1px);
-    box-shadow: 3px 3px 0 var(--ink);
-  }
-  .rv-login .rv-guest-btn:active {
-    transform: translate(1px, 1px);
-    box-shadow: 1px 1px 0 var(--ink);
-  }
-  .rv-login .rv-guest-btn-icon { display: inline-flex; align-items: center; color: var(--ink-muted); transition: color 0.2s ease; }
-  .rv-login .rv-guest-btn:hover .rv-guest-btn-icon { color: var(--red); }
-  .rv-login .rv-guest-btn-arrow { transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+  .rv-login .rv-login-guest { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .rv-login .rv-login-guest-rule { width: 100%; height: 1px; background: var(--rule); }
+  .rv-login .rv-guest-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 600; color: var(--ink); transition: border-color .15s ease; }
+  .rv-login .rv-guest-btn:hover { border-color: var(--ink); }
+  .rv-login .rv-guest-btn-arrow { transition: transform .25s cubic-bezier(.16,1,.3,1); }
   .rv-login .rv-guest-btn:hover .rv-guest-btn-arrow { transform: translateX(3px); }
-  .rv-login .rv-login-guest-hint {
-    text-align: center;
-    font-family: 'Newsreader', serif;
-    font-style: italic;
-    font-size: 12.5px;
-    color: var(--ink-fade);
-    line-height: 1.5;
-  }
+  .rv-login .rv-login-guest-hint { font-size: 12.5px; color: var(--ink-fade); text-align: center; }
 
-  /* Toggle (login ↔ register) */
-  .rv-login .rv-login-toggle {
-    text-align: center;
-    margin: 28px 0 10px;
-    font-family: 'Newsreader', serif;
-    font-size: 14px;
-    color: var(--ink-muted);
-  }
-  .rv-login .rv-login-toggle-btn {
-    background: transparent; border: none;
-    color: var(--ink);
-    font-family: 'Newsreader', serif;
-    font-size: 14px;
-    font-weight: 600;
-    font-style: italic;
-    cursor: pointer;
-    padding: 0;
-    border-bottom: 1px solid var(--red);
-    transition: color 0.2s ease, border-color 0.2s ease;
-  }
-  .rv-login .rv-login-toggle-btn:hover {
-    color: var(--red);
-  }
-
-  .rv-login .rv-login-fine {
-    text-align: center;
-    font-family: 'Newsreader', serif;
-    font-style: italic;
-    font-size: 12.5px;
-    color: var(--ink-fade);
-    margin: 0;
-    max-width: 36ch;
-    margin-left: auto; margin-right: auto;
-    line-height: 1.5;
-  }
-  .rv-login .rv-login-fine a {
-    color: var(--ink);
-    text-decoration: underline;
-    text-decoration-color: var(--red);
-    text-underline-offset: 3px;
-  }
-  .rv-login .rv-login-fine a:hover { color: var(--red); }
-
-  /* Reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    .rv-login .rv-login-side-dot { animation: none; }
-  }
-
-  /* Responsive */
-  @media (max-width: 1023px) {
-    .rv-login .rv-login-main { padding: 32px 20px; }
-  }
-  @media (max-width: 480px) {
-    .rv-login .rv-login-main { padding: 24px 18px; }
-    .rv-login .rv-login-back { margin-bottom: 24px; }
-    .rv-login .rv-login-title { font-size: 2rem; }
-  }
+  .rv-login .rv-login-toggle { margin-top: 24px; text-align: center; font-size: 14px; color: var(--ink-muted); }
+  .rv-login .rv-login-toggle-btn { font-weight: 700; color: var(--red); }
+  .rv-login .rv-login-fine { margin-top: 18px; text-align: center; font-size: 12px; color: var(--ink-fade); line-height: 1.5; }
+  .rv-login .rv-login-fine a { color: var(--ink-muted); text-decoration: underline; text-underline-offset: 2px; }
 `;

@@ -23,7 +23,6 @@ export default function LegalPage({ kind, onBack }: Props) {
   return (
     <div className="rv-legal min-h-screen">
       <style>{STYLES}</style>
-      <PaperGrain />
 
       <nav className="rv-legal-nav">
         <div className="rv-legal-nav-inner">
@@ -92,18 +91,6 @@ function Wordmark() {
       </span>
       <span className="rv-legal-wordmark-name">Revveal</span>
     </span>
-  );
-}
-
-function PaperGrain() {
-  return (
-    <svg className="rv-grain" aria-hidden>
-      <filter id="rv-legal-grain">
-        <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-        <feColorMatrix values="0 0 0 0 0.05  0 0 0 0 0.04  0 0 0 0 0.03  0 0 0 0.5 0" />
-      </filter>
-      <rect width="100%" height="100%" filter="url(#rv-legal-grain)" />
-    </svg>
   );
 }
 
@@ -311,37 +298,23 @@ const STYLES = `
 
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Newsreader', Georgia, serif;
-    font-feature-settings: "ss01", "ss02", "liga";
+    font-family: 'Manrope', sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    position: relative;
   }
 
-  .rv-legal .rv-display {
-    font-family: 'Fraunces', 'Times New Roman', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 50, "WONK" 0;
-    font-weight: 600;
-    letter-spacing: -0.018em;
-  }
-
-  .rv-legal .rv-grain {
-    position: fixed; inset: 0;
-    width: 100vw; height: 100vh;
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0.26;
-    mix-blend-mode: multiply;
-  }
+  .rv-legal .rv-display { font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
 
   /* Nav */
   .rv-legal .rv-legal-nav {
     position: sticky; top: 0; z-index: 20;
-    background: var(--paper);
-    border-bottom: 1px solid var(--ink);
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: saturate(180%) blur(8px);
+    -webkit-backdrop-filter: saturate(180%) blur(8px);
+    border-bottom: 1px solid var(--rule);
   }
   .rv-legal .rv-legal-nav-inner {
-    max-width: 820px; margin: 0 auto;
+    max-width: 760px; margin: 0 auto;
     padding: 14px 24px;
     display: flex; align-items: center; justify-content: space-between;
     gap: 16px;
@@ -349,89 +322,80 @@ const STYLES = `
   .rv-legal .rv-legal-back {
     display: inline-flex; align-items: center; gap: 7px;
     background: transparent; border: none; cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
-    font-weight: 600; color: var(--ink-muted);
-    transition: color 0.2s ease;
+    font-size: 13px; font-weight: 600; color: var(--ink-muted);
+    transition: color 0.15s ease;
   }
-  .rv-legal .rv-legal-back:hover { color: var(--red); }
+  .rv-legal .rv-legal-back:hover { color: var(--ink); }
   .rv-legal .rv-legal-back svg { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); }
   .rv-legal .rv-legal-back:hover svg { transform: translateX(-3px); }
   .rv-legal .rv-legal-wordmark { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); }
-  .rv-legal .rv-legal-wordmark-mark {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: 30px;
-  }
+  .rv-legal .rv-legal-wordmark-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; }
   .rv-legal .rv-legal-wordmark-img { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .rv-legal .rv-legal-wordmark-name {
-    font-family: 'Fraunces', serif;
-    font-variation-settings: "opsz" 144, "SOFT" 30;
-    font-weight: 700; font-size: 19px; letter-spacing: -0.02em; line-height: 1;
-  }
+  .rv-legal .rv-legal-wordmark-name { font-weight: 800; font-size: 19px; letter-spacing: -0.02em; line-height: 1; }
 
   /* Main column */
   .rv-legal .rv-legal-main {
     max-width: 720px; margin: 0 auto;
     padding: 56px 24px 96px;
-    position: relative; z-index: 2;
   }
 
-  .rv-legal .rv-legal-head { margin-bottom: 44px; }
+  .rv-legal .rv-legal-head { margin-bottom: 40px; }
   .rv-legal .rv-legal-eyebrow {
     display: inline-block;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
     font-weight: 600; color: var(--red);
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .rv-legal .rv-legal-title {
-    font-size: clamp(2.4rem, 6vw, 3.4rem);
-    line-height: 1; letter-spacing: -0.025em;
-    margin: 0 0 14px;
+    font-size: clamp(2.2rem, 5vw, 3rem);
+    line-height: 1.04;
+    margin: 0 0 12px;
   }
   .rv-legal .rv-legal-meta {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    font-size: 12.5px; letter-spacing: 0.04em;
     color: var(--ink-fade);
-    margin: 0 0 24px;
+    margin: 0 0 22px;
   }
   .rv-legal .rv-legal-intro {
-    font-size: 17px; line-height: 1.6;
-    color: var(--ink-soft);
+    font-size: 16.5px; line-height: 1.6;
+    color: var(--ink-muted);
     margin: 0;
     padding-bottom: 28px;
-    border-bottom: 1px solid var(--paper-deep);
+    border-bottom: 1px solid var(--rule);
+    max-width: 68ch;
   }
 
-  .rv-legal .rv-legal-section { margin-bottom: 34px; }
+  .rv-legal .rv-legal-section { margin-bottom: 32px; }
   .rv-legal .rv-legal-h2 {
     display: flex; align-items: baseline; gap: 12px;
-    font-size: 1.4rem; line-height: 1.15; letter-spacing: -0.015em;
-    margin: 0 0 14px;
+    font-size: 1.3rem; line-height: 1.2;
+    margin: 0 0 12px;
   }
   .rv-legal .rv-legal-h2-num {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px; font-weight: 700;
+    font-size: 13px; font-weight: 800;
     color: var(--red);
     flex-shrink: 0;
-    position: relative; top: -2px;
+    font-variant-numeric: tabular-nums;
   }
   .rv-legal .rv-legal-p {
     font-size: 15.5px; line-height: 1.65;
-    color: var(--ink-soft);
+    color: var(--ink-muted);
     margin: 0 0 12px;
+    max-width: 68ch;
+    text-wrap: pretty;
   }
   .rv-legal .rv-legal-list {
     margin: 4px 0 12px;
     padding-left: 0;
     list-style: none;
+    max-width: 68ch;
   }
   .rv-legal .rv-legal-list li {
     position: relative;
-    padding-left: 22px;
+    padding-left: 20px;
     font-size: 15px; line-height: 1.6;
-    color: var(--ink-soft);
-    margin-bottom: 9px;
+    color: var(--ink-muted);
+    margin-bottom: 8px;
   }
   .rv-legal .rv-legal-list li::before {
     content: "—";
@@ -440,35 +404,29 @@ const STYLES = `
   }
 
   .rv-legal .rv-legal-foot {
-    margin-top: 48px;
+    margin-top: 44px;
     padding-top: 26px;
-    border-top: 1px solid var(--ink);
+    border-top: 1px solid var(--rule);
   }
   .rv-legal .rv-legal-foot-line {
-    font-size: 15px; color: var(--ink-soft); margin: 0 0 18px;
+    font-size: 15px; color: var(--ink-muted); margin: 0 0 18px;
   }
   .rv-legal .rv-legal-foot a,
   .rv-legal .rv-legal-foot-line a {
-    color: var(--ink);
+    color: var(--red);
     text-decoration: underline;
-    text-decoration-color: var(--red);
     text-underline-offset: 3px;
   }
-  .rv-legal .rv-legal-foot a:hover { color: var(--red); }
   .rv-legal .rv-legal-foot-links {
     display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
   }
   .rv-legal .rv-legal-foot-link {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-    font-weight: 600; color: var(--ink);
+    font-size: 13.5px; font-weight: 600; color: var(--ink);
     text-decoration: none;
-    border-bottom: 1px solid var(--red);
-    padding-bottom: 2px;
-    transition: color 0.2s ease;
+    transition: color 0.15s ease;
   }
   .rv-legal .rv-legal-foot-link:hover { color: var(--red); }
-  .rv-legal .rv-legal-foot-link-btn { background: transparent; border: none; border-bottom: 1px solid var(--red); cursor: pointer; }
+  .rv-legal .rv-legal-foot-link-btn { background: transparent; border: none; cursor: pointer; }
 
   @media (max-width: 600px) {
     .rv-legal .rv-legal-main { padding: 40px 20px 72px; }
