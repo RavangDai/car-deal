@@ -78,9 +78,11 @@ export function PriceScatter({ deals }: { deals: DealLike[] }) {
           key={i}
           cx={sx(d.listed_price)}
           cy={sy(d.predicted_price)}
-          r="3.5"
+          r="3.6"
           fill="var(--green)"
-          opacity="0.8"
+          fillOpacity="0.82"
+          stroke="var(--paper-pale)"
+          strokeWidth="1"
         />
       ))}
       <text x={pad.l} y={H - 6} fontSize="8.5" fontFamily="'Manrope', sans-serif" fill="var(--ink-muted)">asking →</text>

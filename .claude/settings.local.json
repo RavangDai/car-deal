@@ -58,7 +58,9 @@
       "Bash(git stash *)",
       "Bash(git reflog *)",
       "Bash(docker info *)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Skill(impeccable)",
+      "Bash(node *)"
     ]
   }
 }

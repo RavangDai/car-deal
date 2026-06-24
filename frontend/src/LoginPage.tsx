@@ -3,6 +3,8 @@ import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
+import { CarImage } from "./CarImage";
+import { IMAGES } from "./images";
 import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
 interface Props {
@@ -101,13 +103,18 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
     <div className="rv-login min-h-screen flex">
       <style>{STYLES}</style>
 
-      {/* ── LEFT — brand panel ───────────────────────────────── */}
+      {/* ── LEFT — brand panel (full-bleed photography) ──────── */}
       <aside className="rv-login-side">
-        <header>
+        <div className="rv-login-side-media" aria-hidden>
+          <CarImage image={IMAGES.loginFeature} className="rv-login-side-img" position="center 42%" eager />
+          <div className="rv-login-side-scrim" />
+        </div>
+
+        <header className="rv-login-side-z">
           <Wordmark />
         </header>
 
-        <div className="rv-login-side-body">
+        <div className="rv-login-side-body rv-login-side-z">
           <p className="rv-eyebrow">Buyer-first car index</p>
           <h2 className="display rv-login-side-title">
             {isRegister ? (
@@ -123,7 +130,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </p>
         </div>
 
-        <div className="rv-login-side-foot">
+        <div className="rv-login-side-foot rv-login-side-z">
           <p className="rv-eyebrow mb-3">Most undervalued · last 24 hours</p>
           <ul className="rv-login-side-deals">
             {RECENT_DEALS.map((d) => (
@@ -407,7 +414,7 @@ const STYLES = `
     font-family: 'Manrope', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  .rv-login .display { font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+  .rv-login .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.06; text-wrap: balance; font-optical-sizing: auto; }
   .rv-login .rv-emph { color: var(--red); }
   .rv-login .rv-eyebrow { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
 
@@ -415,23 +422,36 @@ const STYLES = `
   .rv-login .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
   .rv-login .rv-wordmark-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
 
-  /* Left brand panel */
+  /* Left brand panel — full-bleed photography with overlaid copy. */
   .rv-login .rv-login-side {
     display: none;
-    width: 42%; max-width: 540px;
-    padding: 40px;
+    position: relative; isolation: isolate; overflow: hidden;
+    width: 44%; max-width: 560px;
+    padding: 44px;
     flex-direction: column; justify-content: space-between; gap: 40px;
-    background: var(--paper-soft);
-    border-right: 1px solid var(--rule);
+    background: var(--ink);
+    color: #fff;
   }
   @media (min-width: 1024px) { .rv-login .rv-login-side { display: flex; } }
-  .rv-login .rv-login-side-title { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1.05; margin-top: 18px; }
-  .rv-login .rv-login-side-sub { margin-top: 18px; font-size: 16px; line-height: 1.55; color: var(--ink-muted); max-width: 40ch; }
+  .rv-login .rv-login-side-media { position: absolute; inset: 0; z-index: -1; }
+  .rv-login .rv-login-side-img { width: 100%; height: 100%; box-shadow: none; }
+  .rv-login .rv-login-side-scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(14,14,16,.52) 0%, rgba(14,14,16,.34) 36%, rgba(14,14,16,.84) 100%),
+      linear-gradient(90deg, rgba(14,14,16,.34), rgba(14,14,16,0) 58%);
+  }
+  .rv-login .rv-login-side-z { position: relative; z-index: 1; }
+  .rv-login .rv-login-side .rv-wordmark-name { color: #fff; }
+  .rv-login .rv-login-side .rv-eyebrow { color: rgba(255,255,255,.72); }
+  .rv-login .rv-login-side .rv-emph { color: #ff6f63; }
+  .rv-login .rv-login-side-title { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1.05; margin-top: 18px; color: #fff; text-shadow: 0 1px 18px rgba(0,0,0,.28); }
+  .rv-login .rv-login-side-sub { margin-top: 18px; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.82); max-width: 40ch; }
   .rv-login .rv-login-side-deals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .rv-login .rv-login-side-deal { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 11px 0; border-top: 1px solid var(--rule); font-size: 13.5px; }
-  .rv-login .rv-login-side-deal-title { font-weight: 600; }
-  .rv-login .rv-login-side-deal-loc { color: var(--ink-muted); font-size: 12.5px; }
-  .rv-login .rv-login-side-deal-delta { font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+  .rv-login .rv-login-side-deal { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.16); font-size: 13.5px; }
+  .rv-login .rv-login-side-deal-title { font-weight: 600; color: rgba(255,255,255,.95); }
+  .rv-login .rv-login-side-deal-loc { color: rgba(255,255,255,.6); font-size: 12.5px; }
+  .rv-login .rv-login-side-deal-delta { font-weight: 700; color: #5fd6a6; font-variant-numeric: tabular-nums; }
 
   /* Right form */
   .rv-login .rv-login-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
@@ -466,10 +486,11 @@ const STYLES = `
   .rv-login .rv-checkbox { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-muted); cursor: pointer; }
   .rv-login .rv-checkbox-box { width: 17px; height: 17px; border: 1px solid var(--rule-strong); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: background-color .15s ease, border-color .15s ease; }
   .rv-login .rv-checkbox-box-on { background: var(--red); border-color: var(--red); }
-  .rv-login .rv-login-forgot { font-size: 13.5px; font-weight: 600; color: var(--red); }
+  .rv-login .rv-login-forgot { font-size: 13.5px; font-weight: 600; color: var(--link); transition: color .15s ease; }
+  .rv-login .rv-login-forgot:hover { color: var(--link-hover); }
 
-  .rv-login .rv-login-submit { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 12px 18px; margin-top: 4px; background: var(--red); color: #fff; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; border-radius: 10px; transition: background-color .18s ease; }
-  .rv-login .rv-login-submit:hover:not(:disabled) { background: var(--red-deep); }
+  .rv-login .rv-login-submit { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 12px 18px; margin-top: 4px; background: var(--red); color: #fff; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; border-radius: 10px; box-shadow: 0 1px 2px rgba(138,29,28,.22); transition: background-color .18s ease, box-shadow .25s var(--ease-out-expo); }
+  .rv-login .rv-login-submit:hover:not(:disabled) { background: var(--red-deep); box-shadow: 0 4px 16px rgba(184,49,46,.28); }
   .rv-login .rv-login-submit:disabled { opacity: 0.65; cursor: wait; }
 
   .rv-login .rv-login-form-err { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--err); }
@@ -485,7 +506,8 @@ const STYLES = `
   .rv-login .rv-login-guest-hint { font-size: 12.5px; color: var(--ink-fade); text-align: center; }
 
   .rv-login .rv-login-toggle { margin-top: 24px; text-align: center; font-size: 14px; color: var(--ink-muted); }
-  .rv-login .rv-login-toggle-btn { font-weight: 700; color: var(--red); }
+  .rv-login .rv-login-toggle-btn { font-weight: 700; color: var(--link); transition: color .15s ease; }
+  .rv-login .rv-login-toggle-btn:hover { color: var(--link-hover); }
   .rv-login .rv-login-fine { margin-top: 18px; text-align: center; font-size: 12px; color: var(--ink-fade); line-height: 1.5; }
-  .rv-login .rv-login-fine a { color: var(--ink-muted); text-decoration: underline; text-underline-offset: 2px; }
+  .rv-login .rv-login-fine a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
 `;

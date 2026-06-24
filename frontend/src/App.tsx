@@ -12,6 +12,8 @@ import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import LegalPage, { type LegalKind } from "./LegalPage";
 import { Spinner } from "./Spinner";
+import { CarImage } from "./CarImage";
+import { thumbFor } from "./images";
 import { UndervalueHistogram, PriceScatter } from "./charts";
 import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
@@ -171,7 +173,7 @@ function BootSplash() {
       <div className="flex flex-col items-center gap-5">
         <div className="flex items-center gap-2.5">
           <img src="/revveal-logo.png" alt="" aria-hidden className="w-9 h-9 object-contain" />
-          <span className="display text-[1.5rem] leading-none">Revveal</span>
+          <span className="text-[1.5rem] leading-none font-extrabold tracking-[-0.02em]">Revveal</span>
         </div>
         <Spinner size={20} className="text-[var(--ink-muted)]" />
       </div>
@@ -254,25 +256,23 @@ function Dashboard({
     <div className="rv-report min-h-screen flex flex-col">
       <style>{REPORT_STYLES}</style>
 
-      {/* ── HEADER ───────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[var(--paper-pale)] border-b border-[var(--rule)]">
-        <div className="max-w-[1180px] mx-auto px-6 md:px-10 h-[60px] flex items-center justify-between gap-6">
-          <a href="#" className="flex items-center gap-2.5 min-w-0">
-            <img src="/revveal-logo.png" alt="" aria-hidden className="w-7 h-7 object-contain" />
-            <span className="display text-[1.3rem] leading-none">Revveal</span>
-            <span className="hidden sm:inline rv-tag border-l border-[var(--rule)] pl-3 ml-1 whitespace-nowrap">
-              Buyer dashboard
-            </span>
+      {/* ── HEADER — floating frosted pill (cohesive with marketing nav) ── */}
+      <header className="rv-dash-nav">
+        <div className="rv-dash-nav-inner">
+          <a href="#" className="rv-dash-brand">
+            <img src="/revveal-logo.png" alt="" aria-hidden className="w-[26px] h-[26px] object-contain" />
+            <span className="rv-dash-name">Revveal</span>
+            <span className="rv-dash-tag">Buyer dashboard</span>
           </a>
           {guest ? (
-            <div className="flex items-center gap-4">
-              <button onClick={onExitGuest} className="rv-link">Exit</button>
+            <div className="rv-dash-actions">
+              <button onClick={onExitGuest} className="rv-dash-ghost">Exit</button>
               <button onClick={onCreateAccount} className="rv-primary rv-primary--sm">
                 Create account
               </button>
             </div>
           ) : (
-            <button onClick={onLogout} className="rv-link">Sign out</button>
+            <button onClick={onLogout} className="rv-dash-ghost">Sign out</button>
           )}
         </div>
       </header>
@@ -359,36 +359,32 @@ function Dashboard({
                 </span>
               </div>
 
-              {loading && (
-                <div className="flex items-center gap-3 border-y border-[var(--rule)] py-3 mb-2 text-[var(--ink-muted)]">
-                  <Spinner size={14} />
-                  <p className="text-[13px]">Scanning listings · {stage ?? "starting"}…</p>
-                </div>
-              )}
-
-              {!loading && deals.length === 0 && (
-                <div className="rv-card text-center px-6 py-16">
-                  <p className="display text-[1.4rem] mb-1.5">No results yet.</p>
-                  <p className="text-[14px] text-[var(--ink-muted)]">
-                    Run a search above to list today's undervalued cars.
-                  </p>
-                </div>
-              )}
-
-              {deals.length > 0 && (
-                <motion.ol
-                  className="rv-lotindex list-none m-0 p-0"
-                  variants={cardGrid}
-                  initial="hidden"
-                  animate="show"
-                  key={`${deals.length}-${dealsQuery.dataUpdatedAt}`}
-                >
+              {loading && deals.length === 0 ? (
+                <ResultsSkeleton />
+              ) : !loading && deals.length === 0 ? (
+                <EmptyResults />
+              ) : (
+                <>
+                  {loading && (
+                    <div className="flex items-center gap-3 border-y border-[var(--rule)] py-3 mb-2 text-[var(--ink-muted)]">
+                      <Spinner size={14} />
+                      <p className="text-[13px]">Scanning listings · {stage ?? "starting"}…</p>
+                    </div>
+                  )}
+                  <motion.ol
+                    className="rv-lotindex list-none m-0 p-0"
+                    variants={cardGrid}
+                    initial="hidden"
+                    animate="show"
+                    key={`${deals.length}-${dealsQuery.dataUpdatedAt}`}
+                  >
                   {deals.map((deal, i) => {
                     const save = Math.max(0, deal.predicted_price - deal.listed_price);
                     return (
                       <motion.li key={deal.id} variants={cardItem}>
                         <a href={deal.url} target="_blank" rel="noreferrer" className="rv-lotrow group">
                           <span className="rv-lotrow-num" aria-hidden>{i + 1}</span>
+                          <CarImage image={thumbFor(i)} ratio="4 / 3" className="rv-lotrow-thumb" />
 
                           <div className="min-w-0">
                             <h3 className="text-[clamp(1.1rem,2vw,1.35rem)] font-bold leading-tight mb-1.5">
@@ -427,12 +423,14 @@ function Dashboard({
                       </motion.li>
                     );
                   })}
-                </motion.ol>
+                  </motion.ol>
+                </>
               )}
             </div>
 
             {/* Side column — figures + note */}
             <aside className="space-y-5 lg:sticky lg:top-[88px] self-start">
+              {loading && deals.length === 0 && <SidebarSkeleton />}
               {!loading && deals.length > 0 && (
                 <>
                   <figure className="rv-card p-5 m-0">
@@ -465,7 +463,7 @@ function Dashboard({
       <footer className="border-t border-[var(--rule)] bg-[var(--paper-pale)]">
         <div className="max-w-[1180px] mx-auto px-6 md:px-10 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <span className="text-[14px] font-semibold">Revveal</span>
-          <span className="rv-tag">© 2026 · Set in Manrope</span>
+          <span className="rv-tag">© 2026 · Set in Source Serif &amp; Manrope</span>
         </div>
       </footer>
     </div>
@@ -530,6 +528,60 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
   );
 }
 
+// First-load skeleton for the results list — quiet shimmer, no spinner.
+function ResultsSkeleton() {
+  return (
+    <div className="rv-lotindex" aria-hidden>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="rv-skel-row">
+          <div className="rv-skel" style={{ height: 14, width: 14 }} />
+          <div className="rv-skel" style={{ aspectRatio: "4 / 3", width: "100%" }} />
+          <div className="flex flex-col gap-2.5">
+            <div className="rv-skel" style={{ height: 17, width: "54%" }} />
+            <div className="rv-skel" style={{ height: 11, width: "34%" }} />
+            <div className="rv-skel" style={{ height: 12, width: "46%" }} />
+          </div>
+          <div className="hidden sm:flex flex-col items-end gap-2.5">
+            <div className="rv-skel" style={{ height: 18, width: 90, borderRadius: 999 }} />
+            <div className="rv-skel" style={{ height: 13, width: 104 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SidebarSkeleton() {
+  return (
+    <>
+      {[0, 1].map((i) => (
+        <div key={i} className="rv-card p-5" aria-hidden>
+          <div className="rv-skel mb-3" style={{ height: 11, width: 130 }} />
+          <div className="rv-skel" style={{ height: 130, width: "100%" }} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Empty state that teaches the interface rather than just saying "nothing here".
+function EmptyResults() {
+  return (
+    <div className="rv-card text-center px-6 py-16">
+      <span className="rv-empty-mark" aria-hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+        </svg>
+      </span>
+      <p className="display text-[1.4rem] mb-1.5">No results yet.</p>
+      <p className="text-[14px] text-[var(--ink-muted)] max-w-[40ch] mx-auto leading-relaxed">
+        Name a city and a model above, then run a search to list today's
+        undervalued cars — ranked by how far below fair value they sit.
+      </p>
+    </div>
+  );
+}
+
 // Verdict pill — green means "safe to proceed", amber means "thin margin".
 function VerdictBadge({ value }: { value: number }) {
   const tier = value >= 25 ? "best" : value >= 15 ? "rec" : "thin";
@@ -555,12 +607,43 @@ const REPORT_STYLES = `
   }
 
   .rv-report .display {
-    font-weight: 800;
+    font-family: var(--font-display);
+    font-weight: 600;
     letter-spacing: -0.02em;
+    line-height: 1.06;
     text-wrap: balance;
+    font-optical-sizing: auto;
   }
 
   .rv-report .rv-emph { color: var(--red); }
+
+  /* Dashboard nav — dark frosted floating pill, matched to the marketing nav. */
+  .rv-report .rv-dash-nav {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; justify-content: center;
+    padding: 14px 16px 0; pointer-events: none;
+  }
+  .rv-report .rv-dash-nav-inner {
+    pointer-events: auto; width: min(1180px, 100%);
+    display: flex; align-items: center; justify-content: space-between; gap: 18px;
+    padding: 9px 11px 9px 18px;
+    background: var(--frost-dark);
+    -webkit-backdrop-filter: var(--frost-blur);
+    backdrop-filter: var(--frost-blur);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: var(--r-pill);
+    box-shadow: var(--pill-shadow);
+  }
+  .rv-report .rv-dash-brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+  .rv-report .rv-dash-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: #fff; line-height: 1; }
+  .rv-report .rv-dash-tag {
+    font-size: 12px; font-weight: 600; color: rgba(255,255,255,.62);
+    border-left: 1px solid rgba(255,255,255,.22); padding-left: 11px; white-space: nowrap;
+  }
+  @media (max-width: 560px) { .rv-report .rv-dash-tag { display: none; } }
+  .rv-report .rv-dash-actions { display: flex; align-items: center; gap: 12px; }
+  .rv-report .rv-dash-ghost { font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,.82); transition: color .15s ease; }
+  .rv-report .rv-dash-ghost:hover { color: #fff; }
 
   /* Tailwind font-mono → Manrope tabular numerals. */
   .rv-report .font-mono { font-family: 'Manrope', sans-serif; font-variant-numeric: tabular-nums; }
@@ -591,13 +674,13 @@ const REPORT_STYLES = `
   }
   .rv-report .rv-link:hover { color: var(--ink); }
 
-  /* Cards — white surfaces, hairline border, whisper of elevation. */
+  /* Cards — white surfaces, hairline border, soft elevation. */
   .rv-report .rv-card {
     background: var(--paper-pale);
     color: var(--ink);
     border: 1px solid var(--rule);
     border-radius: 14px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-sm);
   }
 
   /* Inputs. */
@@ -656,17 +739,18 @@ const REPORT_STYLES = `
   /* Results list. */
   .rv-report .rv-lotrow {
     display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto;
-    gap: 4px 20px;
+    grid-template-columns: 26px 64px minmax(0, 1fr) auto;
+    gap: 4px 18px;
     align-items: center;
-    padding: 20px 4px;
+    padding: 18px 4px;
     text-decoration: none;
     color: inherit;
     border-top: 1px solid var(--rule);
-    transition: background-color 0.15s ease;
+    border-radius: 12px;
+    transition: background-color 0.15s ease, box-shadow 0.25s var(--ease-out-expo);
   }
   .rv-report .rv-lotindex > li:first-child .rv-lotrow { border-top: none; }
-  .rv-report .rv-lotrow:hover { background: var(--paper-pale); }
+  .rv-report .rv-lotrow:hover { background: var(--paper-pale); box-shadow: var(--shadow-md); }
 
   .rv-report .rv-lotrow-num {
     font-size: 14px;
@@ -676,6 +760,29 @@ const REPORT_STYLES = `
     align-self: start;
     padding-top: 2px;
   }
+  .rv-report .rv-lotrow-thumb { width: 64px; border-radius: 9px; align-self: center; }
+
+  /* Skeletons — quiet shimmer for first load (no spinner-in-content). */
+  .rv-report .rv-skel { position: relative; overflow: hidden; background: var(--paper-soft); border-radius: 7px; }
+  .rv-report .rv-skel::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(100deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.6) 50%, rgba(255,255,255,0) 70%);
+    background-size: 220% 100%; animation: rv-skel-sh 1.4s var(--ease-out-expo) infinite;
+  }
+  @keyframes rv-skel-sh { to { background-position: -120% 0; } }
+  .rv-report .rv-skel-row {
+    display: grid; grid-template-columns: 26px 64px minmax(0, 1fr) auto;
+    gap: 4px 18px; align-items: center; padding: 18px 4px; border-top: 1px solid var(--rule);
+  }
+  .rv-report .rv-skel-row:first-child { border-top: none; }
+
+  /* Empty state mark. */
+  .rv-report .rv-empty-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px; margin-bottom: 16px;
+    border-radius: 50%; background: var(--paper-soft); color: var(--ink-muted);
+    border: 1px solid var(--rule);
+  }
 
   .rv-report .rv-lotrow-right {
     display: flex; flex-direction: column;
@@ -684,7 +791,8 @@ const REPORT_STYLES = `
     text-align: right;
   }
   @media (max-width: 760px) {
-    .rv-report .rv-lotrow { grid-template-columns: 28px minmax(0, 1fr); }
+    .rv-report .rv-lotrow,
+    .rv-report .rv-skel-row { grid-template-columns: 24px 56px minmax(0, 1fr); }
     .rv-report .rv-lotrow-right {
       grid-column: 1 / -1;
       flex-direction: row; align-items: center; justify-content: flex-start;
@@ -698,8 +806,10 @@ const REPORT_STYLES = `
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
-    border-radius: 14px;
-    background: rgba(250, 250, 250, 0.9);
+    border-radius: var(--r-card);
+    background: rgba(250, 248, 244, 0.78);
+    -webkit-backdrop-filter: var(--frost-blur);
+    backdrop-filter: var(--frost-blur);
   }
   .rv-report .rv-guest-lock-card {
     display: flex; flex-direction: column; align-items: center;

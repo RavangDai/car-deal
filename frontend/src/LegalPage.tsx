@@ -303,15 +303,16 @@ const STYLES = `
     text-rendering: optimizeLegibility;
   }
 
-  .rv-legal .rv-display { font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+  .rv-legal .rv-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; font-optical-sizing: auto; }
 
   /* Nav */
   .rv-legal .rv-legal-nav {
     position: sticky; top: 0; z-index: 20;
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: saturate(180%) blur(8px);
-    -webkit-backdrop-filter: saturate(180%) blur(8px);
+    background: rgba(255,253,250,0.82);
+    backdrop-filter: saturate(180%) blur(10px);
+    -webkit-backdrop-filter: saturate(180%) blur(10px);
     border-bottom: 1px solid var(--rule);
+    box-shadow: var(--shadow-sm);
   }
   .rv-legal .rv-legal-nav-inner {
     max-width: 760px; margin: 0 auto;
@@ -413,10 +414,13 @@ const STYLES = `
   }
   .rv-legal .rv-legal-foot a,
   .rv-legal .rv-legal-foot-line a {
-    color: var(--red);
+    color: var(--link);
     text-decoration: underline;
     text-underline-offset: 3px;
+    transition: color .15s ease;
   }
+  .rv-legal .rv-legal-foot a:hover,
+  .rv-legal .rv-legal-foot-line a:hover { color: var(--link-hover); }
   .rv-legal .rv-legal-foot-links {
     display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
   }
@@ -425,7 +429,7 @@ const STYLES = `
     text-decoration: none;
     transition: color 0.15s ease;
   }
-  .rv-legal .rv-legal-foot-link:hover { color: var(--red); }
+  .rv-legal .rv-legal-foot-link:hover { color: var(--link); }
   .rv-legal .rv-legal-foot-link-btn { background: transparent; border: none; cursor: pointer; }
 
   @media (max-width: 600px) {

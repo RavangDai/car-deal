@@ -3,6 +3,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 import { createDonationCheckout } from "./api";
 import { useDeals } from "./hooks";
+import { CarImage } from "./CarImage";
+import { IMAGES, thumbFor } from "./images";
 
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -163,26 +165,37 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         )}
       </nav>
 
-      {/* ── HERO ─────────────────────────────────────────── */}
+      {/* ── HERO — full-bleed Mustang, content over a legibility scrim ── */}
       <section data-rv-section="hero" className="rv-hero">
-        <div className="rv-hero-grid">
-          <Reveal className="rv-hero-main">
+        <div className="rv-hero-media" aria-hidden>
+          <CarImage
+            image={IMAGES.heroFeature}
+            eager
+            position="center 50%"
+            className="rv-hero-bg"
+            sizes="100vw"
+          />
+          <div className="rv-hero-scrim" />
+        </div>
+
+        <div className="rv-hero-inner">
+          <Reveal className="rv-hero-content">
             <p className="rv-eyebrow rv-hero-eyebrow">
               <span className="rv-dot" /> Live · {isLive ? `${rows.length} deals on file` : "scanning marketplaces"}
             </p>
             <h1 className="display rv-hero-headline">
-              Find <em className="rv-emph">underpriced</em> used cars before everyone else.
+              Find <em className="rv-emph rv-emph-light">underpriced</em> used cars before everyone else.
             </h1>
             <p className="rv-hero-lede">
               We scan every major marketplace and surface used cars priced below
-              fair value — with the math attached.
+              fair value — with <a href="#how" className="rv-ilink rv-ilink-on-dark">the math attached</a>.
             </p>
             <div className="rv-hero-cta-row">
               <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-lg">
                 <span>See today's deals</span>
                 <Arrow size={14} />
               </button>
-              <a href="#how" className="rv-btn rv-btn-ghost rv-btn-lg">
+              <a href="#how" className="rv-btn rv-btn-ghost-light rv-btn-lg">
                 <span>How it works</span>
               </a>
             </div>
@@ -193,31 +206,33 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             </div>
           </Reveal>
 
-          <Reveal className="rv-hero-side" delay={0.08}>
-            <div className="rv-hero-side-head">
-              <span className="rv-hero-side-title">Today's top picks</span>
-              <span className="rv-tag">live</span>
+          {/* Live "top pick" — a frosted data card floating over the photo */}
+          <Reveal className="rv-hero-spotlight" delay={0.14}>
+            <div className="rv-spot-head">
+              <span className="rv-eyebrow rv-eyebrow-red"><span className="rv-dot" /> Top pick today</span>
+              <span className="rv-tag">updated live</span>
             </div>
-            <ul className="rv-hero-lots">
-              {heroLots.map((lot, i) => (
-                <li key={i} className="rv-hero-lot">
-                  <span className="min-w-0">
-                    <span className="rv-hero-lot-title">{lot.title}</span>
-                    <span className="rv-hero-lot-meta">{lot.loc} · {lot.miles}</span>
-                  </span>
-                  <span className="rv-hero-lot-pricecol">
-                    <span className="rv-hero-lot-price">{lot.price}</span>
-                    <span className="rv-hero-lot-delta">{lot.delta}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <button onClick={onGetStarted} className="rv-hero-side-cta">
-              <span>View all listings</span>
+            <div className="rv-spot-body">
+              <CarImage image={thumbFor(0)} ratio="4 / 3" className="rv-spot-thumb" />
+              <span className="rv-spot-info">
+                <span className="rv-spot-title">{heroLots[0].title}</span>
+                <span className="rv-spot-meta">{heroLots[0].loc} · {heroLots[0].miles}</span>
+              </span>
+              <span className="rv-spot-pricecol">
+                <span className="rv-spot-price">{heroLots[0].price}</span>
+                <span className="rv-spot-delta">{heroLots[0].delta} <span className="rv-spot-delta-k">under market</span></span>
+              </span>
+            </div>
+            <button onClick={onGetStarted} className="rv-spot-cta">
+              <span>See all {rows.length} underpriced today</span>
               <Arrow size={11} />
             </button>
           </Reveal>
         </div>
+
+        <a href="#how" className="rv-hero-scroll" aria-label="Scroll to how it works">
+          <span className="rv-hero-scroll-dot" />
+        </a>
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────── */}
@@ -228,6 +243,13 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               <div className="rv-how-side">
                 <h2 className="display rv-section-title">How it works</h2>
                 <p className="rv-section-sub">Three steps. No favors, no paid placement.</p>
+                <CarImage
+                  image={IMAGES.detailChrome}
+                  ratio="4 / 5"
+                  position="center 40%"
+                  className="rv-how-figure"
+                  sizes="(max-width: 820px) 90vw, 30vw"
+                />
               </div>
               <ol className="rv-how-steps">
                 {STEPS.map((s, i) => (
@@ -312,7 +334,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                       </td>
                     </tr>
                   )}
-                  {filteredDeals.map((d) => {
+                  {filteredDeals.map((d, idx) => {
                     const isOpen = expanded === d.id;
                     const isSaved = saved.has(d.id);
                     return (
@@ -330,8 +352,13 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                             </button>
                           </td>
                           <td className="rv-lot-cell">
-                            <span className="rv-lot-vehicle">{d.title}</span>
-                            <span className="rv-lot-source">{d.source} · {d.postedLabel}</span>
+                            <span className="rv-lot-vehicle-cell">
+                              <CarImage image={thumbFor(idx)} ratio="4 / 3" className="rv-lot-thumb" />
+                              <span className="min-w-0">
+                                <span className="rv-lot-vehicle">{d.title}</span>
+                                <span className="rv-lot-source">{d.source} · {d.postedLabel}</span>
+                              </span>
+                            </span>
                           </td>
                           <td className="rv-lot-cell rv-lot-cell-loc">{d.location}</td>
                           <td className="rv-lot-cell rv-lot-cell-num">{d.miles}</td>
@@ -448,9 +475,13 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
 
       {/* ── CTA ──────────────────────────────────────────── */}
       <section data-rv-section="cta" className="rv-cta">
+        <div className="rv-cta-media" aria-hidden>
+          <CarImage image={IMAGES.bandFeature} className="rv-cta-img" position="center 62%" />
+          <div className="rv-cta-scrim" />
+        </div>
         <Reveal className="rv-cta-inner">
           <h2 className="display rv-cta-headline">
-            Stop overpaying. Start <em className="rv-emph">Revvealing</em>.
+            Stop overpaying. Start <em className="rv-emph rv-emph-light">Revvealing</em>.
           </h2>
           <p className="rv-cta-sub">Free for buyers — we earn from dealers, not from you.</p>
           <div className="rv-cta-buttons">
@@ -458,7 +489,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               <span>Get started — it's free</span>
               <Arrow size={16} />
             </button>
-            <a href="#how" className="rv-btn rv-btn-ghost rv-btn-xl">
+            <a href="#how" className="rv-btn rv-btn-ghost-light rv-btn-xl">
               <span>How it works</span>
             </a>
           </div>
@@ -877,8 +908,10 @@ const STYLES = `
     text-rendering: optimizeLegibility;
   }
   .rv-catalog * { box-sizing: border-box; }
-  .rv-catalog .display { font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+  .rv-catalog .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.06; text-wrap: balance; font-optical-sizing: auto; }
   .rv-catalog .rv-emph { color: var(--red); font-style: normal; }
+  .rv-catalog .rv-ilink { color: var(--blue); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--blue) 45%, transparent); transition: text-decoration-color .15s ease, color .15s ease; }
+  .rv-catalog .rv-ilink:hover { color: var(--link-hover); text-decoration-color: var(--blue); }
   .rv-catalog .tabular-nums { font-variant-numeric: tabular-nums; }
 
   .rv-catalog .rv-eyebrow {
@@ -896,9 +929,10 @@ const STYLES = `
     display: inline-block; flex-shrink: 0;
   }
   .rv-catalog .rv-link {
-    color: var(--red); font-weight: 600; text-decoration: underline;
-    text-underline-offset: 2px;
+    color: var(--link); font-weight: 600; text-decoration: underline;
+    text-underline-offset: 2px; transition: color .15s ease;
   }
+  .rv-catalog .rv-link:hover { color: var(--link-hover); }
 
   /* ── Buttons ── */
   .rv-catalog .rv-btn {
@@ -908,10 +942,12 @@ const STYLES = `
     transition: background-color .18s ease, border-color .18s ease, color .18s ease;
     white-space: nowrap; border: 1px solid transparent;
   }
-  .rv-catalog .rv-btn-primary { background: var(--red); color: #fff; }
-  .rv-catalog .rv-btn-primary:hover { background: var(--red-deep); }
+  .rv-catalog .rv-btn-primary { background: var(--red); color: #fff; box-shadow: 0 1px 2px rgba(138,29,28,.22); transition: background-color .18s ease, box-shadow .25s var(--ease-out-expo); }
+  .rv-catalog .rv-btn-primary:hover { background: var(--red-deep); box-shadow: 0 4px 16px rgba(184,49,46,.30); }
   .rv-catalog .rv-btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
   .rv-catalog .rv-btn-ghost:hover { border-color: var(--ink); }
+  .rv-catalog .rv-btn-ghost-light { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.42); }
+  .rv-catalog .rv-btn-ghost-light:hover { background: rgba(255,255,255,.16); border-color: #fff; }
   .rv-catalog .rv-btn-outline { background: var(--paper-pale); color: var(--ink); border-color: var(--rule-strong); }
   .rv-catalog .rv-btn-outline:hover { border-color: var(--ink); }
   .rv-catalog .rv-btn-lg { padding: 13px 22px; font-size: 15px; }
@@ -920,40 +956,61 @@ const STYLES = `
   .rv-catalog .rv-btn-arrow { transition: transform .25s cubic-bezier(.16,1,.3,1); }
   .rv-catalog .rv-btn:hover .rv-btn-arrow { transform: translateX(3px); }
 
-  /* ── Nav ── */
+  /* ── Nav — dark frosted floating pill island (fixed: the hero photo runs
+     edge-to-edge behind it) ── */
   .rv-catalog .rv-nav {
-    position: sticky; top: 0; z-index: 50;
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: saturate(180%) blur(8px);
-    -webkit-backdrop-filter: saturate(180%) blur(8px);
-    transition: border-color .2s ease, box-shadow .2s ease;
-    border-bottom: 1px solid transparent;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 16px 0;
+    pointer-events: none;
   }
-  .rv-catalog .rv-nav-pinned { border-bottom-color: var(--rule); box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .rv-catalog #how, .rv-catalog #deals { scroll-margin-top: 92px; }
   .rv-catalog .rv-nav-inner {
-    max-width: 1180px; margin: 0 auto; padding: 0 24px;
-    height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    pointer-events: auto;
+    width: min(1100px, 100%);
+    display: flex; align-items: center; justify-content: space-between; gap: 18px;
+    padding: 9px 11px 9px 18px;
+    background: var(--frost-dark);
+    -webkit-backdrop-filter: var(--frost-blur);
+    backdrop-filter: var(--frost-blur);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: var(--r-pill);
+    box-shadow: var(--pill-shadow);
+    transition: transform .35s var(--ease-out-expo), box-shadow .35s var(--ease-out-expo);
+  }
+  .rv-catalog .rv-nav-pinned .rv-nav-inner {
+    box-shadow: 0 4px 12px rgba(28,24,20,.20), 0 22px 54px rgba(28,24,20,.30);
   }
   .rv-catalog .rv-nav-link {
-    font-size: 14px; font-weight: 600; color: var(--ink-muted);
-    padding: 8px 12px; border-radius: 8px; transition: color .15s ease;
+    font-size: 14px; font-weight: 600; color: rgba(255,255,255,.66);
+    padding: 8px 13px; border-radius: var(--r-pill);
+    transition: color .15s ease, background-color .15s ease;
   }
-  .rv-catalog .rv-nav-link:hover, .rv-catalog .rv-nav-link-active { color: var(--ink); }
-  .rv-catalog .rv-nav-login { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .rv-catalog .rv-nav-link:hover { color: #fff; background: rgba(255,255,255,.09); }
+  .rv-catalog .rv-nav-link-active { color: #fff; }
+  .rv-catalog .rv-nav-login { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.82); transition: color .15s ease; }
+  .rv-catalog .rv-nav-login:hover { color: #fff; }
 
   .rv-catalog .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
-  .rv-catalog .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
-  .rv-catalog .rv-wordmark-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+  .rv-catalog .rv-wordmark-img { width: 26px; height: 26px; object-fit: contain; }
+  .rv-catalog .rv-wordmark-name { font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
+  .rv-catalog .rv-nav .rv-wordmark-name { color: #fff; }
 
   .rv-catalog .rv-burger {
     width: 38px; height: 38px; display: inline-flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 4px; border-radius: 8px;
+    align-items: center; justify-content: center; gap: 4px; border-radius: var(--r-pill);
   }
-  .rv-catalog .rv-burger-bar { width: 18px; height: 2px; background: var(--ink); border-radius: 2px; transition: transform .25s ease, opacity .2s ease; }
+  /* Scoped selector out-specifies Tailwind's lg:hidden, so hide the burger here. */
+  @media (min-width: 1024px) { .rv-catalog .rv-burger { display: none; } }
+  .rv-catalog .rv-burger-bar { width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform .25s ease, opacity .2s ease; }
   .rv-catalog .rv-burger-bar-top-open { transform: translateY(6px) rotate(45deg); }
   .rv-catalog .rv-burger-bar-mid-open { opacity: 0; }
   .rv-catalog .rv-burger-bar-bot-open { transform: translateY(-6px) rotate(-45deg); }
-  .rv-catalog .rv-mobile-panel { border-top: 1px solid var(--rule); background: var(--paper-pale); }
+  .rv-catalog .rv-mobile-panel {
+    pointer-events: auto; width: min(1100px, 100%);
+    border: 1px solid var(--rule); background: var(--paper-pale);
+    border-radius: var(--r-lg); box-shadow: var(--shadow-lg); overflow: hidden;
+  }
   .rv-catalog .rv-mobile-link { font-size: 16px; font-weight: 600; color: var(--ink); }
   .rv-catalog .rv-rule-static { height: 1px; background: var(--rule); }
 
@@ -965,32 +1022,75 @@ const STYLES = `
   .rv-catalog .rv-section-title { font-size: clamp(1.9rem, 3.6vw, 2.8rem); line-height: 1.04; }
   .rv-catalog .rv-section-sub { margin-top: 12px; font-size: 16px; color: var(--ink-muted); max-width: 60ch; }
 
-  /* ── Hero ── */
-  .rv-catalog .rv-hero { padding: 64px 24px 76px; max-width: 1180px; margin: 0 auto; }
-  .rv-catalog .rv-hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: center; }
-  @media (max-width: 900px) { .rv-catalog .rv-hero-grid { grid-template-columns: 1fr; gap: 40px; } }
-  .rv-catalog .rv-hero-eyebrow { margin-bottom: 22px; }
-  .rv-catalog .rv-hero-headline { font-size: clamp(2.6rem, 5.6vw, 4.2rem); line-height: 1.02; }
-  .rv-catalog .rv-hero-lede { margin-top: 22px; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: var(--ink-muted); max-width: 46ch; text-wrap: pretty; }
-  .rv-catalog .rv-hero-cta-row { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; }
-  .rv-catalog .rv-hero-meta { margin-top: 38px; display: flex; flex-wrap: wrap; gap: 32px; padding-top: 24px; border-top: 1px solid var(--rule); }
+  /* ── Hero — full-bleed Mustang background, frosted content over a scrim ── */
+  .rv-catalog .rv-hero { position: relative; isolation: isolate; min-height: 100vh; min-height: 100svh; overflow: hidden; }
+  .rv-catalog .rv-hero-media { position: absolute; inset: 0; z-index: 0; }
+  .rv-catalog .rv-hero-bg { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+  .rv-catalog .rv-hero-scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(18,14,11,.34) 0%, rgba(18,14,11,.05) 26%, rgba(18,14,11,.42) 62%, rgba(18,14,11,.86) 100%),
+      linear-gradient(90deg, rgba(18,14,11,.55) 0%, rgba(18,14,11,.14) 46%, rgba(18,14,11,0) 74%);
+  }
+  .rv-catalog .rv-hero-inner {
+    position: relative; z-index: 1;
+    max-width: 1180px; margin: 0 auto;
+    min-height: 100vh; min-height: 100svh;
+    padding: 116px 24px 64px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end; gap: clamp(24px, 4vw, 48px);
+  }
+  .rv-catalog .rv-hero-content { max-width: 640px; }
+  @media (max-width: 900px) {
+    .rv-catalog .rv-hero-inner { grid-template-columns: 1fr; align-items: end; gap: 22px; padding: 100px 22px 44px; }
+  }
+  .rv-catalog .rv-hero-eyebrow { margin-bottom: 20px; color: rgba(255,255,255,.86); text-shadow: 0 1px 12px rgba(0,0,0,.45); }
+  .rv-catalog .rv-hero-headline { font-size: clamp(2.6rem, 6vw, 4.4rem); line-height: 1.02; color: #fff; text-shadow: 0 2px 30px rgba(0,0,0,.36); }
+  .rv-catalog .rv-hero-lede { margin-top: 20px; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: rgba(255,255,255,.88); max-width: 46ch; text-wrap: pretty; text-shadow: 0 1px 16px rgba(0,0,0,.32); }
+  .rv-catalog .rv-ilink-on-dark { color: #9bd4ee; text-decoration-color: rgba(155,212,238,.5); }
+  .rv-catalog .rv-ilink-on-dark:hover { color: #c4e7f6; text-decoration-color: #9bd4ee; }
+  .rv-catalog .rv-hero-cta-row { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .rv-catalog .rv-hero-meta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 30px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.22); }
   .rv-catalog .rv-stat { display: flex; flex-direction: column; gap: 2px; }
-  .rv-catalog .rv-stat-v { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-  .rv-catalog .rv-stat-k { font-size: 12.5px; color: var(--ink-muted); }
+  .rv-catalog .rv-stat-v { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+  .rv-catalog .rv-stat-k { font-size: 12.5px; color: rgba(255,255,255,.74); }
 
-  .rv-catalog .rv-hero-side { background: var(--paper-pale); border: 1px solid var(--rule); border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
-  .rv-catalog .rv-hero-side-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; margin-bottom: 6px; border-bottom: 1px solid var(--rule); }
-  .rv-catalog .rv-hero-side-title { font-weight: 700; font-size: 14px; }
-  .rv-catalog .rv-hero-lots { list-style: none; margin: 0; padding: 0; }
-  .rv-catalog .rv-hero-lot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--rule); }
-  .rv-catalog .rv-hero-lot:last-child { border-bottom: none; }
-  .rv-catalog .rv-hero-lot-title { display: block; font-weight: 600; font-size: 14px; }
-  .rv-catalog .rv-hero-lot-meta { display: block; font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
-  .rv-catalog .rv-hero-lot-pricecol { text-align: right; flex-shrink: 0; }
-  .rv-catalog .rv-hero-lot-price { display: block; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
-  .rv-catalog .rv-hero-lot-delta { display: block; font-size: 12px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
-  .rv-catalog .rv-hero-side-cta { margin-top: 16px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--red); padding: 10px; border-radius: 10px; border: 1px solid var(--rule); transition: background-color .15s ease; }
-  .rv-catalog .rv-hero-side-cta:hover { background: var(--red-tint); }
+  /* Live "top pick" — frosted data card floating over the photo */
+  .rv-catalog .rv-hero-spotlight {
+    position: relative; z-index: 2; width: min(338px, 100%); justify-self: end;
+    background: rgba(255,253,250,.84);
+    -webkit-backdrop-filter: var(--frost-blur);
+    backdrop-filter: var(--frost-blur);
+    border: 1px solid rgba(255,255,255,.72); border-radius: var(--r-card);
+    padding: 14px; box-shadow: var(--shadow-xl);
+  }
+  @media (max-width: 900px) {
+    .rv-catalog .rv-hero-spotlight { width: 100%; justify-self: stretch; }
+  }
+
+  /* Scroll cue — hints the page continues below the full-viewport hero */
+  .rv-catalog .rv-hero-scroll {
+    position: absolute; z-index: 1; left: 50%; bottom: 18px; transform: translateX(-50%);
+    width: 26px; height: 42px; border: 1.5px solid rgba(255,255,255,.5);
+    border-radius: 999px; display: flex; justify-content: center; padding-top: 7px;
+  }
+  .rv-catalog .rv-hero-scroll-dot { width: 4px; height: 8px; border-radius: 2px; background: rgba(255,255,255,.85); animation: rv-scroll 1.7s var(--ease-out-expo) infinite; }
+  @keyframes rv-scroll { 0% { opacity: 0; transform: translateY(-3px); } 40% { opacity: 1; } 80% { opacity: 0; transform: translateY(8px); } 100% { opacity: 0; } }
+  @media (max-width: 900px) { .rv-catalog .rv-hero-scroll { display: none; } }
+  .rv-catalog .rv-spot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }
+  .rv-catalog .rv-spot-head .rv-eyebrow { font-size: 10.5px; }
+  .rv-catalog .rv-spot-head .rv-dot { width: 6px; height: 6px; }
+  .rv-catalog .rv-spot-body { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; }
+  .rv-catalog .rv-spot-thumb { width: 54px; border-radius: 9px; }
+  .rv-catalog .rv-spot-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rv-catalog .rv-spot-title { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rv-catalog .rv-spot-meta { font-size: 11.5px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rv-catalog .rv-spot-pricecol { text-align: right; }
+  .rv-catalog .rv-spot-price { display: block; font-weight: 800; font-size: 14px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .rv-catalog .rv-spot-delta { display: block; font-size: 11px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
+  .rv-catalog .rv-spot-delta-k { color: var(--ink-fade); font-weight: 600; }
+  .rv-catalog .rv-spot-cta { margin-top: 12px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--red); background: var(--paper-pale); border: 1px solid var(--rule-strong); padding: 9px; border-radius: 9px; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
+  .rv-catalog .rv-spot-cta:hover { background: var(--red-tint); border-color: var(--red-tint); }
 
   /* ── How ── */
   .rv-catalog .rv-how-grid { display: grid; grid-template-columns: 0.7fr 1.3fr; gap: 48px; }
@@ -1001,6 +1101,8 @@ const STYLES = `
   .rv-catalog .rv-step-num { font-size: 15px; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
   .rv-catalog .rv-step-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
   .rv-catalog .rv-step-text { font-size: 15px; line-height: 1.55; color: var(--ink-muted); max-width: 52ch; margin-bottom: 10px; }
+  .rv-catalog .rv-how-figure { margin-top: 28px; max-width: 300px; border-radius: var(--img-radius); box-shadow: var(--shadow-md); }
+  @media (max-width: 820px) { .rv-catalog .rv-how-figure { display: none; } }
 
   /* ── Deals table ── */
   .rv-catalog .rv-filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 24px; padding: 16px 18px; margin-bottom: 18px; background: var(--paper-pale); border: 1px solid var(--rule); border-radius: 12px; }
@@ -1012,8 +1114,8 @@ const STYLES = `
   .rv-catalog .rv-filter-toggle input { accent-color: var(--red); width: 15px; height: 15px; }
   .rv-catalog .rv-filter-result { margin-left: auto; }
 
-  .rv-catalog .rv-index-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; }
-  .rv-catalog .rv-index { width: 100%; border-collapse: collapse; min-width: 760px; }
+  .rv-catalog .rv-index-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow-sm); background: var(--paper-pale); }
+  .rv-catalog .rv-index { width: 100%; border-collapse: collapse; min-width: 860px; }
   .rv-catalog .rv-index-th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); padding: 13px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-soft); white-space: nowrap; }
   .rv-catalog .rv-index-th-num { text-align: right; }
   .rv-catalog .rv-index-th-conf { text-align: left; }
@@ -1025,6 +1127,8 @@ const STYLES = `
   .rv-catalog .rv-lot-cell-fade { color: var(--ink-fade); text-decoration: line-through; }
   .rv-catalog .rv-lot-cell-strong { font-weight: 700; }
   .rv-catalog .rv-lot-cell-delta { font-weight: 700; color: var(--green); }
+  .rv-catalog .rv-lot-vehicle-cell { display: flex; align-items: center; gap: 12px; }
+  .rv-catalog .rv-lot-thumb { width: 48px; border-radius: 8px; flex-shrink: 0; }
   .rv-catalog .rv-lot-vehicle { display: block; font-weight: 600; }
   .rv-catalog .rv-lot-source { display: block; font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
   .rv-catalog .rv-lot-score { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -1068,12 +1172,21 @@ const STYLES = `
   .rv-catalog .rv-reveal-item { display: flex; gap: 10px; font-size: 15.5px; font-weight: 600; color: var(--ink); }
   .rv-catalog .rv-reveal-mark { color: var(--red); font-weight: 800; }
 
-  /* ── CTA ── */
-  .rv-catalog .rv-cta { padding: 88px 24px; text-align: center; background: var(--paper-soft); border-top: 1px solid var(--rule); }
-  .rv-catalog .rv-cta-inner { max-width: 720px; margin: 0 auto; }
-  .rv-catalog .rv-cta-headline { font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.05; }
-  .rv-catalog .rv-cta-sub { margin-top: 16px; font-size: 17px; color: var(--ink-muted); }
-  .rv-catalog .rv-cta-buttons { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  /* ── CTA (cinematic full-bleed band) ── */
+  .rv-catalog .rv-cta { position: relative; isolation: isolate; padding: clamp(100px, 14vw, 168px) 24px; text-align: center; overflow: hidden; border-top: 1px solid var(--rule); }
+  .rv-catalog .rv-cta-media { position: absolute; inset: 0; z-index: -1; }
+  .rv-catalog .rv-cta-img { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+  .rv-catalog .rv-cta-scrim {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(15,15,17,.50) 0%, rgba(15,15,17,.64) 56%, rgba(15,15,17,.82) 100%),
+      radial-gradient(70% 90% at 50% 50%, rgba(15,15,17,.06), rgba(15,15,17,.40));
+  }
+  .rv-catalog .rv-cta-inner { position: relative; max-width: 760px; margin: 0 auto; }
+  .rv-catalog .rv-cta-headline { font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.05; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,.30); }
+  .rv-catalog .rv-cta-sub { margin-top: 16px; font-size: clamp(16px, 2vw, 18px); color: rgba(255,255,255,.84); }
+  .rv-catalog .rv-cta-buttons { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .rv-catalog .rv-emph-light { color: #ff6f63; font-style: normal; }
 
   /* ── Footer / donation ── */
   .rv-catalog .rv-colophon { background: var(--paper-pale); border-top: 1px solid var(--rule); padding: 48px 0 36px; }
@@ -1093,11 +1206,11 @@ const STYLES = `
   .rv-catalog .rv-colophon-bot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 24px; }
   .rv-catalog .rv-colophon-links { display: flex; gap: 20px; }
   .rv-catalog .rv-colophon-link { font-size: 13.5px; font-weight: 600; color: var(--ink-muted); transition: color .15s ease; }
-  .rv-catalog .rv-colophon-link:hover { color: var(--ink); }
+  .rv-catalog .rv-colophon-link:hover { color: var(--link); }
   .rv-catalog .rv-colophon-copy { font-size: 13px; color: var(--ink-fade); }
 
   /* ── Donate banner ── */
-  .rv-catalog .rv-donate-banner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+  .rv-catalog .rv-donate-banner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow-lg); }
   .rv-catalog .rv-donate-banner-success { background: var(--green); color: #fff; }
   .rv-catalog .rv-donate-banner-cancelled { background: var(--ink); color: var(--paper); }
   .rv-catalog .rv-donate-banner-close { font-size: 20px; line-height: 1; opacity: .8; }
