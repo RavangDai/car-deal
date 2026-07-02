@@ -188,7 +188,6 @@ export default function App() {
   return (
     <>
       <style>{PRIMITIVE_STYLES}</style>
-      <div className="rv-grain" aria-hidden />
       <AnimatePresence mode="wait">
         <motion.div key={routeKey} {...fade}>
           {routeEl}
@@ -447,11 +446,11 @@ function Dashboard({
 
                           <div className="rv-lotrow-right">
                             <VerdictBadge value={deal.undervalue_percent} />
-                            <span className="text-[15px] font-extrabold text-[var(--red)] tabular-nums whitespace-nowrap">
+                            <span className="text-[15px] font-extrabold text-[var(--green)] tabular-nums whitespace-nowrap">
                               Save ${save.toLocaleString()}
                               <span className="text-[13px] font-bold"> · −{deal.undervalue_percent.toFixed(0)}%</span>
                             </span>
-                            <span className="rv-tag inline-flex items-center gap-1 group-hover:text-[var(--red)] transition-colors whitespace-nowrap">
+                            <span className="rv-tag inline-flex items-center gap-1 group-hover:text-[var(--primary)] transition-colors whitespace-nowrap">
                               View details
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                             </span>
@@ -491,7 +490,7 @@ function Dashboard({
                       </p>
                       <p className="mt-3 text-[13px] font-semibold">
                         Total savings on file:{" "}
-                        <span className="text-[var(--red)] font-extrabold tabular-nums">${totalSavings.toLocaleString()}</span>
+                        <span className="text-[var(--green)] font-extrabold tabular-nums">${totalSavings.toLocaleString()}</span>
                       </p>
                     </div>
                   </div>
@@ -506,7 +505,7 @@ function Dashboard({
       <footer className="border-t border-[var(--rule)] bg-[var(--paper-pale)]">
         <div className="max-w-[1180px] mx-auto px-6 md:px-10 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <span className="text-[14px] font-semibold">Revveal</span>
-          <span className="rv-tag">© 2026 · Set in Source Serif &amp; Manrope</span>
+          <span className="rv-tag">© 2026 · Set in Manrope</span>
         </div>
       </footer>
     </div>
@@ -651,14 +650,13 @@ const REPORT_STYLES = `
 
   .rv-report .display {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 800;
+    letter-spacing: -0.03em;
     line-height: 1.06;
     text-wrap: balance;
-    font-optical-sizing: auto;
   }
 
-  .rv-report .rv-emph { color: var(--red); }
+  .rv-report .rv-emph { color: var(--primary); }
 
   /* Dashboard nav — dark frosted floating pill, matched to the marketing nav. */
   .rv-report .rv-dash-nav {
@@ -724,8 +722,8 @@ const REPORT_STYLES = `
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   .rv-report .rv-input:focus {
-    border-color: var(--red);
-    box-shadow: 0 0 0 3px var(--red-tint);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-tint);
   }
   .rv-report .rv-input:disabled { opacity: 0.55; cursor: not-allowed; }
   .rv-report .rv-input::placeholder { color: var(--ink-fade); }
@@ -817,7 +815,7 @@ const REPORT_STYLES = `
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
     border-radius: var(--r-card);
-    background: rgba(250, 248, 244, 0.78);
+    background: var(--frost-light);
     -webkit-backdrop-filter: var(--frost-blur);
     backdrop-filter: var(--frost-blur);
   }

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ArrowLeft } from "lucide-react";
 
 export type LegalKind = "terms" | "privacy";
 
@@ -26,9 +27,7 @@ export default function LegalPage({ kind, onBack }: Props) {
       <nav className="rv-legal-nav">
         <div className="rv-legal-nav-inner">
           <button onClick={onBack} className="rv-legal-back">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
+            <ArrowLeft size={13} />
             <span>Back to home</span>
           </button>
           <Wordmark />
@@ -37,7 +36,7 @@ export default function LegalPage({ kind, onBack }: Props) {
 
       <main className="rv-legal-main">
         <header className="rv-legal-head">
-          <span className="rv-eyebrow rv-eyebrow-red mb-3.5">Legal</span>
+          <span className="rv-eyebrow rv-eyebrow-accent mb-3.5">Legal</span>
           <h1 className="rv-display rv-legal-title">{doc.title}</h1>
           <p className="rv-legal-meta">Last updated · {LAST_UPDATED}</p>
           <p className="rv-legal-intro">{doc.intro}</p>
@@ -298,12 +297,12 @@ const STYLES = `
     text-rendering: optimizeLegibility;
   }
 
-  .rv-legal .rv-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; font-optical-sizing: auto; }
+  .rv-legal .rv-display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; text-wrap: balance; }
 
   /* Nav */
   .rv-legal .rv-legal-nav {
     position: sticky; top: 0; z-index: var(--z-sticky-nav);
-    background: rgba(255,253,250,0.82);
+    background: var(--frost-light);
     backdrop-filter: saturate(180%) blur(10px);
     -webkit-backdrop-filter: saturate(180%) blur(10px);
     border-bottom: 1px solid var(--rule);
@@ -363,7 +362,7 @@ const STYLES = `
   }
   .rv-legal .rv-legal-h2-num {
     font-size: 13px; font-weight: 800;
-    color: var(--red);
+    color: var(--primary);
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
@@ -390,7 +389,7 @@ const STYLES = `
   .rv-legal .rv-legal-list li::before {
     content: "—";
     position: absolute; left: 0;
-    color: var(--red);
+    color: var(--primary);
   }
 
   .rv-legal .rv-legal-foot {

@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
-import { createDonationCheckout } from "./api";
+import { Bookmark } from "lucide-react";
 import { useDeals } from "./hooks";
 import { CarImage } from "./CarImage";
-import { IMAGES, placeholderImage, type ImageAsset } from "./images";
-import { Arrow, Reveal } from "./primitives";
+import { IMAGES, placeholderImage, thumbFor, type ImageAsset } from "./images";
+import { Arrow, ConfidenceRail, Reveal } from "./primitives";
+import HeroCarousel, { type HeroLot } from "./HeroCarousel";
+import Footer from "./Footer";
 
 // Real listing photo → ImageAsset, else the neutral placeholder. Used for the
 // deals table + hero spotlight so live rows show their own car, not a stock thumb.
@@ -53,16 +55,22 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
   const isLive = liveRows.length > 0;
   const rows = useMemo<DealRow[]>(() => (isLive ? liveRows : FEATURED), [isLive, liveRows]);
 
-  const heroLots = useMemo(() => {
-    if (!isLive) return HERO_LOTS;
-    return liveRows.slice(0, 4).map((r) => ({
+  const heroLots = useMemo<HeroLot[]>(() => {
+    const source = isLive ? liveRows.slice(0, 4) : FEATURED.slice(0, 4);
+    return source.map((r, i) => ({
       id: r.id,
       title: r.title,
       loc: r.location,
       miles: r.miles === "—" ? r.miles : `${r.miles} mi`,
       price: r.price,
       delta: r.delta,
-      image: r.image ?? null,
+      image: r.image ?? thumbFor(i).src,
+      ciLow: r.ciLow,
+      ciHigh: r.ciHigh,
+      ciFair: r.ciFair,
+      ciLowVal: r.ciLowVal,
+      ciHighVal: r.ciHighVal,
+      ciFairVal: r.ciFairVal,
     }));
   }, [isLive, liveRows]);
 
@@ -238,26 +246,15 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             </div>
           </Reveal>
 
-          {/* Live "top pick" — frosted glass outer tray, lifted double-bezel
-              inner plate holding the actual price data. */}
+          {/* Today's top picks — a small carousel, each slide pairing the car
+              photo with its own fair-value confidence rail ("the math
+              attached"), not just a picture. */}
           <Reveal className="rv-hero-spotlight" delay={0.14}>
             <div className="rv-spot-head">
-              <span className="rv-eyebrow rv-eyebrow-red"><span className="rv-dot" /> Top pick today</span>
+              <span className="rv-eyebrow rv-eyebrow-accent"><span className="rv-dot" /> Today's top picks</span>
               <span className="rv-tag">updated live</span>
             </div>
-            <div className="rv-bezel">
-              <div className="rv-bezel-core rv-spot-body">
-                <CarImage image={toAsset(heroLots[0].image, heroLots[0].title)} ratio="4 / 3" className="rv-spot-thumb" />
-                <span className="rv-spot-info">
-                  <span className="rv-spot-title">{heroLots[0].title}</span>
-                  <span className="rv-spot-meta">{heroLots[0].loc} · {heroLots[0].miles}</span>
-                </span>
-                <span className="rv-spot-pricecol">
-                  <span className="rv-spot-price">{heroLots[0].price}</span>
-                  <span className="rv-spot-delta">{heroLots[0].delta} <span className="rv-spot-delta-k">under market</span></span>
-                </span>
-              </div>
-            </div>
+            <HeroCarousel lots={heroLots} />
             <button onClick={onGetStarted} className="rv-btn rv-btn-outline rv-btn-sm rv-spot-cta">
               <span>See all {rows.length} underpriced today</span>
               <span className="rv-btn-icon"><Arrow size={11} /></span>
@@ -309,7 +306,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         <div className="rv-section-inner">
           <Reveal>
             <header className="rv-section-head">
-              <p className="rv-eyebrow rv-eyebrow-red mb-3">Live index</p>
+              <p className="rv-eyebrow rv-eyebrow-accent mb-3">Live index</p>
               <h2 className="display rv-section-title">Today's deals</h2>
               <p className="rv-section-sub">Ranked by % below fair market value.</p>
             </header>
@@ -383,9 +380,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                               className={`rv-save-btn ${isSaved ? "rv-save-btn-on" : ""}`}
                               aria-label={isSaved ? "Unsave" : "Save listing"}
                             >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill={isSaved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-                                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
-                              </svg>
+                              <Bookmark size={14} strokeWidth={1.8} fill={isSaved ? "currentColor" : "none"} />
                             </button>
                           </td>
                           <td className="rv-lot-cell">
@@ -436,15 +431,10 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                                   </div>
                                   <div>
                                     <div className="rv-eyebrow mb-2">Confidence interval</div>
-                                    <div className="rv-ci-rail">
-                                      <div className="rv-ci-fill" style={{ left: `${d.ciLow}%`, width: `${d.ciHigh - d.ciLow}%` }} />
-                                      <div className="rv-ci-mark" style={{ left: `${d.ciFair}%` }} />
-                                    </div>
-                                    <div className="rv-ci-labels">
-                                      <span>${d.ciLowVal}k</span>
-                                      <span className="rv-ci-fair">fair · ${d.ciFairVal}k</span>
-                                      <span>${d.ciHighVal}k</span>
-                                    </div>
+                                    <ConfidenceRail
+                                      low={d.ciLow} high={d.ciHigh} fair={d.ciFair}
+                                      lowVal={d.ciLowVal} highVal={d.ciHighVal} fairVal={d.ciFairVal}
+                                    />
                                     <div className="rv-lot-detail-meta">
                                       {d.compCount} comparable sales · {d.daysOnMarket} days on market
                                     </div>
@@ -508,7 +498,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                 </ul>
               </div>
               <div className="rv-manifesto-col">
-                <span className="rv-eyebrow rv-eyebrow-red">Revveal</span>
+                <span className="rv-eyebrow rv-eyebrow-accent">Revveal</span>
                 <ul className="rv-manifesto-list">
                   {REVVEAL_WAY.map((t) => (
                     <li key={t} className="rv-reveal-item"><span className="rv-reveal-mark">→</span>{t}</li>
@@ -543,30 +533,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         </Reveal>
       </section>
 
-      {/* ── FOOTER ───────────────────────────────────────── */}
-      <footer className="rv-colophon">
-        <div className="rv-section-inner">
-          <div className="rv-colophon-top">
-            <Wordmark />
-            <span className="rv-tag">Buyer-first used car index · 2026</span>
-          </div>
-
-          <DonationStrip />
-
-          <div className="rv-colophon-bot">
-            <div className="rv-colophon-links">
-              {([
-                ["Privacy", "#/privacy"],
-                ["Terms", "#/terms"],
-                ["GitHub", "#"],
-              ] as const).map(([l, h]) => (
-                <a key={l} href={h} className="rv-colophon-link">{l}</a>
-              ))}
-            </div>
-            <div className="rv-colophon-copy">© 2026 Revveal · Built for buyers, not dealers.</div>
-          </div>
-        </div>
-      </footer>
+      <Footer onGetStarted={onGetStarted} />
     </div>
   );
 }
@@ -603,81 +570,7 @@ function ConfidenceBars({ level }: { level: "low" | "med" | "high" }) {
   );
 }
 
-/* ── DONATION ─────────────────────────────────────────────── */
-
-const DONATE_PRESETS = [3, 5, 10] as const;
-
-function DonationStrip() {
-  const [amount, setAmount] = useState<number>(5);
-  const [custom, setCustom] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // A typed custom value wins over the preset chips.
-  const cents = useMemo(() => {
-    const dollars = custom.trim() ? Number(custom) : amount;
-    return Number.isFinite(dollars) ? Math.round(dollars * 100) : 0;
-  }, [custom, amount]);
-
-  async function donate() {
-    if (cents < 100 || cents > 50000) {
-      setError("Enter an amount between $1 and $500.");
-      return;
-    }
-    setPending(true);
-    setError(null);
-    try {
-      const { url } = await createDonationCheckout(cents);
-      window.location.href = url; // hand off to Stripe Checkout
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "";
-      setError(
-        /503/.test(msg)
-          ? "Donations aren't set up yet — check back soon."
-          : "Couldn't start checkout. Please try again.",
-      );
-      setPending(false);
-    }
-  }
-
-  return (
-    <div className="rv-donate">
-      <span className="rv-donate-text">
-        Revveal is free for buyers. Donations are optional and keep it running.
-      </span>
-      <div className="rv-donate-controls">
-        <div className="rv-donate-presets">
-          {DONATE_PRESETS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              onClick={() => { setAmount(d); setCustom(""); setError(null); }}
-              className={`rv-donate-chip ${!custom && amount === d ? "rv-donate-chip-on" : ""}`}
-            >
-              ${d}
-            </button>
-          ))}
-          <span className="rv-donate-custom">
-            <span className="rv-donate-custom-sign">$</span>
-            <input
-              type="number" min={1} max={500} inputMode="numeric"
-              value={custom}
-              onChange={(e) => { setCustom(e.target.value); setError(null); }}
-              placeholder="custom"
-              className="rv-donate-custom-input"
-              aria-label="Custom donation amount in dollars"
-            />
-          </span>
-        </div>
-        <button type="button" onClick={donate} disabled={pending} className="rv-btn rv-btn-primary rv-btn-sm">
-          <span>{pending ? "Redirecting…" : "Donate"}</span>
-          <span className="rv-btn-icon"><Arrow size={12} /></span>
-        </button>
-      </div>
-      {error && <p className="rv-donate-error">{error}</p>}
-    </div>
-  );
-}
+/* ── DONATION BANNER ──────────────────────────────────────── */
 
 // Shows a one-time banner when the user returns from Stripe Checkout, then
 // strips the ?donate query param so it doesn't persist on reload.
@@ -789,13 +682,6 @@ function liveToRow(l: ApiListing, i: number): DealRow {
     daysOnMarket: Math.max(1, Math.round(h / 24)),
   };
 }
-
-const HERO_LOTS = [
-  { id: "d1", title: "2018 Toyota Camry SE", loc: "Phoenix, AZ", miles: "62k mi", price: "$11,250", delta: "−24.1%", image: null as string | null },
-  { id: "d2", title: "2019 Honda Civic EX", loc: "Austin, TX", miles: "45k mi", price: "$12,400", delta: "−20.5%", image: null as string | null },
-  { id: "d3", title: "2021 Mazda CX-5 Sport", loc: "Portland, OR", miles: "29k mi", price: "$19,400", delta: "−18.2%", image: null as string | null },
-  { id: "d4", title: "2020 Subaru Forester", loc: "Denver, CO", miles: "39k mi", price: "$18,900", delta: "−15.6%", image: null as string | null },
-];
 
 const STEPS = [
   {
@@ -927,8 +813,8 @@ const STYLES = `
     text-rendering: optimizeLegibility;
   }
   .rv-catalog * { box-sizing: border-box; }
-  .rv-catalog .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.06; text-wrap: balance; font-optical-sizing: auto; }
-  .rv-catalog .rv-emph { color: var(--red); font-style: normal; }
+  .rv-catalog .display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance; }
+  .rv-catalog .rv-emph { color: var(--primary); font-style: normal; }
   .rv-catalog .rv-ilink { color: var(--blue); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--blue) 45%, transparent); transition: text-decoration-color .15s ease, color .15s ease; }
   .rv-catalog .rv-ilink:hover { color: var(--link-hover); text-decoration-color: var(--blue); }
   .rv-catalog .tabular-nums { font-variant-numeric: tabular-nums; }
@@ -938,7 +824,7 @@ const STYLES = `
     color: var(--ink-muted); font-variant-numeric: tabular-nums;
   }
   .rv-catalog .rv-dot {
-    width: 7px; height: 7px; border-radius: 50%; background: var(--red);
+    width: 7px; height: 7px; border-radius: 50%; background: var(--primary);
     display: inline-block; flex-shrink: 0;
   }
   .rv-catalog .rv-link {
@@ -1029,7 +915,7 @@ const STYLES = `
     max-width: 1180px; margin: 0 auto;
     min-height: 100vh; min-height: 100svh;
     padding: 116px 24px 64px;
-    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 384px);
     align-items: end; gap: clamp(24px, 4vw, 48px);
   }
   .rv-catalog .rv-hero-content { max-width: 640px; }
@@ -1047,17 +933,17 @@ const STYLES = `
   .rv-catalog .rv-stat-v { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
   .rv-catalog .rv-stat-k { font-size: 12.5px; color: rgba(255,255,255,.74); }
 
-  /* Live "top pick" — frosted data card floating over the photo */
+  /* Today's top picks — frosted carousel card floating over the photo */
   .rv-catalog .rv-hero-spotlight {
-    position: relative; z-index: 2; width: min(338px, 100%); justify-self: end;
-    background: rgba(255,253,250,.84);
+    position: relative; z-index: 2; width: 100%; min-width: 0; justify-self: end;
+    background: var(--frost-light);
     -webkit-backdrop-filter: var(--frost-blur);
     backdrop-filter: var(--frost-blur);
     border: 1px solid rgba(255,255,255,.72); border-radius: var(--r-card);
     padding: 14px; box-shadow: var(--shadow-xl);
   }
   @media (max-width: 900px) {
-    .rv-catalog .rv-hero-spotlight { width: 100%; justify-self: stretch; }
+    .rv-catalog .rv-hero-spotlight { justify-self: stretch; }
   }
 
   /* Scroll cue — hints the page continues below the full-viewport hero */
@@ -1072,17 +958,8 @@ const STYLES = `
   .rv-catalog .rv-spot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }
   .rv-catalog .rv-spot-head .rv-eyebrow { font-size: 10.5px; }
   .rv-catalog .rv-spot-head .rv-dot { width: 6px; height: 6px; }
-  .rv-catalog .rv-spot-body { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; padding: 12px; }
-  .rv-catalog .rv-spot-thumb { width: 54px; border-radius: 9px; }
-  .rv-catalog .rv-spot-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .rv-catalog .rv-spot-title { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rv-catalog .rv-spot-meta { font-size: 11.5px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rv-catalog .rv-spot-pricecol { text-align: right; }
-  .rv-catalog .rv-spot-price { display: block; font-weight: 800; font-size: 14px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
-  .rv-catalog .rv-spot-delta { display: block; font-size: 11px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
-  .rv-catalog .rv-spot-delta-k { color: var(--ink-fade); font-weight: 600; }
-  .rv-catalog .rv-spot-cta { margin-top: 12px; width: 100%; justify-content: center; color: var(--red); }
-  .rv-catalog .rv-spot-cta:hover { background: var(--red-tint); border-color: var(--red-tint); }
+  .rv-catalog .rv-spot-cta { margin-top: 12px; width: 100%; justify-content: center; color: var(--primary); }
+  .rv-catalog .rv-spot-cta:hover { background: var(--primary-tint); border-color: var(--primary-tint); }
 
   /* ── How ── */
   .rv-catalog .rv-how-grid { display: grid; grid-template-columns: 0.7fr 1.3fr; gap: 48px; }
@@ -1090,7 +967,7 @@ const STYLES = `
   .rv-catalog .rv-how-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   .rv-catalog .rv-step-row { display: grid; grid-template-columns: 48px 1fr; gap: 16px; padding: 24px 0; border-top: 1px solid var(--rule); }
   .rv-catalog .rv-how-steps li:first-child { border-top: none; }
-  .rv-catalog .rv-step-num { font-size: 15px; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
+  .rv-catalog .rv-step-num { font-size: 15px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
   .rv-catalog .rv-step-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
   .rv-catalog .rv-step-text { font-size: 15px; line-height: 1.55; color: var(--ink-muted); max-width: 52ch; margin-bottom: 10px; }
   .rv-catalog .rv-how-figure { margin-top: 28px; max-width: 300px; border-radius: var(--img-radius); box-shadow: var(--shadow-md); }
@@ -1100,10 +977,10 @@ const STYLES = `
   .rv-catalog .rv-filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 24px; padding: 16px 18px; margin-bottom: 18px; background: var(--paper-pale); border: 1px solid var(--rule); border-radius: 12px; }
   .rv-catalog .rv-filter { display: flex; flex-direction: column; gap: 6px; }
   .rv-catalog .rv-filter-input { font-family: 'Manrope', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--ink); background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 7px 10px; outline: none; cursor: pointer; }
-  .rv-catalog .rv-filter-input:focus { border-color: var(--red); }
-  .rv-catalog .rv-filter-range { width: 130px; accent-color: var(--red); }
+  .rv-catalog .rv-filter-input:focus { border-color: var(--primary); }
+  .rv-catalog .rv-filter-range { width: 130px; accent-color: var(--primary); }
   .rv-catalog .rv-filter-toggle { flex-direction: row; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-muted); cursor: pointer; }
-  .rv-catalog .rv-filter-toggle input { accent-color: var(--red); width: 15px; height: 15px; }
+  .rv-catalog .rv-filter-toggle input { accent-color: var(--primary); width: 15px; height: 15px; }
   .rv-catalog .rv-filter-result { margin-left: auto; }
 
   .rv-catalog .rv-index-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow-sm); background: var(--paper-pale); }
@@ -1128,7 +1005,7 @@ const STYLES = `
   .rv-catalog .rv-lot-cell-act { text-align: right; }
   .rv-catalog .rv-save-btn { color: var(--ink-fade); padding: 4px; border-radius: 6px; transition: color .15s ease; }
   .rv-catalog .rv-save-btn:hover { color: var(--ink); }
-  .rv-catalog .rv-save-btn-on { color: var(--red); }
+  .rv-catalog .rv-save-btn-on { color: var(--primary); }
   .rv-catalog .rv-lot-expand { color: var(--ink-muted); padding: 6px; border-radius: 6px; transition: color .15s ease, background-color .15s ease; }
   .rv-catalog .rv-lot-expand:hover { color: var(--ink); background: var(--rule); }
   .rv-catalog .rv-index-empty { padding: 28px 14px; text-align: center; color: var(--ink-muted); font-size: 14px; }
@@ -1146,12 +1023,7 @@ const STYLES = `
   @media (max-width: 760px) { .rv-catalog .rv-lot-detail-grid { grid-template-columns: 1fr; gap: 20px; } }
   .rv-catalog .rv-lot-detail-list { list-style: none; margin: 0; padding: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
   .rv-catalog .rv-lot-detail-list li { padding: 3px 0 3px 14px; position: relative; }
-  .rv-catalog .rv-lot-detail-list li::before { content: "·"; position: absolute; left: 2px; color: var(--red); font-weight: 700; }
-  .rv-catalog .rv-ci-rail { position: relative; height: 8px; background: var(--rule); border-radius: 4px; margin: 4px 0 8px; }
-  .rv-catalog .rv-ci-fill { position: absolute; top: 0; height: 100%; background: var(--green-tint); border-radius: 4px; }
-  .rv-catalog .rv-ci-mark { position: absolute; top: -2px; width: 2px; height: 12px; background: var(--green-deep); }
-  .rv-catalog .rv-ci-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-  .rv-catalog .rv-ci-fair { color: var(--green); font-weight: 700; }
+  .rv-catalog .rv-lot-detail-list li::before { content: "·"; position: absolute; left: 2px; color: var(--primary); font-weight: 700; }
   .rv-catalog .rv-lot-detail-meta { margin-top: 10px; font-size: 12px; color: var(--ink-muted); }
   .rv-catalog .rv-lot-detail-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 
@@ -1163,7 +1035,7 @@ const STYLES = `
   .rv-catalog .rv-manifesto-list { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
   .rv-catalog .rv-legacy-item { font-size: 15.5px; color: var(--ink-fade); text-decoration: line-through; text-decoration-color: var(--rule-strong); }
   .rv-catalog .rv-reveal-item { display: flex; gap: 10px; font-size: 15.5px; font-weight: 600; color: var(--ink); }
-  .rv-catalog .rv-reveal-mark { color: var(--red); font-weight: 800; }
+  .rv-catalog .rv-reveal-mark { color: var(--primary); font-weight: 800; }
 
   /* ── CTA (cinematic full-bleed band) ── */
   .rv-catalog .rv-cta { position: relative; isolation: isolate; padding: clamp(100px, 14vw, 168px) 24px; text-align: center; overflow: hidden; border-top: 1px solid var(--rule); }
@@ -1179,30 +1051,9 @@ const STYLES = `
   .rv-catalog .rv-cta-headline { font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.05; color: #fff; text-shadow: 0 2px 24px rgba(0,0,0,.30); }
   .rv-catalog .rv-cta-sub { margin-top: 16px; font-size: clamp(16px, 2vw, 18px); color: rgba(255,255,255,.84); }
   .rv-catalog .rv-cta-buttons { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-  .rv-catalog .rv-emph-light { color: #ff6f63; font-style: normal; }
+  .rv-catalog .rv-emph-light { color: #60a5fa; font-style: normal; }
 
-  /* ── Footer / donation ── */
-  .rv-catalog .rv-colophon { background: var(--paper-pale); border-top: 1px solid var(--rule); padding: 48px 0 36px; }
-  .rv-catalog .rv-colophon-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-bottom: 28px; border-bottom: 1px solid var(--rule); }
-  .rv-catalog .rv-donate { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 24px 0; border-bottom: 1px solid var(--rule); }
-  .rv-catalog .rv-donate-text { font-size: 14px; color: var(--ink-muted); max-width: 40ch; }
-  .rv-catalog .rv-donate-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .rv-catalog .rv-donate-presets { display: flex; align-items: center; gap: 6px; }
-  .rv-catalog .rv-donate-chip { padding: 7px 13px; border-radius: 8px; border: 1px solid var(--rule-strong); font-size: 13px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; transition: border-color .15s ease, background-color .15s ease, color .15s ease; }
-  .rv-catalog .rv-donate-chip:hover { border-color: var(--ink); }
-  .rv-catalog .rv-donate-chip-on { background: var(--red); border-color: var(--red); color: #fff; }
-  .rv-catalog .rv-donate-custom { display: inline-flex; align-items: center; gap: 2px; padding: 0 10px; border: 1px solid var(--rule-strong); border-radius: 8px; }
-  .rv-catalog .rv-donate-custom-sign { font-size: 13px; color: var(--ink-muted); }
-  .rv-catalog .rv-donate-custom-input { width: 64px; border: none; outline: none; background: transparent; font-family: 'Manrope', sans-serif; font-size: 13px; font-weight: 600; padding: 7px 0; color: var(--ink); }
-  .rv-catalog .rv-donate-custom-input::-webkit-outer-spin-button, .rv-catalog .rv-donate-custom-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .rv-catalog .rv-donate-error { width: 100%; margin-top: 8px; font-size: 13px; color: var(--err); }
-  .rv-catalog .rv-colophon-bot { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-top: 24px; }
-  .rv-catalog .rv-colophon-links { display: flex; gap: 20px; }
-  .rv-catalog .rv-colophon-link { font-size: 13.5px; font-weight: 600; color: var(--ink-muted); transition: color .15s ease; }
-  .rv-catalog .rv-colophon-link:hover { color: var(--link); }
-  .rv-catalog .rv-colophon-copy { font-size: 13px; color: var(--ink-fade); }
-
-  /* ── Donate banner ── */
+  /* ── Donate banner (Footer.tsx owns the rest of the footer/donation UI) ── */
   .rv-catalog .rv-donate-banner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: var(--z-banner); display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow-lg); }
   .rv-catalog .rv-donate-banner-success { background: var(--green); color: #fff; }
   .rv-catalog .rv-donate-banner-cancelled { background: var(--ink); color: var(--paper); }

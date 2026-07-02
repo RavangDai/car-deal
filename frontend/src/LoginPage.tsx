@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
 import { CarImage } from "./CarImage";
 import { IMAGES } from "./images";
 import { Arrow } from "./primitives";
+import PasswordStrength from "./PasswordStrength";
+import { MIN_STRENGTH_SCORE, passwordScore } from "./passwordRules";
 
 interface Props {
   onLogin: () => void;
@@ -66,6 +69,8 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
     if (!password) e.password = "Password is required";
     else if (password.length < (isRegister ? 8 : 6))
       e.password = `Minimum ${isRegister ? 8 : 6} characters`;
+    else if (isRegister && passwordScore(password) < MIN_STRENGTH_SCORE)
+      e.password = "Choose a stronger password (mix case, numbers, symbols)";
     return e;
   }
 
@@ -153,9 +158,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           animate="show"
         >
           <motion.a href="/" className="rv-login-back" variants={formItem}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
+            <ArrowLeft size={14} />
             <span>Back to home</span>
           </motion.a>
 
@@ -213,9 +216,10 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
                     className="rv-password-eye"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {showPassword ? <EyeOff /> : <Eye />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {isRegister && <PasswordStrength password={password} />}
               </Field>
             </motion.div>
 
@@ -357,21 +361,6 @@ function SocialBtn({
   );
 }
 
-function Eye() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-    </svg>
-  );
-}
-function EyeOff() {
-  return (
-    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-    </svg>
-  );
-}
 function GoogleIcon() {
   return (
     <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -407,8 +396,8 @@ const STYLES = `
     font-family: 'Manrope', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  .rv-login .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.06; text-wrap: balance; font-optical-sizing: auto; }
-  .rv-login .rv-emph { color: var(--red); }
+  .rv-login .display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance; }
+  .rv-login .rv-emph { color: var(--primary); }
 
   .rv-login .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
   .rv-login .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
@@ -436,7 +425,7 @@ const STYLES = `
   .rv-login .rv-login-side-z { position: relative; z-index: 1; }
   .rv-login .rv-login-side .rv-wordmark-name { color: #fff; }
   .rv-login .rv-login-side .rv-eyebrow { color: rgba(255,255,255,.72); }
-  .rv-login .rv-login-side .rv-emph { color: #ff6f63; }
+  .rv-login .rv-login-side .rv-emph { color: #60a5fa; }
   .rv-login .rv-login-side-title { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1.05; margin-top: 18px; color: #fff; text-shadow: 0 1px 18px rgba(0,0,0,.28); }
   .rv-login .rv-login-side-sub { margin-top: 18px; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.82); max-width: 40ch; }
   .rv-login .rv-login-side-deals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -473,7 +462,7 @@ const STYLES = `
   .rv-login .rv-field { display: flex; flex-direction: column; gap: 6px; }
   .rv-login .rv-field-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); }
   .rv-login .rv-input { width: 100%; background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 15px; color: var(--ink); padding: 11px 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease; }
-  .rv-login .rv-input:focus { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-tint); }
+  .rv-login .rv-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); }
   .rv-login .rv-input::placeholder { color: var(--ink-fade); }
   .rv-login .rv-input-err { border-color: var(--red); }
   .rv-login .rv-password-wrap { position: relative; }
@@ -486,7 +475,7 @@ const STYLES = `
   .rv-login .rv-login-row { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
   .rv-login .rv-checkbox { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-muted); cursor: pointer; }
   .rv-login .rv-checkbox-box { width: 17px; height: 17px; border: 1px solid var(--rule-strong); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: background-color .15s ease, border-color .15s ease; }
-  .rv-login .rv-checkbox-box-on { background: var(--red); border-color: var(--red); }
+  .rv-login .rv-checkbox-box-on { background: var(--primary); border-color: var(--primary); }
   .rv-login .rv-login-forgot { font-size: 13.5px; font-weight: 600; color: var(--link); transition: color .15s ease; }
   .rv-login .rv-login-forgot:hover { color: var(--link-hover); }
 

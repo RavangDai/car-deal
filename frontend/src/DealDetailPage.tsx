@@ -2,6 +2,7 @@
 // the real photo(s), the full field set, the price/undervalue breakdown, and a
 // link out to the original listing. Reachable for guests and signed-in users.
 import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { useDeal } from "./hooks";
 import { CarImage } from "./CarImage";
 import { placeholderImage, type ImageAsset } from "./images";
@@ -45,7 +46,7 @@ export default function DealDetailPage({ id, onBack }: { id: string; onBack: () 
       <header className="rv-detail-nav">
         <div className="rv-detail-nav-inner">
           <button onClick={onBack} className="rv-detail-back">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+            <ArrowLeft size={15} />
             <span>Back to deals</span>
           </button>
           <a href="#" className="rv-detail-brand">
@@ -132,7 +133,7 @@ export default function DealDetailPage({ id, onBack }: { id: string; onBack: () 
               <a href={deal.url} target="_blank" rel="noreferrer" className="rv-btn rv-btn-primary rv-btn-lg">
                 <span>View original listing</span>
                 <span className="rv-btn-icon">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="rv-btn-arrow"><path d="M7 17L17 7M9 7h8v8" /></svg>
+                  <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
                 </span>
               </a>
             </Reveal>
@@ -169,7 +170,7 @@ const DETAIL_STYLES = `
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; padding: 80px 0; color: var(--ink-muted); text-align: center;
   }
-  .rv-detail-state-title { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; color: var(--ink); }
+  .rv-detail-state-title { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; color: var(--ink); }
   .rv-detail-state-sub { font-size: 14px; }
 
   .rv-detail-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: start; }
@@ -181,9 +182,9 @@ const DETAIL_STYLES = `
     border-radius: 9px; overflow: hidden; cursor: pointer;
     border: 2px solid transparent; transition: border-color .15s ease;
   }
-  .rv-detail-thumb.is-active { border-color: var(--red); }
+  .rv-detail-thumb.is-active { border-color: var(--primary); }
 
-  .rv-detail-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.7rem, 3.4vw, 2.4rem); line-height: 1.05; letter-spacing: -0.02em; }
+  .rv-detail-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.7rem, 3.4vw, 2.4rem); line-height: 1.05; letter-spacing: -0.03em; }
   .rv-detail-sub { font-size: 14px; color: var(--ink-muted); margin-top: 8px; }
 
   .rv-detail-pricebox { margin: 22px 0; }
@@ -191,7 +192,7 @@ const DETAIL_STYLES = `
   .rv-detail-priceline { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .rv-detail-asking { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .rv-detail-fair { font-size: 13.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-  .rv-detail-savings { margin-top: 8px; font-size: 15px; font-weight: 800; color: var(--red); font-variant-numeric: tabular-nums; }
+  .rv-detail-savings { margin-top: 8px; font-size: 15px; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
   .rv-detail-pct { font-size: 13px; font-weight: 700; }
 
   .rv-detail-specs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; margin: 0 0 22px; }

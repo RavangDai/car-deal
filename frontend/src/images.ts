@@ -50,11 +50,11 @@ export const thumbFor = (i: number): ImageAsset => THUMBS[i % THUMBS.length];
 
 // Neutral car-silhouette placeholder shown when a listing has no photo or the
 // hotlinked source image fails to load. Inline SVG so it never makes a request
-// and never flashes a broken-image icon. Tuned to the warm paper palette.
+// and never flashes a broken-image icon. Tuned to the cool neutral palette.
 const PLACEHOLDER_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
-  '<rect width="400" height="300" fill="#f3efe7"/>' +
-  '<g fill="none" stroke="#c7bdac" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">' +
+  '<rect width="400" height="300" fill="#f1f5f9"/>' +
+  '<g fill="none" stroke="#cbd5e1" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">' +
   '<path d="M64 196h272M92 196l30-58a32 32 0 0 1 29-18h98a32 32 0 0 1 25 13l34 46"/>' +
   '<circle cx="142" cy="202" r="24"/><circle cx="276" cy="202" r="24"/>' +
   '</g></svg>';

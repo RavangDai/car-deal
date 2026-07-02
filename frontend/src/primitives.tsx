@@ -6,22 +6,45 @@
 // stays in each page's own file and references these classes directly.
 import { type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 
-// True scroll-triggered entrance — fires once, the first time a section
-// enters the viewport (whileInView), rather than on mount. Heavier
-// fade-up-blur than a plain fade, per the high-end-visual-design skill's
-// "scroll interpolation" spec.
 // Standard trailing arrow — always meant to sit inside a .rv-btn-icon circle
 // on a primary/CTA button (button-in-button), or bare on a plain text link.
 export function Arrow({ size = 14 }: { size?: number }) {
+  return <ArrowRight size={size} strokeWidth={2.4} className="rv-btn-arrow" />;
+}
+
+// Confidence-interval rail — the fair-value range visualization shared by the
+// deals table's expanded row and the hero carousel's per-slide mini chart.
+export function ConfidenceRail({
+  low,
+  high,
+  fair,
+  lowVal,
+  highVal,
+  fairVal,
+  compact = false,
+}: {
+  low: number;
+  high: number;
+  fair: number;
+  lowVal: string;
+  highVal: string;
+  fairVal: string;
+  compact?: boolean;
+}) {
   return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
-      className="rv-btn-arrow"
-    >
-      <path d="M5 12h14M13 5l7 7-7 7" />
-    </svg>
+    <div className={`rv-ci${compact ? " rv-ci-compact" : ""}`}>
+      <div className="rv-ci-rail">
+        <div className="rv-ci-fill" style={{ left: `${low}%`, width: `${high - low}%` }} />
+        <div className="rv-ci-mark" style={{ left: `${fair}%` }} />
+      </div>
+      <div className="rv-ci-labels">
+        <span>${lowVal}k</span>
+        <span className="rv-ci-fair">fair · ${fairVal}k</span>
+        <span>${highVal}k</span>
+      </div>
+    </div>
   );
 }
 
@@ -55,7 +78,7 @@ export const PRIMITIVE_STYLES = `
     font-size: 11.5px; font-weight: 600; text-transform: uppercase;
     letter-spacing: 0.1em; color: var(--ink-muted);
   }
-  .rv-eyebrow-red { color: var(--red); }
+  .rv-eyebrow-accent { color: var(--primary); }
 
   /* ── Buttons ── */
   .rv-btn {
@@ -66,8 +89,8 @@ export const PRIMITIVE_STYLES = `
     white-space: nowrap; border: 1px solid transparent;
   }
   .rv-btn:active:not(:disabled) { transform: scale(.98); }
-  .rv-btn-primary { background: var(--red); color: #fff; box-shadow: 0 1px 2px rgba(138,29,28,.22); transition: background-color .18s ease, box-shadow .25s var(--ease-out-expo), transform .2s var(--ease-out-expo); }
-  .rv-btn-primary:hover:not(:disabled) { background: var(--red-deep); box-shadow: 0 4px 16px rgba(184,49,46,.30); }
+  .rv-btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(37,99,235,.24); transition: background-color .18s ease, box-shadow .25s var(--ease-out-expo), transform .2s var(--ease-out-expo); }
+  .rv-btn-primary:hover:not(:disabled) { background: var(--primary-deep); box-shadow: 0 4px 16px rgba(37,99,235,.32); }
   .rv-btn-primary:disabled { opacity: .6; cursor: wait; }
   .rv-btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
   .rv-btn-ghost:hover { border-color: var(--ink); }
@@ -92,12 +115,23 @@ export const PRIMITIVE_STYLES = `
     transition: transform .35s var(--ease-out-expo), background-color .2s ease;
   }
   .rv-btn-outline .rv-btn-icon,
-  .rv-btn-ghost .rv-btn-icon { background: rgba(28,24,20,.06); }
+  .rv-btn-ghost .rv-btn-icon { background: rgba(15,23,42,.06); }
   .rv-btn-sm .rv-btn-icon { width: var(--btn-icon-size-sm); height: var(--btn-icon-size-sm); margin-right: -4px; }
   .rv-btn-lg .rv-btn-icon, .rv-btn-xl .rv-btn-icon { width: var(--btn-icon-size-lg); height: var(--btn-icon-size-lg); }
   .rv-btn:hover .rv-btn-icon { transform: translate(2px, -1px) scale(1.06); background: rgba(255,255,255,.26); }
   .rv-btn-outline:hover .rv-btn-icon,
-  .rv-btn-ghost:hover .rv-btn-icon { background: rgba(28,24,20,.1); }
+  .rv-btn-ghost:hover .rv-btn-icon { background: rgba(15,23,42,.1); }
+
+  /* ── Confidence-interval rail — fair-value range visualization, shared by
+     the deals table and the hero carousel. Always green (positive/savings
+     signal family). ── */
+  .rv-ci-rail { position: relative; height: 8px; background: var(--rule); border-radius: 4px; margin: 4px 0 8px; }
+  .rv-ci-fill { position: absolute; top: 0; height: 100%; background: var(--green-tint); border-radius: 4px; }
+  .rv-ci-mark { position: absolute; top: -2px; width: 2px; height: 12px; background: var(--green-deep); }
+  .rv-ci-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .rv-ci-fair { color: var(--green); font-weight: 700; }
+  .rv-ci-compact .rv-ci-rail { height: 6px; margin: 3px 0 5px; }
+  .rv-ci-compact .rv-ci-labels { font-size: 10px; }
 
   /* ── Double-bezel — a card never sits flatly on the canvas. Outer shell:
      faint tint + hairline ring + generous padding + large radius. Inner
