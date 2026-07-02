@@ -10,6 +10,7 @@ export const queryKeys = {
     all: ["deals"] as const,
     list: (minUndervaluePercent: number) =>
       ["deals", "list", { minUndervaluePercent }] as const,
+    detail: (id: string) => ["deals", "detail", id] as const,
   },
   scrape: {
     all: ["scrape"] as const,

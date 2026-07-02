@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  fetchDeal,
   fetchDeals,
   getMe,
   getScrapeJob,
@@ -79,6 +80,16 @@ export function useDeals(minUndervaluePercent: number, enabled = true) {
     queryKey: queryKeys.deals.list(minUndervaluePercent),
     queryFn: () => fetchDeals(minUndervaluePercent),
     enabled,
+    staleTime: 30_000,
+  });
+}
+
+// Single listing for the detail page (#/deal/:id). Public — no auth needed.
+export function useDeal(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.deals.detail(id ?? ""),
+    queryFn: () => fetchDeal(id!),
+    enabled: !!id,
     staleTime: 30_000,
   });
 }

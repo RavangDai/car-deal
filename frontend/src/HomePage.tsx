@@ -4,7 +4,13 @@ import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 import { createDonationCheckout } from "./api";
 import { useDeals } from "./hooks";
 import { CarImage } from "./CarImage";
-import { IMAGES, thumbFor } from "./images";
+import { IMAGES, placeholderImage, type ImageAsset } from "./images";
+
+// Real listing photo → ImageAsset, else the neutral placeholder. Used for the
+// deals table + hero spotlight so live rows show their own car, not a stock thumb.
+function toAsset(src: string | null | undefined, alt: string): ImageAsset {
+  return src ? { src, alt } : placeholderImage;
+}
 
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -34,11 +40,13 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
   const heroLots = useMemo(() => {
     if (!isLive) return HERO_LOTS;
     return liveRows.slice(0, 4).map((r) => ({
+      id: r.id,
       title: r.title,
       loc: r.location,
       miles: r.miles === "—" ? r.miles : `${r.miles} mi`,
       price: r.price,
       delta: r.delta,
+      image: r.image ?? null,
     }));
   }, [isLive, liveRows]);
 
@@ -213,7 +221,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               <span className="rv-tag">updated live</span>
             </div>
             <div className="rv-spot-body">
-              <CarImage image={thumbFor(0)} ratio="4 / 3" className="rv-spot-thumb" />
+              <CarImage image={toAsset(heroLots[0].image, heroLots[0].title)} ratio="4 / 3" className="rv-spot-thumb" />
               <span className="rv-spot-info">
                 <span className="rv-spot-title">{heroLots[0].title}</span>
                 <span className="rv-spot-meta">{heroLots[0].loc} · {heroLots[0].miles}</span>
@@ -334,7 +342,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                       </td>
                     </tr>
                   )}
-                  {filteredDeals.map((d, idx) => {
+                  {filteredDeals.map((d) => {
                     const isOpen = expanded === d.id;
                     const isSaved = saved.has(d.id);
                     return (
@@ -353,7 +361,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                           </td>
                           <td className="rv-lot-cell">
                             <span className="rv-lot-vehicle-cell">
-                              <CarImage image={thumbFor(idx)} ratio="4 / 3" className="rv-lot-thumb" />
+                              <CarImage image={toAsset(d.image, d.title)} ratio="4 / 3" className="rv-lot-thumb" />
                               <span className="min-w-0">
                                 <span className="rv-lot-vehicle">{d.title}</span>
                                 <span className="rv-lot-source">{d.source} · {d.postedLabel}</span>
@@ -412,10 +420,17 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                                   </div>
                                 </div>
                                 <div className="rv-lot-detail-actions">
-                                  <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-sm">
-                                    <span>View listing</span>
-                                    <Arrow size={11} />
-                                  </button>
+                                  {isLive ? (
+                                    <a href={`#/deal/${d.id}`} className="rv-btn rv-btn-primary rv-btn-sm">
+                                      <span>View details</span>
+                                      <Arrow size={11} />
+                                    </a>
+                                  ) : (
+                                    <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-sm">
+                                      <span>View listing</span>
+                                      <Arrow size={11} />
+                                    </button>
+                                  )}
                                   <button onClick={() => toggleSave(d.id)} className="rv-btn rv-btn-outline rv-btn-sm">
                                     <span>{isSaved ? "Saved" : "Save"}</span>
                                   </button>
@@ -717,6 +732,7 @@ type ApiListing = {
   model: string;
   mileage: number | null;
   location: string;
+  image_url: string | null;
   posted_at: string;
 };
 
@@ -741,6 +757,7 @@ function liveToRow(l: ApiListing, i: number): DealRow {
     id: l.id,
     title: `${l.year} ${l.make} ${l.model}`,
     make: l.make,
+    image: l.image_url,
     location: l.location,
     miles: l.mileage != null ? l.mileage.toLocaleString() : "—",
     price: `$${l.listed_price.toLocaleString()}`,
@@ -770,10 +787,10 @@ function liveToRow(l: ApiListing, i: number): DealRow {
 }
 
 const HERO_LOTS = [
-  { title: "2018 Toyota Camry SE", loc: "Phoenix, AZ", miles: "62k mi", price: "$11,250", delta: "−24.1%" },
-  { title: "2019 Honda Civic EX", loc: "Austin, TX", miles: "45k mi", price: "$12,400", delta: "−20.5%" },
-  { title: "2021 Mazda CX-5 Sport", loc: "Portland, OR", miles: "29k mi", price: "$19,400", delta: "−18.2%" },
-  { title: "2020 Subaru Forester", loc: "Denver, CO", miles: "39k mi", price: "$18,900", delta: "−15.6%" },
+  { id: "d1", title: "2018 Toyota Camry SE", loc: "Phoenix, AZ", miles: "62k mi", price: "$11,250", delta: "−24.1%", image: null as string | null },
+  { id: "d2", title: "2019 Honda Civic EX", loc: "Austin, TX", miles: "45k mi", price: "$12,400", delta: "−20.5%", image: null as string | null },
+  { id: "d3", title: "2021 Mazda CX-5 Sport", loc: "Portland, OR", miles: "29k mi", price: "$19,400", delta: "−18.2%", image: null as string | null },
+  { id: "d4", title: "2020 Subaru Forester", loc: "Denver, CO", miles: "39k mi", price: "$18,900", delta: "−15.6%", image: null as string | null },
 ];
 
 const STEPS = [
@@ -800,6 +817,7 @@ type DealRow = {
   id: string;
   title: string;
   make: string;
+  image?: string | null;
   location: string;
   miles: string;
   price: string;

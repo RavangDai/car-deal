@@ -1,4 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -10,7 +13,24 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24h
 
-    allowed_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # NoDecode: don't let pydantic-settings JSON-decode the env var, so a plain
+    # comma-separated string (ALLOWED_ORIGINS=a,b) works as well as a JSON list.
+    allowed_origins: Annotated[list[str], NoDecode] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def _parse_allowed_origins(cls, v: object) -> object:
+        if isinstance(v, str):
+            s = v.strip()
+            if s.startswith("["):  # tolerate a JSON array too
+                import json
+
+                return json.loads(s)
+            return [origin.strip() for origin in s.split(",") if origin.strip()]
+        return v
 
     # Donations (Stripe Checkout). Leave the key blank to disable the endpoint.
     stripe_secret_key: str = ""

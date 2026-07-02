@@ -4,7 +4,7 @@ from typing import Any, List, Optional
 from uuid import UUID
 
 from celery.result import AsyncResult
-from fastapi import FastAPI, HTTPException, Depends, Request, status
+from fastapi import FastAPI, HTTPException, Depends, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict
 from slowapi import _rate_limit_exceeded_handler
@@ -91,6 +91,9 @@ class Deal(BaseModel):
     mileage: Optional[int] = None
     location: str
 
+    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
+
     created_at: datetime
     posted_at: datetime
 
@@ -122,6 +125,7 @@ async def health_check():
 @limiter.limit("60/minute")
 async def list_deals(
     request: Request,
+    response: Response,  # required by slowapi (headers_enabled) to attach X-RateLimit-* headers
     min_undervalue_percent: float = 15.0,
     make: Optional[str] = None,
     model: Optional[str] = None,
@@ -161,6 +165,7 @@ async def get_deal(deal_id: UUID, db: AsyncSession = Depends(get_db)):
 @limiter.limit("5/minute")
 async def enqueue_craigslist_scrape(
     request: Request,
+    response: Response,
     city: str,
     query: str,
     max_results: int = 10,
@@ -186,6 +191,7 @@ async def enqueue_craigslist_scrape(
 @limiter.limit("120/minute")
 async def get_scrape_job(
     request: Request,
+    response: Response,
     job_id: str,
     user: User = Depends(get_current_user),
 ):

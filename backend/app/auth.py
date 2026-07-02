@@ -15,6 +15,7 @@ from .security import (
     create_access_token,
     decode_access_token,
     hash_password,
+    verify_and_update_password,
     verify_password,
 )
 
@@ -143,8 +144,11 @@ async def login(
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
+    updated_hash: str | None = None
     if user is not None and user.hashed_password is not None:
-        valid = verify_password(body.password, user.hashed_password)
+        valid, updated_hash = verify_and_update_password(
+            body.password, user.hashed_password
+        )
     else:
         # No user, or an OAuth-only account with no local password — run the
         # dummy hash so response timing doesn't leak which case it was.
@@ -156,6 +160,11 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
+
+    # Transparently migrate a legacy bcrypt hash to Argon2 on successful login.
+    if updated_hash is not None:
+        user.hashed_password = updated_hash
+        await db.commit()
 
     set_session_cookies(response, create_access_token(subject=str(user.id)))
     return user

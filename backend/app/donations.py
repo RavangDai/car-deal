@@ -6,7 +6,7 @@ plain ``def`` on purpose: the Stripe SDK is synchronous, so FastAPI runs it in a
 threadpool instead of blocking the event loop.
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 import stripe
 
@@ -29,7 +29,7 @@ class DonationOut(BaseModel):
 
 @router.post("/donate", response_model=DonationOut)
 @limiter.limit("10/minute")
-def create_donation_checkout(request: Request, payload: DonationIn):
+def create_donation_checkout(request: Request, response: Response, payload: DonationIn):
     if not settings.stripe_secret_key:
         # Degrade gracefully so the UI can show a friendly "not set up yet" note.
         raise HTTPException(status_code=503, detail="Donations are not configured")

@@ -13,7 +13,8 @@ import HomePage from "./HomePage";
 import LegalPage, { type LegalKind } from "./LegalPage";
 import { Spinner } from "./Spinner";
 import { CarImage } from "./CarImage";
-import { thumbFor } from "./images";
+import { placeholderImage, type ImageAsset } from "./images";
+import DealDetailPage from "./DealDetailPage";
 import { UndervalueHistogram, PriceScatter } from "./charts";
 import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
@@ -31,9 +32,18 @@ type Deal = {
   model: string;
   mileage: number | null;
   location: string;
+  image_url: string | null;
+  image_urls: string[] | null;
   created_at: string;
   posted_at: string;
 };
+
+// Real listing photo, or the neutral placeholder when the listing has none.
+function dealImage(d: Deal): ImageAsset {
+  return d.image_url
+    ? { src: d.image_url, alt: `${d.year} ${d.make} ${d.model}` }
+    : placeholderImage;
+}
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
 
@@ -63,6 +73,11 @@ function readLegalHash(): LegalKind | null {
   return null;
 }
 
+function readDealHash(): string | null {
+  const m = window.location.hash.match(/^#\/deal\/(.+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 export default function App() {
   const me = useMe();
   // An OAuth failure redirects back to "/?auth_error=..."; land on the login
@@ -72,13 +87,18 @@ export default function App() {
   );
   const [guest, setGuest] = useState(isGuest);
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
+  const [dealId, setDealId] = useState<string | null>(readDealHash);
   const logoutMut = useLogoutMutation();
   const prefersReduced = useReducedMotion();
 
-  // Hash-based routing for the standalone legal pages (#/terms, #/privacy) so
-  // footer/login links navigate without coupling to the auth-derived routing.
+  // Hash-based routing for the standalone legal pages (#/terms, #/privacy) and
+  // the per-listing detail page (#/deal/:id) so links navigate without coupling
+  // to the auth-derived routing.
   useEffect(() => {
-    const onHash = () => setLegal(readLegalHash());
+    const onHash = () => {
+      setLegal(readLegalHash());
+      setDealId(readDealHash());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -87,6 +107,11 @@ export default function App() {
     // Drop the fragment without leaving a bare "#" in the URL.
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     setLegal(null);
+  }
+
+  function closeDeal() {
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    setDealId(null);
   }
 
   const bootstrapping = hasSessionHint() && me.isLoading;
@@ -130,6 +155,9 @@ export default function App() {
   if (legal) {
     routeKey = `legal-${legal}`;
     routeEl = <LegalPage kind={legal} onBack={closeLegal} />;
+  } else if (dealId) {
+    routeKey = `deal-${dealId}`;
+    routeEl = <DealDetailPage id={dealId} onBack={closeDeal} />;
   } else if (bootstrapping) {
     routeKey = "boot";
     routeEl = <BootSplash />;
@@ -382,9 +410,9 @@ function Dashboard({
                     const save = Math.max(0, deal.predicted_price - deal.listed_price);
                     return (
                       <motion.li key={deal.id} variants={cardItem}>
-                        <a href={deal.url} target="_blank" rel="noreferrer" className="rv-lotrow group">
+                        <a href={`#/deal/${deal.id}`} className="rv-lotrow group">
                           <span className="rv-lotrow-num" aria-hidden>{i + 1}</span>
-                          <CarImage image={thumbFor(i)} ratio="4 / 3" className="rv-lotrow-thumb" />
+                          <CarImage image={dealImage(deal)} ratio="4 / 3" className="rv-lotrow-thumb" />
 
                           <div className="min-w-0">
                             <h3 className="text-[clamp(1.1rem,2vw,1.35rem)] font-bold leading-tight mb-1.5">
@@ -415,8 +443,8 @@ function Dashboard({
                               <span className="text-[13px] font-bold"> · −{deal.undervalue_percent.toFixed(0)}%</span>
                             </span>
                             <span className="rv-tag inline-flex items-center gap-1 group-hover:text-[var(--red)] transition-colors whitespace-nowrap">
-                              Open listing
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
+                              View details
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
                             </span>
                           </div>
                         </a>

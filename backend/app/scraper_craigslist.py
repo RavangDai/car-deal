@@ -9,7 +9,8 @@ and the description.
 Public contract (consumed by ``app.tasks.scrape_craigslist_task``): every dict
 returned MUST contain ``source``, ``url``, ``title``, ``listed_price``,
 ``make``, ``model``, ``location`` and ``posted_at`` (these are accessed without
-defaults downstream). ``description``, ``year`` and ``mileage`` are optional.
+defaults downstream). ``description``, ``year``, ``mileage``, ``image_url`` and
+``image_urls`` are optional.
 
 The scraper is intentionally synchronous (``httpx.Client``) because the Celery
 worker pool that calls it is sync (psycopg2).
@@ -198,6 +199,8 @@ def _enrich_with_detail(
         **row,
         "description": None,
         "mileage": None,
+        "image_url": None,
+        "image_urls": None,
         "posted_at": datetime.now(timezone.utc),
     }
 
@@ -211,6 +214,7 @@ def _enrich_with_detail(
         listing["mileage"] = _parse_mileage(detail)
         listing["posted_at"] = _parse_posted_at(detail)
         listing["description"] = _clean_description(detail)
+        listing["image_url"], listing["image_urls"] = _parse_images(detail)
         # Prefer an odometer-derived year/make refinement only if missing.
         if listing.get("year") is None:
             listing["year"] = _parse_year(row["title"])
@@ -269,6 +273,56 @@ def _parse_make_model(title: str) -> Tuple[str, str]:
         return make, model
 
     return "Unknown", "Unknown"
+
+
+_CL_IMG_RE = re.compile(r"images\.craigslist", re.IGNORECASE)
+
+
+def _parse_images(
+    detail: BeautifulSoup,
+) -> Tuple[Optional[str], Optional[List[str]]]:
+    """Best-effort extraction of the listing's photos from the detail page.
+
+    Returns ``(primary_url, gallery_urls)``. The primary prefers the ``og:image``
+    meta tag (Craigslist's server-rendered hero image); the gallery collects any
+    ``images.craigslist.org`` URLs from the static thumbnail / gallery markup,
+    deduped (primary first) and capped at 8. Both may be ``None`` — a listing is
+    never dropped just because its images couldn't be parsed.
+    """
+    urls: List[str] = []
+
+    og = detail.select_one('meta[property="og:image"]')
+    og_content = og.get("content") if og else None
+    primary = og_content.strip() if og_content else None
+    if primary:
+        urls.append(primary)
+
+    # Full-size hrefs from the static thumbnail strip, then any embedded gallery
+    # image sources. Selectors are intentionally broad to survive minor layout
+    # shifts; the images.craigslist filter keeps out logos/sprites.
+    for anchor in detail.select("#thumbs a[href], a.thumb[href]"):
+        href = (anchor.get("href") or "").strip()
+        if href and _CL_IMG_RE.search(href):
+            urls.append(href)
+    for img in detail.select(".gallery img[src], .swipe img[src], figure img[src]"):
+        src = (img.get("src") or "").strip()
+        if src and _CL_IMG_RE.search(src):
+            urls.append(src)
+
+    seen: set[str] = set()
+    gallery: List[str] = []
+    for url in urls:
+        if url not in seen:
+            seen.add(url)
+            gallery.append(url)
+        if len(gallery) >= 8:
+            break
+
+    if not gallery:
+        return None, None
+    if primary is None:
+        primary = gallery[0]
+    return primary, gallery
 
 
 def _parse_mileage(detail: BeautifulSoup) -> Optional[int]:

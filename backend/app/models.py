@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, Float, DateTime, Text, Boolean, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime, timezone
 import uuid
 
@@ -27,6 +27,12 @@ class Listing(Base):
     mileage = Column(Integer, nullable=True)
 
     location = Column(String, nullable=False)
+
+    # Primary listing photo (hotlinked source URL) + a best-effort gallery for
+    # the detail page. Both nullable: scraping images is best-effort and the UI
+    # falls back to a neutral placeholder when absent.
+    image_url = Column(String, nullable=True)
+    image_urls = Column(JSONB, nullable=True)
 
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     posted_at = Column(DateTime(timezone=True), nullable=False)

@@ -2,20 +2,35 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
+from pwdlib.hashers.bcrypt import BcryptHasher
 
 from .settings import settings
 
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Argon2id is the primary (preferred) hasher. Bcrypt is kept ONLY so existing
+# bcrypt hashes still verify; on the next successful login `verify_and_update`
+# transparently re-hashes those users to Argon2 (see auth.login). New hashes are
+# always Argon2. This replaces the unmaintained passlib, letting bcrypt float to
+# a current, supported release.
+_password_hash = PasswordHash((Argon2Hasher(), BcryptHasher()))
 
 
 def hash_password(password: str) -> str:
-    return _pwd_context.hash(password)
+    return _password_hash.hash(password)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return _pwd_context.verify(plain_password, hashed_password)
+    return _password_hash.verify(plain_password, hashed_password)
+
+
+def verify_and_update_password(
+    plain_password: str, hashed_password: str
+) -> tuple[bool, str | None]:
+    """Verify a password; if its hash uses a deprecated scheme (bcrypt), also
+    return a fresh Argon2 hash to persist. Returns (is_valid, new_hash_or_None)."""
+    return _password_hash.verify_and_update(plain_password, hashed_password)
 
 
 def create_access_token(*, subject: str, expires_minutes: int | None = None) -> str:

@@ -228,11 +228,41 @@ export async function createDonationCheckout(
   return res.json();
 }
 
+// Full listing shape returned by GET /deals and GET /deals/{id}.
+export type Listing = {
+  id: string;
+  source: string;
+  url: string;
+  title: string;
+  description: string | null;
+  listed_price: number;
+  predicted_price: number;
+  undervalue_percent: number;
+  year: number;
+  make: string;
+  model: string;
+  mileage: number | null;
+  location: string;
+  image_url: string | null;
+  image_urls: string[] | null;
+  created_at: string;
+  posted_at: string;
+};
+
 export async function fetchDeals(minUndervaluePercent: number) {
   const params = new URLSearchParams({
     min_undervalue_percent: String(minUndervaluePercent),
   });
   const res = await apiFetch(`/deals?${params}`);
+  await ensureOk(res);
+  return res.json();
+}
+
+// Single listing for the detail page. 404 → null so the page can show a clean
+// "not found" instead of throwing.
+export async function fetchDeal(id: string): Promise<Listing | null> {
+  const res = await apiFetch(`/deals/${id}`);
+  if (res.status === 404) return null;
   await ensureOk(res);
   return res.json();
 }

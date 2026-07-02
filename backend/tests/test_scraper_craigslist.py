@@ -10,6 +10,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from bs4 import BeautifulSoup
 
 from app import scraper_craigslist as scr
 
@@ -214,3 +215,55 @@ def test_search_request_error_propagates(monkeypatch):
 
     with pytest.raises(httpx.ConnectError):
         scr.search_craigslist_cars("austin", "honda civic", max_results=5)
+
+
+# --------------------------------------------------------------------------- #
+# Image extraction
+# --------------------------------------------------------------------------- #
+
+
+def test_parse_images_prefers_og_image_and_collects_gallery():
+    html = """
+    <html><head>
+      <meta property="og:image" content="https://images.craigslist.org/abc_600x450.jpg">
+    </head><body>
+      <div id="thumbs">
+        <a class="thumb" href="https://images.craigslist.org/abc_1200x900.jpg"><img src="x"></a>
+        <a class="thumb" href="https://images.craigslist.org/def_1200x900.jpg"><img src="y"></a>
+      </div>
+    </body></html>
+    """
+    primary, gallery = scr._parse_images(BeautifulSoup(html, "html.parser"))
+
+    assert primary == "https://images.craigslist.org/abc_600x450.jpg"
+    assert gallery[0] == primary  # primary leads the gallery
+    assert "https://images.craigslist.org/def_1200x900.jpg" in gallery
+
+
+def test_parse_images_returns_none_when_absent():
+    html = "<html><body><p>No photos in this listing.</p></body></html>"
+    assert scr._parse_images(BeautifulSoup(html, "html.parser")) == (None, None)
+
+
+def test_parse_images_dedupes_and_caps_at_eight():
+    thumbs = "".join(
+        f'<a class="thumb" href="https://images.craigslist.org/p{i}.jpg"></a>'
+        for i in range(12)
+    )
+    # A duplicate of p0 should not appear twice.
+    html = f'<div id="thumbs">{thumbs}<a class="thumb" href="https://images.craigslist.org/p0.jpg"></a></div>'
+    _, gallery = scr._parse_images(BeautifulSoup(html, "html.parser"))
+
+    assert len(gallery) == 8
+    assert len(set(gallery)) == len(gallery)  # no duplicates
+
+
+def test_parse_images_ignores_non_craigslist_sources():
+    html = (
+        '<meta property="og:image" content="https://images.craigslist.org/real.jpg">'
+        '<div id="thumbs"><a class="thumb" href="https://tracker.example/spy.gif"></a></div>'
+    )
+    primary, gallery = scr._parse_images(BeautifulSoup(html, "html.parser"))
+
+    assert primary == "https://images.craigslist.org/real.jpg"
+    assert gallery == ["https://images.craigslist.org/real.jpg"]

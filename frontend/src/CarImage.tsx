@@ -3,8 +3,8 @@
 // photo decodes, and a soft fade-in on load. Never a broken-image icon, never a
 // bare colored div. Styles are injected once into <head> so the component works
 // inside every scoped page wrapper (.rv-catalog / .rv-login / .rv-report).
-import { useState, type CSSProperties } from "react";
-import type { ImageAsset } from "./images";
+import { useEffect, useState, type CSSProperties } from "react";
+import { placeholderImage, type ImageAsset } from "./images";
 
 const STYLE_ID = "rvimg-styles";
 const CSS = `
@@ -69,18 +69,32 @@ export function CarImage({
   sizes?: string;
 }) {
   const [loaded, setLoaded] = useState(false);
+  // When a hotlinked (e.g. Craigslist) photo 404s/expires, fall back to the
+  // neutral placeholder instead of a broken-image icon. Reset both flags when
+  // the source changes so a reused component re-evaluates the new image.
+  const [errored, setErrored] = useState(false);
+  useEffect(() => {
+    setLoaded(false);
+    setErrored(false);
+  }, [image.src]);
+
+  const shown = errored ? placeholderImage : image;
   return (
     <div
       className={`rvimg${loaded ? " is-loaded" : ""}${className ? ` ${className}` : ""}`}
       style={{ aspectRatio: ratio, ...style }}
     >
       <img
-        src={image.src}
-        alt={image.alt}
+        src={shown.src}
+        alt={shown.alt}
         loading={eager ? "eager" : "lazy"}
         decoding="async"
         sizes={sizes}
+        // no-referrer improves hotlink success and avoids leaking the visitor's
+        // page URL to the image host.
+        referrerPolicy="no-referrer"
         onLoad={() => setLoaded(true)}
+        onError={() => setErrored(true)}
         style={position ? { objectPosition: position } : undefined}
       />
     </div>

@@ -72,6 +72,8 @@ def scrape_craigslist_task(
                     model=item["model"],
                     mileage=item.get("mileage"),
                     location=item["location"],
+                    image_url=item.get("image_url"),
+                    image_urls=item.get("image_urls"),
                     created_at=datetime.now(timezone.utc),
                     posted_at=item["posted_at"],
                 )
