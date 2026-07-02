@@ -16,7 +16,7 @@ import { CarImage } from "./CarImage";
 import { placeholderImage, type ImageAsset } from "./images";
 import DealDetailPage from "./DealDetailPage";
 import { UndervalueHistogram, PriceScatter } from "./charts";
-import { FONT_IMPORT, THEME_TOKENS } from "./theme";
+import { Arrow, PRIMITIVE_STYLES } from "./primitives";
 
 type Deal = {
   id: string;
@@ -186,11 +186,15 @@ export default function App() {
       };
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div key={routeKey} {...fade}>
-        {routeEl}
-      </motion.div>
-    </AnimatePresence>
+    <>
+      <style>{PRIMITIVE_STYLES}</style>
+      <div className="rv-grain" aria-hidden />
+      <AnimatePresence mode="wait">
+        <motion.div key={routeKey} {...fade}>
+          {routeEl}
+        </motion.div>
+      </AnimatePresence>
+    </>
   );
 }
 
@@ -295,7 +299,7 @@ function Dashboard({
           {guest ? (
             <div className="rv-dash-actions">
               <button onClick={onExitGuest} className="rv-dash-ghost">Exit</button>
-              <button onClick={onCreateAccount} className="rv-primary rv-primary--sm">
+              <button onClick={onCreateAccount} className="rv-btn rv-btn-primary rv-btn-sm">
                 Create account
               </button>
             </div>
@@ -335,44 +339,49 @@ function Dashboard({
           <motion.form
             onSubmit={handleSearch}
             variants={dashForm}
-            className="relative rv-card p-6 md:p-7 self-start"
+            className="relative rv-bezel self-start"
           >
-            <h2 className="text-[15px] font-bold mb-6">New search</h2>
+            <div className="rv-bezel-core p-6 md:p-7">
+              <h2 className="text-[15px] font-bold mb-6">New search</h2>
 
-            <div className="space-y-5">
-              <Field label="City" value={city} onChange={setCity} placeholder="austin" disabled={guest} />
-              <Field label="Search query" value={query} onChange={setQuery} placeholder="honda civic" disabled={guest} />
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} disabled={guest} />
-                <Field label="Min save %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} disabled={guest} />
+              <div className="space-y-5">
+                <Field label="City" value={city} onChange={setCity} placeholder="austin" disabled={guest} />
+                <Field label="Search query" value={query} onChange={setQuery} placeholder="honda civic" disabled={guest} />
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} disabled={guest} />
+                  <Field label="Min save %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} disabled={guest} />
+                </div>
               </div>
-            </div>
 
-            <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
-              <button type="submit" disabled={loading || guest} className="rv-primary">
-                {loading && <Spinner size={14} className="text-current" />}
-                <span>{loading ? (stage ?? "Searching") : "Run search"}</span>
-              </button>
-              {jobId && (
-                <span className="rv-tag">Job {jobId.slice(0, 8)}</span>
+              <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
+                <button type="submit" disabled={loading || guest} className="rv-btn rv-btn-primary">
+                  {loading && <Spinner size={14} className="text-current" />}
+                  <span>{loading ? (stage ?? "Searching") : "Run search"}</span>
+                  {!loading && (
+                    <span className="rv-btn-icon"><Arrow size={12} /></span>
+                  )}
+                </button>
+                {jobId && (
+                  <span className="rv-tag">Job {jobId.slice(0, 8)}</span>
+                )}
+              </div>
+
+              {error && (
+                <p className="mt-5 text-[13.5px] text-[var(--err)] flex items-start gap-2">
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--red)] text-white font-bold text-[10px] mt-0.5 shrink-0">!</span>
+                  {error}
+                </p>
               )}
+
+              {jobSummary && !loading && (
+                <p className="mt-5 text-[13px] text-[var(--ink-muted)] flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[var(--green)] shrink-0" />
+                  Done · {jobSummary.fetched} fetched · {jobSummary.inserted} new · {jobSummary.skipped} skipped
+                </p>
+              )}
+
+              {guest && <GuestLock onCreateAccount={onCreateAccount} />}
             </div>
-
-            {error && (
-              <p className="mt-5 text-[13.5px] text-[var(--err)] flex items-start gap-2">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--red)] text-white font-bold text-[10px] mt-0.5 shrink-0">!</span>
-                {error}
-              </p>
-            )}
-
-            {jobSummary && !loading && (
-              <p className="mt-5 text-[13px] text-[var(--ink-muted)] flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[var(--green)] shrink-0" />
-                Done · {jobSummary.fetched} fetched · {jobSummary.inserted} new · {jobSummary.skipped} skipped
-              </p>
-            )}
-
-            {guest && <GuestLock onCreateAccount={onCreateAccount} />}
           </motion.form>
         </motion.section>
 
@@ -461,24 +470,30 @@ function Dashboard({
               {loading && deals.length === 0 && <SidebarSkeleton />}
               {!loading && deals.length > 0 && (
                 <>
-                  <figure className="rv-card p-5 m-0">
-                    <figcaption className="rv-eyebrow mb-3">Undervalue distribution</figcaption>
-                    <UndervalueHistogram deals={deals} />
-                  </figure>
-                  <figure className="rv-card p-5 m-0">
-                    <figcaption className="rv-eyebrow mb-3">Asking vs fair value</figcaption>
-                    <PriceScatter deals={deals} />
-                  </figure>
-                  <div className="rv-card p-5">
-                    <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
-                      <span className="text-[var(--green)] font-semibold">Green</span> verdicts are
-                      safe to proceed; <span className="text-[var(--amber-deep)] font-semibold">amber</span> means
-                      a thin margin.
-                    </p>
-                    <p className="mt-3 text-[13px] font-semibold">
-                      Total savings on file:{" "}
-                      <span className="text-[var(--red)] font-extrabold tabular-nums">${totalSavings.toLocaleString()}</span>
-                    </p>
+                  <div className="rv-bezel m-0">
+                    <figure className="rv-bezel-core p-5 m-0">
+                      <figcaption className="rv-eyebrow mb-3">Undervalue distribution</figcaption>
+                      <UndervalueHistogram deals={deals} />
+                    </figure>
+                  </div>
+                  <div className="rv-bezel m-0">
+                    <figure className="rv-bezel-core p-5 m-0">
+                      <figcaption className="rv-eyebrow mb-3">Asking vs fair value</figcaption>
+                      <PriceScatter deals={deals} />
+                    </figure>
+                  </div>
+                  <div className="rv-bezel">
+                    <div className="rv-bezel-core p-5">
+                      <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
+                        <span className="text-[var(--green)] font-semibold">Green</span> verdicts are
+                        safe to proceed; <span className="text-[var(--amber-deep)] font-semibold">amber</span> means
+                        a thin margin.
+                      </p>
+                      <p className="mt-3 text-[13px] font-semibold">
+                        Total savings on file:{" "}
+                        <span className="text-[var(--red)] font-extrabold tabular-nums">${totalSavings.toLocaleString()}</span>
+                      </p>
+                    </div>
                   </div>
                 </>
               )}
@@ -548,7 +563,7 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
         <p className="text-[13.5px] text-[var(--ink-muted)] max-w-[34ch] mb-5 leading-relaxed">
           Create a free account to run live searches. Browsing today's results stays free.
         </p>
-        <button onClick={onCreateAccount} className="rv-primary">
+        <button onClick={onCreateAccount} className="rv-btn rv-btn-primary">
           Create a free account
         </button>
       </div>
@@ -583,9 +598,11 @@ function SidebarSkeleton() {
   return (
     <>
       {[0, 1].map((i) => (
-        <div key={i} className="rv-card p-5" aria-hidden>
-          <div className="rv-skel mb-3" style={{ height: 11, width: 130 }} />
-          <div className="rv-skel" style={{ height: 130, width: "100%" }} />
+        <div key={i} className="rv-bezel" aria-hidden>
+          <div className="rv-bezel-core p-5">
+            <div className="rv-skel mb-3" style={{ height: 11, width: 130 }} />
+            <div className="rv-skel" style={{ height: 130, width: "100%" }} />
+          </div>
         </div>
       ))}
     </>
@@ -595,17 +612,19 @@ function SidebarSkeleton() {
 // Empty state that teaches the interface rather than just saying "nothing here".
 function EmptyResults() {
   return (
-    <div className="rv-card text-center px-6 py-16">
-      <span className="rv-empty-mark" aria-hidden>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
-        </svg>
-      </span>
-      <p className="display text-[1.4rem] mb-1.5">No results yet.</p>
-      <p className="text-[14px] text-[var(--ink-muted)] max-w-[40ch] mx-auto leading-relaxed">
-        Name a city and a model above, then run a search to list today's
-        undervalued cars — ranked by how far below fair value they sit.
-      </p>
+    <div className="rv-bezel">
+      <div className="rv-bezel-core text-center px-6 py-16">
+        <span className="rv-empty-mark" aria-hidden>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+          </svg>
+        </span>
+        <p className="display text-[1.4rem] mb-1.5">No results yet.</p>
+        <p className="text-[14px] text-[var(--ink-muted)] max-w-[40ch] mx-auto leading-relaxed">
+          Name a city and a model above, then run a search to list today's
+          undervalued cars — ranked by how far below fair value they sit.
+        </p>
+      </div>
     </div>
   );
 }
@@ -622,11 +641,7 @@ function VerdictBadge({ value }: { value: number }) {
 }
 
 const REPORT_STYLES = `
-  ${FONT_IMPORT}
-
   .rv-report {
-    ${THEME_TOKENS}
-
     background: var(--paper);
     color: var(--ink);
     font-family: 'Manrope', sans-serif;
@@ -647,7 +662,7 @@ const REPORT_STYLES = `
 
   /* Dashboard nav — dark frosted floating pill, matched to the marketing nav. */
   .rv-report .rv-dash-nav {
-    position: sticky; top: 0; z-index: 40;
+    position: sticky; top: 0; z-index: var(--z-sticky-nav);
     display: flex; justify-content: center;
     padding: 14px 16px 0; pointer-events: none;
   }
@@ -676,15 +691,6 @@ const REPORT_STYLES = `
   /* Tailwind font-mono → Manrope tabular numerals. */
   .rv-report .font-mono { font-family: 'Manrope', sans-serif; font-variant-numeric: tabular-nums; }
 
-  /* Small uppercase label. */
-  .rv-report .rv-eyebrow {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--ink-muted);
-  }
-
   /* Mono-ish tag chip for metadata. */
   .rv-report .rv-tag {
     font-size: 11px;
@@ -701,15 +707,6 @@ const REPORT_STYLES = `
     transition: color 0.15s ease;
   }
   .rv-report .rv-link:hover { color: var(--ink); }
-
-  /* Cards — white surfaces, hairline border, soft elevation. */
-  .rv-report .rv-card {
-    background: var(--paper-pale);
-    color: var(--ink);
-    border: 1px solid var(--rule);
-    border-radius: 14px;
-    box-shadow: var(--shadow-sm);
-  }
 
   /* Inputs. */
   .rv-report .rv-input {
@@ -735,21 +732,6 @@ const REPORT_STYLES = `
   .rv-report .rv-input::-webkit-outer-spin-button,
   .rv-report .rv-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rv-report .rv-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
-
-  /* Primary action. */
-  .rv-report .rv-primary {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 11px 20px;
-    background: var(--red);
-    color: #fff;
-    font-family: 'Manrope', sans-serif;
-    font-size: 14px; font-weight: 700;
-    border-radius: 9px;
-    transition: background-color 0.18s ease;
-  }
-  .rv-report .rv-primary:hover:not(:disabled) { background: var(--red-deep); }
-  .rv-report .rv-primary:disabled { opacity: 0.6; cursor: wait; }
-  .rv-report .rv-primary--sm { padding: 8px 14px; font-size: 13px; }
 
   /* Verdict pills. */
   .rv-report .rv-badge {

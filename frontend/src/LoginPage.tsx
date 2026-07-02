@@ -5,7 +5,7 @@ import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
 import { CarImage } from "./CarImage";
 import { IMAGES } from "./images";
-import { FONT_IMPORT, THEME_TOKENS } from "./theme";
+import { Arrow } from "./primitives";
 
 interface Props {
   onLogin: () => void;
@@ -239,7 +239,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
             </motion.div>
 
             <motion.div variants={formItem}>
-              <button type="submit" disabled={loading} className="rv-login-submit">
+              <button type="submit" disabled={loading} className="rv-btn rv-btn-primary rv-login-submit">
                 {loading ? (
                   <>
                     <Spinner size={15} className="text-current" />
@@ -248,9 +248,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
                 ) : (
                   <>
                     <span>{isRegister ? "Create account" : "Sign in"}</span>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14M13 5l7 7-7 7" />
-                    </svg>
+                    <span className="rv-btn-icon"><Arrow size={14} /></span>
                   </>
                 )}
               </button>
@@ -270,11 +268,9 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
           <motion.div className="rv-login-guest" variants={formItem}>
             <span className="rv-login-guest-rule" />
-            <button type="button" onClick={onGuest} className="rv-guest-btn">
+            <button type="button" onClick={onGuest} className="rv-btn rv-btn-outline">
               <span>Continue as guest</span>
-              <svg className="rv-guest-btn-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14M13 5l7 7-7 7" />
-              </svg>
+              <span className="rv-btn-icon"><Arrow size={14} /></span>
             </button>
             <span className="rv-login-guest-hint">Just looking? Browse today's deals — no account needed.</span>
           </motion.div>
@@ -405,10 +401,7 @@ const RECENT_DEALS = [
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  ${FONT_IMPORT}
-
   .rv-login {
-    ${THEME_TOKENS}
     background: var(--paper);
     color: var(--ink);
     font-family: 'Manrope', sans-serif;
@@ -416,7 +409,6 @@ const STYLES = `
   }
   .rv-login .display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.06; text-wrap: balance; font-optical-sizing: auto; }
   .rv-login .rv-emph { color: var(--red); }
-  .rv-login .rv-eyebrow { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
 
   .rv-login .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
   .rv-login .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
@@ -468,7 +460,16 @@ const STYLES = `
   .rv-login .rv-login-or { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--ink-fade); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
   .rv-login .rv-login-or::before, .rv-login .rv-login-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
 
-  .rv-login .rv-login-form { display: flex; flex-direction: column; gap: 16px; }
+  /* A very subtle "not sitting flatly on the canvas" treatment — hairline ring
+     + soft inset highlight only, deliberately lighter than the app's standard
+     double-bezel so the split-screen keeps its airy, open-canvas feel. */
+  .rv-login .rv-login-form {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: 22px 22px 24px;
+    border-radius: var(--r-xl);
+    background: var(--bezel-shell-bg);
+    box-shadow: inset 0 0 0 1px var(--rule), inset 0 1px 0 rgba(255,255,255,.55);
+  }
   .rv-login .rv-field { display: flex; flex-direction: column; gap: 6px; }
   .rv-login .rv-field-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); }
   .rv-login .rv-input { width: 100%; background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 15px; color: var(--ink); padding: 11px 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease; }
@@ -489,9 +490,7 @@ const STYLES = `
   .rv-login .rv-login-forgot { font-size: 13.5px; font-weight: 600; color: var(--link); transition: color .15s ease; }
   .rv-login .rv-login-forgot:hover { color: var(--link-hover); }
 
-  .rv-login .rv-login-submit { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 12px 18px; margin-top: 4px; background: var(--red); color: #fff; font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 700; border-radius: 10px; box-shadow: 0 1px 2px rgba(138,29,28,.22); transition: background-color .18s ease, box-shadow .25s var(--ease-out-expo); }
-  .rv-login .rv-login-submit:hover:not(:disabled) { background: var(--red-deep); box-shadow: 0 4px 16px rgba(184,49,46,.28); }
-  .rv-login .rv-login-submit:disabled { opacity: 0.65; cursor: wait; }
+  .rv-login .rv-login-submit { width: 100%; justify-content: center; font-size: 15px; padding: 12px 18px; margin-top: 4px; }
 
   .rv-login .rv-login-form-err { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--err); }
   .rv-login .rv-login-form-err--notice { color: var(--amber-deep); }
@@ -499,10 +498,6 @@ const STYLES = `
 
   .rv-login .rv-login-guest { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
   .rv-login .rv-login-guest-rule { width: 100%; height: 1px; background: var(--rule); }
-  .rv-login .rv-guest-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 600; color: var(--ink); transition: border-color .15s ease; }
-  .rv-login .rv-guest-btn:hover { border-color: var(--ink); }
-  .rv-login .rv-guest-btn-arrow { transition: transform .25s cubic-bezier(.16,1,.3,1); }
-  .rv-login .rv-guest-btn:hover .rv-guest-btn-arrow { transform: translateX(3px); }
   .rv-login .rv-login-guest-hint { font-size: 12.5px; color: var(--ink-fade); text-align: center; }
 
   .rv-login .rv-login-toggle { margin-top: 24px; text-align: center; font-size: 14px; color: var(--ink-muted); }

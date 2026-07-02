@@ -6,7 +6,7 @@ import { useDeal } from "./hooks";
 import { CarImage } from "./CarImage";
 import { placeholderImage, type ImageAsset } from "./images";
 import { Spinner } from "./Spinner";
-import { FONT_IMPORT, THEME_TOKENS } from "./theme";
+import { Reveal } from "./primitives";
 
 function money(n: number): string {
   return `$${n.toLocaleString()}`;
@@ -67,7 +67,7 @@ export default function DealDetailPage({ id, onBack }: { id: string; onBack: () 
           <div className="rv-detail-state">
             <p className="rv-detail-state-title">Listing not found</p>
             <p className="rv-detail-state-sub">It may have been removed or the link is out of date.</p>
-            <button onClick={onBack} className="rv-detail-cta">Back to deals</button>
+            <button onClick={onBack} className="rv-btn rv-btn-primary">Back to deals</button>
           </div>
         )}
 
@@ -93,22 +93,24 @@ export default function DealDetailPage({ id, onBack }: { id: string; onBack: () 
             </div>
 
             {/* Facts */}
-            <div className="rv-detail-info">
-              <p className="rv-detail-eyebrow">{deal.source} · posted {postedLabel(deal.posted_at)}</p>
+            <Reveal className="rv-detail-info">
+              <p className="rv-eyebrow mb-2.5">{deal.source} · posted {postedLabel(deal.posted_at)}</p>
               <h1 className="rv-detail-title">{deal.year} {deal.make} {deal.model}</h1>
               <p className="rv-detail-sub">{deal.title}</p>
 
-              <div className="rv-detail-pricebox">
-                <div className="rv-detail-priceline">
-                  <span className="rv-detail-asking">{money(deal.listed_price)}</span>
-                  <span className="rv-detail-fair">fair value {money(deal.predicted_price)}</span>
-                </div>
-                {savings > 0 && (
-                  <div className="rv-detail-savings">
-                    Save {money(savings)}
-                    <span className="rv-detail-pct"> · −{deal.undervalue_percent.toFixed(0)}% under market</span>
+              <div className="rv-bezel rv-detail-pricebox">
+                <div className="rv-bezel-core rv-detail-pricebox-core">
+                  <div className="rv-detail-priceline">
+                    <span className="rv-detail-asking">{money(deal.listed_price)}</span>
+                    <span className="rv-detail-fair">fair value {money(deal.predicted_price)}</span>
                   </div>
-                )}
+                  {savings > 0 && (
+                    <div className="rv-detail-savings">
+                      Save {money(savings)}
+                      <span className="rv-detail-pct"> · −{deal.undervalue_percent.toFixed(0)}% under market</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <dl className="rv-detail-specs">
@@ -127,11 +129,13 @@ export default function DealDetailPage({ id, onBack }: { id: string; onBack: () 
                 </div>
               )}
 
-              <a href={deal.url} target="_blank" rel="noreferrer" className="rv-detail-cta">
+              <a href={deal.url} target="_blank" rel="noreferrer" className="rv-btn rv-btn-primary rv-btn-lg">
                 <span>View original listing</span>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7M9 7h8v8" /></svg>
+                <span className="rv-btn-icon">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="rv-btn-arrow"><path d="M7 17L17 7M9 7h8v8" /></svg>
+                </span>
               </a>
-            </div>
+            </Reveal>
           </article>
         )}
       </main>
@@ -140,9 +144,7 @@ export default function DealDetailPage({ id, onBack }: { id: string; onBack: () 
 }
 
 const DETAIL_STYLES = `
-  ${FONT_IMPORT}
   .rv-detail {
-    ${THEME_TOKENS}
     background: var(--paper);
     color: var(--ink);
     font-family: 'Manrope', sans-serif;
@@ -181,14 +183,11 @@ const DETAIL_STYLES = `
   }
   .rv-detail-thumb.is-active { border-color: var(--red); }
 
-  .rv-detail-eyebrow {
-    font-size: 11.5px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.09em; color: var(--ink-muted); margin-bottom: 10px;
-  }
   .rv-detail-title { font-family: var(--font-display); font-weight: 600; font-size: clamp(1.7rem, 3.4vw, 2.4rem); line-height: 1.05; letter-spacing: -0.02em; }
   .rv-detail-sub { font-size: 14px; color: var(--ink-muted); margin-top: 8px; }
 
-  .rv-detail-pricebox { margin: 22px 0; padding: 18px 20px; background: var(--paper-pale); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow-sm); }
+  .rv-detail-pricebox { margin: 22px 0; }
+  .rv-detail-pricebox-core { padding: 18px 20px; }
   .rv-detail-priceline { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
   .rv-detail-asking { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .rv-detail-fair { font-size: 13.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
@@ -203,12 +202,4 @@ const DETAIL_STYLES = `
   .rv-detail-desc { margin-bottom: 24px; }
   .rv-detail-desc-label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted); margin-bottom: 8px; }
   .rv-detail-desc p { font-size: 14.5px; line-height: 1.6; color: var(--ink); white-space: pre-line; }
-
-  .rv-detail-cta {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 12px 20px; background: var(--red); color: #fff;
-    font-size: 14px; font-weight: 700; border-radius: 10px;
-    transition: background-color .18s ease;
-  }
-  .rv-detail-cta:hover { background: var(--red-deep); }
 `;

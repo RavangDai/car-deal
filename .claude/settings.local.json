@@ -60,7 +60,8 @@
       "Bash(docker info *)",
       "Bash(npm --version)",
       "Skill(impeccable)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "PowerShell(npx skills add Leonxlnx/taste-skill)"
     ]
   }
 }

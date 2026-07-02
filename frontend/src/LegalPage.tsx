@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { FONT_IMPORT, THEME_TOKENS } from "./theme";
 
 export type LegalKind = "terms" | "privacy";
 
@@ -38,7 +37,7 @@ export default function LegalPage({ kind, onBack }: Props) {
 
       <main className="rv-legal-main">
         <header className="rv-legal-head">
-          <span className="rv-legal-eyebrow">Legal</span>
+          <span className="rv-eyebrow rv-eyebrow-red mb-3.5">Legal</span>
           <h1 className="rv-display rv-legal-title">{doc.title}</h1>
           <p className="rv-legal-meta">Last updated · {LAST_UPDATED}</p>
           <p className="rv-legal-intro">{doc.intro}</p>
@@ -291,11 +290,7 @@ const PRIVACY: Doc = {
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  ${FONT_IMPORT}
-
   .rv-legal {
-    ${THEME_TOKENS}
-
     background: var(--paper);
     color: var(--ink);
     font-family: 'Manrope', sans-serif;
@@ -307,7 +302,7 @@ const STYLES = `
 
   /* Nav */
   .rv-legal .rv-legal-nav {
-    position: sticky; top: 0; z-index: 20;
+    position: sticky; top: 0; z-index: var(--z-sticky-nav);
     background: rgba(255,253,250,0.82);
     backdrop-filter: saturate(180%) blur(10px);
     -webkit-backdrop-filter: saturate(180%) blur(10px);
@@ -341,12 +336,6 @@ const STYLES = `
   }
 
   .rv-legal .rv-legal-head { margin-bottom: 40px; }
-  .rv-legal .rv-legal-eyebrow {
-    display: inline-block;
-    font-size: 11.5px; letter-spacing: 0.1em; text-transform: uppercase;
-    font-weight: 600; color: var(--red);
-    margin-bottom: 14px;
-  }
   .rv-legal .rv-legal-title {
     font-size: clamp(2.2rem, 5vw, 3rem);
     line-height: 1.04;

@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { FONT_IMPORT, THEME_TOKENS } from "./theme";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { createDonationCheckout } from "./api";
 import { useDeals } from "./hooks";
 import { CarImage } from "./CarImage";
 import { IMAGES, placeholderImage, type ImageAsset } from "./images";
+import { Arrow, Reveal } from "./primitives";
 
 // Real listing photo → ImageAsset, else the neutral placeholder. Used for the
 // deals table + hero spotlight so live rows show their own car, not a stock thumb.
@@ -12,8 +12,24 @@ function toAsset(src: string | null | undefined, alt: string): ImageAsset {
   return src ? { src, alt } : placeholderImage;
 }
 
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+const mobileMenuContainer: Variants = {
+  hidden: { opacity: 0, y: -8 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.25, ease: EASE_OUT_EXPO, staggerChildren: 0.05, delayChildren: 0.05 },
+  },
+};
+const mobileMenuItem: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT_EXPO } },
+};
+
 export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
+  const prefersReduced = useReducedMotion();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("hero");
@@ -139,7 +155,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             <button onClick={onGetStarted} className="hidden sm:inline-flex rv-nav-login">Sign in</button>
             <button onClick={onGetStarted} className="rv-btn rv-btn-primary hidden sm:inline-flex">
               <span>Get started</span>
-              <Arrow size={12} />
+              <span className="rv-btn-icon"><Arrow size={12} /></span>
             </button>
             <button
               onClick={() => setMobileOpen((v) => !v)}
@@ -154,23 +170,31 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
           </div>
         </div>
 
-        {mobileOpen && (
-          <div className="rv-mobile-panel">
-            <div className="px-5 py-6 flex flex-col gap-3">
-              {NAV_LINKS.map(([l, h]) => (
-                <a key={h} href={`#${h}`} onClick={() => setMobileOpen(false)} className="rv-mobile-link">{l}</a>
-              ))}
-              <div className="rv-rule-static my-1" />
-              <button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-mobile-link text-left">
-                Sign in
-              </button>
-              <button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-btn rv-btn-primary self-start">
-                <span>Get started</span>
-                <Arrow size={12} />
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              className="rv-mobile-panel"
+              variants={mobileMenuContainer}
+              initial={prefersReduced ? "show" : "hidden"}
+              animate="show"
+              exit={prefersReduced ? "show" : "hidden"}
+            >
+              <div className="px-5 py-6 flex flex-col gap-3">
+                {NAV_LINKS.map(([l, h]) => (
+                  <motion.a key={h} href={`#${h}`} onClick={() => setMobileOpen(false)} className="rv-mobile-link" variants={mobileMenuItem}>{l}</motion.a>
+                ))}
+                <div className="rv-rule-static my-1" />
+                <motion.button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-mobile-link text-left" variants={mobileMenuItem}>
+                  Sign in
+                </motion.button>
+                <motion.button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-btn rv-btn-primary self-start" variants={mobileMenuItem}>
+                  <span>Get started</span>
+                  <span className="rv-btn-icon"><Arrow size={12} /></span>
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* ── HERO — full-bleed Mustang, content over a legibility scrim ── */}
@@ -201,7 +225,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             <div className="rv-hero-cta-row">
               <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-lg">
                 <span>See today's deals</span>
-                <Arrow size={14} />
+                <span className="rv-btn-icon"><Arrow size={14} /></span>
               </button>
               <a href="#how" className="rv-btn rv-btn-ghost-light rv-btn-lg">
                 <span>How it works</span>
@@ -214,26 +238,29 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             </div>
           </Reveal>
 
-          {/* Live "top pick" — a frosted data card floating over the photo */}
+          {/* Live "top pick" — frosted glass outer tray, lifted double-bezel
+              inner plate holding the actual price data. */}
           <Reveal className="rv-hero-spotlight" delay={0.14}>
             <div className="rv-spot-head">
               <span className="rv-eyebrow rv-eyebrow-red"><span className="rv-dot" /> Top pick today</span>
               <span className="rv-tag">updated live</span>
             </div>
-            <div className="rv-spot-body">
-              <CarImage image={toAsset(heroLots[0].image, heroLots[0].title)} ratio="4 / 3" className="rv-spot-thumb" />
-              <span className="rv-spot-info">
-                <span className="rv-spot-title">{heroLots[0].title}</span>
-                <span className="rv-spot-meta">{heroLots[0].loc} · {heroLots[0].miles}</span>
-              </span>
-              <span className="rv-spot-pricecol">
-                <span className="rv-spot-price">{heroLots[0].price}</span>
-                <span className="rv-spot-delta">{heroLots[0].delta} <span className="rv-spot-delta-k">under market</span></span>
-              </span>
+            <div className="rv-bezel">
+              <div className="rv-bezel-core rv-spot-body">
+                <CarImage image={toAsset(heroLots[0].image, heroLots[0].title)} ratio="4 / 3" className="rv-spot-thumb" />
+                <span className="rv-spot-info">
+                  <span className="rv-spot-title">{heroLots[0].title}</span>
+                  <span className="rv-spot-meta">{heroLots[0].loc} · {heroLots[0].miles}</span>
+                </span>
+                <span className="rv-spot-pricecol">
+                  <span className="rv-spot-price">{heroLots[0].price}</span>
+                  <span className="rv-spot-delta">{heroLots[0].delta} <span className="rv-spot-delta-k">under market</span></span>
+                </span>
+              </div>
             </div>
-            <button onClick={onGetStarted} className="rv-spot-cta">
+            <button onClick={onGetStarted} className="rv-btn rv-btn-outline rv-btn-sm rv-spot-cta">
               <span>See all {rows.length} underpriced today</span>
-              <Arrow size={11} />
+              <span className="rv-btn-icon"><Arrow size={11} /></span>
             </button>
           </Reveal>
         </div>
@@ -249,6 +276,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
           <Reveal>
             <div className="rv-how-grid">
               <div className="rv-how-side">
+                <p className="rv-eyebrow mb-3">Process</p>
                 <h2 className="display rv-section-title">How it works</h2>
                 <p className="rv-section-sub">Three steps. No favors, no paid placement.</p>
                 <CarImage
@@ -281,6 +309,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         <div className="rv-section-inner">
           <Reveal>
             <header className="rv-section-head">
+              <p className="rv-eyebrow rv-eyebrow-red mb-3">Live index</p>
               <h2 className="display rv-section-title">Today's deals</h2>
               <p className="rv-section-sub">Ranked by % below fair market value.</p>
             </header>
@@ -395,45 +424,47 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                         {isOpen && (
                           <tr className="rv-lot-detail">
                             <td colSpan={10} className="rv-lot-detail-cell">
-                              <div className="rv-lot-detail-grid">
-                                <div>
-                                  <div className="rv-eyebrow mb-2">Why this score</div>
-                                  <ul className="rv-lot-detail-list">
-                                    {d.reasons.map((r) => (
-                                      <li key={r}>{r}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                                <div>
-                                  <div className="rv-eyebrow mb-2">Confidence interval</div>
-                                  <div className="rv-ci-rail">
-                                    <div className="rv-ci-fill" style={{ left: `${d.ciLow}%`, width: `${d.ciHigh - d.ciLow}%` }} />
-                                    <div className="rv-ci-mark" style={{ left: `${d.ciFair}%` }} />
+                              <div className="rv-bezel rv-lot-detail-bezel">
+                                <div className="rv-bezel-core rv-lot-detail-grid">
+                                  <div>
+                                    <div className="rv-eyebrow mb-2">Why this score</div>
+                                    <ul className="rv-lot-detail-list">
+                                      {d.reasons.map((r) => (
+                                        <li key={r}>{r}</li>
+                                      ))}
+                                    </ul>
                                   </div>
-                                  <div className="rv-ci-labels">
-                                    <span>${d.ciLowVal}k</span>
-                                    <span className="rv-ci-fair">fair · ${d.ciFairVal}k</span>
-                                    <span>${d.ciHighVal}k</span>
+                                  <div>
+                                    <div className="rv-eyebrow mb-2">Confidence interval</div>
+                                    <div className="rv-ci-rail">
+                                      <div className="rv-ci-fill" style={{ left: `${d.ciLow}%`, width: `${d.ciHigh - d.ciLow}%` }} />
+                                      <div className="rv-ci-mark" style={{ left: `${d.ciFair}%` }} />
+                                    </div>
+                                    <div className="rv-ci-labels">
+                                      <span>${d.ciLowVal}k</span>
+                                      <span className="rv-ci-fair">fair · ${d.ciFairVal}k</span>
+                                      <span>${d.ciHighVal}k</span>
+                                    </div>
+                                    <div className="rv-lot-detail-meta">
+                                      {d.compCount} comparable sales · {d.daysOnMarket} days on market
+                                    </div>
                                   </div>
-                                  <div className="rv-lot-detail-meta">
-                                    {d.compCount} comparable sales · {d.daysOnMarket} days on market
-                                  </div>
-                                </div>
-                                <div className="rv-lot-detail-actions">
-                                  {isLive ? (
-                                    <a href={`#/deal/${d.id}`} className="rv-btn rv-btn-primary rv-btn-sm">
-                                      <span>View details</span>
-                                      <Arrow size={11} />
-                                    </a>
-                                  ) : (
-                                    <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-sm">
-                                      <span>View listing</span>
-                                      <Arrow size={11} />
+                                  <div className="rv-lot-detail-actions">
+                                    {isLive ? (
+                                      <a href={`#/deal/${d.id}`} className="rv-btn rv-btn-primary rv-btn-sm">
+                                        <span>View details</span>
+                                        <span className="rv-btn-icon"><Arrow size={11} /></span>
+                                      </a>
+                                    ) : (
+                                      <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-sm">
+                                        <span>View listing</span>
+                                        <span className="rv-btn-icon"><Arrow size={11} /></span>
+                                      </button>
+                                    )}
+                                    <button onClick={() => toggleSave(d.id)} className="rv-btn rv-btn-outline rv-btn-sm">
+                                      <span>{isSaved ? "Saved" : "Save"}</span>
                                     </button>
-                                  )}
-                                  <button onClick={() => toggleSave(d.id)} className="rv-btn rv-btn-outline rv-btn-sm">
-                                    <span>{isSaved ? "Saved" : "Save"}</span>
-                                  </button>
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -450,7 +481,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               <span className="rv-tag">Showing {filteredDeals.length} of 12,408 listings.</span>
               <button onClick={onGetStarted} className="rv-btn rv-btn-ghost rv-btn-sm">
                 <span>See the full index</span>
-                <Arrow size={11} />
+                <span className="rv-btn-icon"><Arrow size={11} /></span>
               </button>
             </div>
           </Reveal>
@@ -462,6 +493,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         <div className="rv-section-inner">
           <Reveal>
             <header className="rv-section-head">
+              <p className="rv-eyebrow mb-3">Why Revveal</p>
               <h2 className="display rv-section-title">
                 Most sites work for sellers. <em className="rv-emph">We work for buyers.</em>
               </h2>
@@ -502,7 +534,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
           <div className="rv-cta-buttons">
             <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-xl">
               <span>Get started — it's free</span>
-              <Arrow size={16} />
+              <span className="rv-btn-icon"><Arrow size={16} /></span>
             </button>
             <a href="#how" className="rv-btn rv-btn-ghost-light rv-btn-xl">
               <span>How it works</span>
@@ -541,40 +573,12 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
 
 /* ── COMPONENTS ───────────────────────────────────────────── */
 
-// Animates on mount (not scroll), so content is always visible by default —
-// a scroll-gated reveal can ship blank in headless/non-scrolled renders.
-function Reveal({ children, className, delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
-  const reduce = useReducedMotion();
-  return (
-    <motion.div
-      className={className}
-      initial={reduce ? false : { opacity: 0, y: 16 }}
-      animate={reduce ? undefined : { opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
 function Wordmark() {
   return (
     <a href="#" className="rv-wordmark">
       <img src="/revveal-logo.png" alt="" aria-hidden className="rv-wordmark-img" />
       <span className="rv-wordmark-name">Revveal</span>
     </a>
-  );
-}
-
-function Arrow({ size = 14 }: { size?: number }) {
-  return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
-      className="rv-btn-arrow"
-    >
-      <path d="M5 12h14M13 5l7 7-7 7" />
-    </svg>
   );
 }
 
@@ -667,7 +671,7 @@ function DonationStrip() {
         </div>
         <button type="button" onClick={donate} disabled={pending} className="rv-btn rv-btn-primary rv-btn-sm">
           <span>{pending ? "Redirecting…" : "Donate"}</span>
-          <Arrow size={12} />
+          <span className="rv-btn-icon"><Arrow size={12} /></span>
         </button>
       </div>
       {error && <p className="rv-donate-error">{error}</p>}
@@ -915,10 +919,7 @@ const REVVEAL_WAY = [
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  ${FONT_IMPORT}
-
   .rv-catalog {
-    ${THEME_TOKENS}
     background: var(--paper);
     color: var(--ink);
     font-family: 'Manrope', sans-serif;
@@ -932,12 +933,6 @@ const STYLES = `
   .rv-catalog .rv-ilink:hover { color: var(--link-hover); text-decoration-color: var(--blue); }
   .rv-catalog .tabular-nums { font-variant-numeric: tabular-nums; }
 
-  .rv-catalog .rv-eyebrow {
-    display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11.5px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--ink-muted);
-  }
-  .rv-catalog .rv-eyebrow-red { color: var(--red); }
   .rv-catalog .rv-tag {
     font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em;
     color: var(--ink-muted); font-variant-numeric: tabular-nums;
@@ -952,32 +947,10 @@ const STYLES = `
   }
   .rv-catalog .rv-link:hover { color: var(--link-hover); }
 
-  /* ── Buttons ── */
-  .rv-catalog .rv-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 14px;
-    border-radius: 10px; padding: 10px 16px; cursor: pointer;
-    transition: background-color .18s ease, border-color .18s ease, color .18s ease;
-    white-space: nowrap; border: 1px solid transparent;
-  }
-  .rv-catalog .rv-btn-primary { background: var(--red); color: #fff; box-shadow: 0 1px 2px rgba(138,29,28,.22); transition: background-color .18s ease, box-shadow .25s var(--ease-out-expo); }
-  .rv-catalog .rv-btn-primary:hover { background: var(--red-deep); box-shadow: 0 4px 16px rgba(184,49,46,.30); }
-  .rv-catalog .rv-btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
-  .rv-catalog .rv-btn-ghost:hover { border-color: var(--ink); }
-  .rv-catalog .rv-btn-ghost-light { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.42); }
-  .rv-catalog .rv-btn-ghost-light:hover { background: rgba(255,255,255,.16); border-color: #fff; }
-  .rv-catalog .rv-btn-outline { background: var(--paper-pale); color: var(--ink); border-color: var(--rule-strong); }
-  .rv-catalog .rv-btn-outline:hover { border-color: var(--ink); }
-  .rv-catalog .rv-btn-lg { padding: 13px 22px; font-size: 15px; }
-  .rv-catalog .rv-btn-xl { padding: 15px 26px; font-size: 16px; border-radius: 12px; }
-  .rv-catalog .rv-btn-sm { padding: 8px 13px; font-size: 13px; border-radius: 8px; }
-  .rv-catalog .rv-btn-arrow { transition: transform .25s cubic-bezier(.16,1,.3,1); }
-  .rv-catalog .rv-btn:hover .rv-btn-arrow { transform: translateX(3px); }
-
   /* ── Nav — dark frosted floating pill island (fixed: the hero photo runs
      edge-to-edge behind it) ── */
   .rv-catalog .rv-nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-fixed-nav);
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     padding: 14px 16px 0;
     pointer-events: none;
@@ -1020,7 +993,7 @@ const STYLES = `
   }
   /* Scoped selector out-specifies Tailwind's lg:hidden, so hide the burger here. */
   @media (min-width: 1024px) { .rv-catalog .rv-burger { display: none; } }
-  .rv-catalog .rv-burger-bar { width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform .25s ease, opacity .2s ease; }
+  .rv-catalog .rv-burger-bar { width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform .32s var(--ease-out-expo), opacity .2s ease; }
   .rv-catalog .rv-burger-bar-top-open { transform: translateY(6px) rotate(45deg); }
   .rv-catalog .rv-burger-bar-mid-open { opacity: 0; }
   .rv-catalog .rv-burger-bar-bot-open { transform: translateY(-6px) rotate(-45deg); }
@@ -1032,8 +1005,9 @@ const STYLES = `
   .rv-catalog .rv-mobile-link { font-size: 16px; font-weight: 600; color: var(--ink); }
   .rv-catalog .rv-rule-static { height: 1px; background: var(--rule); }
 
-  /* ── Layout ── */
-  .rv-catalog .rv-section { padding: 84px 0; }
+  /* ── Layout — macro-whitespace: the page breathes heavily between sections. ── */
+  .rv-catalog .rv-section { padding: 72px 0; }
+  @media (min-width: 820px) { .rv-catalog .rv-section { padding: 112px 0; } }
   .rv-catalog .rv-section-alt { background: var(--paper-soft); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
   .rv-catalog .rv-section-inner { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
   .rv-catalog .rv-section-head { margin-bottom: 36px; }
@@ -1098,7 +1072,7 @@ const STYLES = `
   .rv-catalog .rv-spot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }
   .rv-catalog .rv-spot-head .rv-eyebrow { font-size: 10.5px; }
   .rv-catalog .rv-spot-head .rv-dot { width: 6px; height: 6px; }
-  .rv-catalog .rv-spot-body { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; }
+  .rv-catalog .rv-spot-body { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; padding: 12px; }
   .rv-catalog .rv-spot-thumb { width: 54px; border-radius: 9px; }
   .rv-catalog .rv-spot-info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .rv-catalog .rv-spot-title { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1107,7 +1081,7 @@ const STYLES = `
   .rv-catalog .rv-spot-price { display: block; font-weight: 800; font-size: 14px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
   .rv-catalog .rv-spot-delta { display: block; font-size: 11px; font-weight: 700; color: var(--green); font-variant-numeric: tabular-nums; }
   .rv-catalog .rv-spot-delta-k { color: var(--ink-fade); font-weight: 600; }
-  .rv-catalog .rv-spot-cta { margin-top: 12px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--red); background: var(--paper-pale); border: 1px solid var(--rule-strong); padding: 9px; border-radius: 9px; transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease; }
+  .rv-catalog .rv-spot-cta { margin-top: 12px; width: 100%; justify-content: center; color: var(--red); }
   .rv-catalog .rv-spot-cta:hover { background: var(--red-tint); border-color: var(--red-tint); }
 
   /* ── How ── */
@@ -1167,7 +1141,8 @@ const STYLES = `
   .rv-catalog .rv-conf-label { margin-left: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); }
 
   .rv-catalog .rv-lot-detail-cell { padding: 0 14px 22px; background: var(--paper-soft); border-bottom: 1px solid var(--rule); }
-  .rv-catalog .rv-lot-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 32px; padding-top: 4px; }
+  .rv-catalog .rv-lot-detail-bezel { margin-top: 4px; }
+  .rv-catalog .rv-lot-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 32px; padding: 20px 22px; }
   @media (max-width: 760px) { .rv-catalog .rv-lot-detail-grid { grid-template-columns: 1fr; gap: 20px; } }
   .rv-catalog .rv-lot-detail-list { list-style: none; margin: 0; padding: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
   .rv-catalog .rv-lot-detail-list li { padding: 3px 0 3px 14px; position: relative; }
@@ -1228,7 +1203,7 @@ const STYLES = `
   .rv-catalog .rv-colophon-copy { font-size: 13px; color: var(--ink-fade); }
 
   /* ── Donate banner ── */
-  .rv-catalog .rv-donate-banner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow-lg); }
+  .rv-catalog .rv-donate-banner { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: var(--z-banner); display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow-lg); }
   .rv-catalog .rv-donate-banner-success { background: var(--green); color: #fff; }
   .rv-catalog .rv-donate-banner-cancelled { background: var(--ink); color: var(--paper); }
   .rv-catalog .rv-donate-banner-close { font-size: 20px; line-height: 1; opacity: .8; }

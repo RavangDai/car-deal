@@ -21,6 +21,18 @@ for (const s of SIZES) {
   const page = await browser.newPage({ viewport: { width: s.w, height: s.h }, deviceScaleFactor: 1 });
   await page.goto(url, { waitUntil: "networkidle" });
   await page.waitForTimeout(700); // let mount animations settle + images decode
+  if (full) {
+    // Sections use whileInView (fires once, on first intersection) rather than
+    // a mount-triggered reveal, so a fullPage capture must actually scroll
+    // through the page first or below-the-fold sections stay at opacity: 0.
+    const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
+    for (let y = 0; y < scrollHeight; y += Math.round(s.h * 0.85)) {
+      await page.evaluate((y) => window.scrollTo(0, y), y);
+      await page.waitForTimeout(120);
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(200);
+  }
   const path = `verify-shots/${name}-${s.tag}.png`;
   await page.screenshot({ path, fullPage: full });
   console.log(path);
