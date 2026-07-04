@@ -14,40 +14,6 @@ export function Arrow({ size = 14 }: { size?: number }) {
   return <ArrowRight size={size} strokeWidth={2.4} className="rv-btn-arrow" />;
 }
 
-// Confidence-interval rail — the fair-value range visualization shared by the
-// deals table's expanded row and the hero carousel's per-slide mini chart.
-export function ConfidenceRail({
-  low,
-  high,
-  fair,
-  lowVal,
-  highVal,
-  fairVal,
-  compact = false,
-}: {
-  low: number;
-  high: number;
-  fair: number;
-  lowVal: string;
-  highVal: string;
-  fairVal: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className={`rv-ci${compact ? " rv-ci-compact" : ""}`}>
-      <div className="rv-ci-rail">
-        <div className="rv-ci-fill" style={{ left: `${low}%`, width: `${high - low}%` }} />
-        <div className="rv-ci-mark" style={{ left: `${fair}%` }} />
-      </div>
-      <div className="rv-ci-labels">
-        <span>${lowVal}k</span>
-        <span className="rv-ci-fair">fair · ${fairVal}k</span>
-        <span>${highVal}k</span>
-      </div>
-    </div>
-  );
-}
-
 export function Reveal({
   children,
   className,
@@ -121,17 +87,6 @@ export const PRIMITIVE_STYLES = `
   .rv-btn:hover .rv-btn-icon { transform: translate(2px, -1px) scale(1.06); background: rgba(255,255,255,.26); }
   .rv-btn-outline:hover .rv-btn-icon,
   .rv-btn-ghost:hover .rv-btn-icon { background: rgba(15,23,42,.1); }
-
-  /* ── Confidence-interval rail — fair-value range visualization, shared by
-     the deals table and the hero carousel. Always green (positive/savings
-     signal family). ── */
-  .rv-ci-rail { position: relative; height: 8px; background: var(--rule); border-radius: 4px; margin: 4px 0 8px; }
-  .rv-ci-fill { position: absolute; top: 0; height: 100%; background: var(--green-tint); border-radius: 4px; }
-  .rv-ci-mark { position: absolute; top: -2px; width: 2px; height: 12px; background: var(--green-deep); }
-  .rv-ci-labels { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-  .rv-ci-fair { color: var(--green); font-weight: 700; }
-  .rv-ci-compact .rv-ci-rail { height: 6px; margin: 3px 0 5px; }
-  .rv-ci-compact .rv-ci-labels { font-size: 10px; }
 
   /* ── Double-bezel — a card never sits flatly on the canvas. Outer shell:
      faint tint + hairline ring + generous padding + large radius. Inner

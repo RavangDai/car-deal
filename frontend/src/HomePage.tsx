@@ -1,18 +1,14 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
-import { Bookmark } from "lucide-react";
-import { useDeals } from "./hooks";
-import { CarImage } from "./CarImage";
-import { IMAGES, placeholderImage, thumbFor, type ImageAsset } from "./images";
-import { Arrow, ConfidenceRail, Reveal } from "./primitives";
-import HeroCarousel, { type HeroLot } from "./HeroCarousel";
+import { Bell } from "lucide-react";
+import { useProducts } from "./hooks";
+import { ProductImage } from "./ProductImage";
+import { productImage } from "./images";
+import { formatMoney } from "./format";
+import { Arrow, Reveal } from "./primitives";
+import HeroCarousel, { type HeroSlide } from "./HeroCarousel";
 import Footer from "./Footer";
-
-// Real listing photo → ImageAsset, else the neutral placeholder. Used for the
-// deals table + hero spotlight so live rows show their own car, not a stock thumb.
-function toAsset(src: string | null | undefined, alt: string): ImageAsset {
-  return src ? { src, alt } : placeholderImage;
-}
+import type { Product } from "./api";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -29,81 +25,101 @@ const mobileMenuItem: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT_EXPO } },
 };
 
-export default function HomePage({ onGetStarted }: { onGetStarted: () => void }) {
+function agoLabel(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "—";
+  const days = Math.max(0, Math.round((Date.now() - t) / 86_400_000));
+  if (days < 1) return "tracked today";
+  if (days === 1) return "tracked 1 day";
+  return `tracked ${days} days`;
+}
+
+function confidenceTier(p: Product): "low" | "med" | "high" {
+  const days = p.stats?.coverage_days ?? 0;
+  if (days >= 60) return "high";
+  if (days >= 30) return "med";
+  return "low";
+}
+
+function scoreReasons(p: Product): string[] {
+  const s = p.stats;
+  if (!s) return ["Not enough price history yet to compute a score."];
+  const out: string[] = [];
+  if (s.discount_vs_median_pct != null) {
+    out.push(
+      s.discount_vs_median_pct > 3
+        ? `${s.discount_vs_median_pct.toFixed(0)}% below the 90-day median price`
+        : "Priced at or near the 90-day median — not a real discount"
+    );
+  }
+  if (s.rarity != null) out.push(`Cheaper than ${Math.round(s.rarity * 100)}% of days tracked`);
+  if (s.stability != null) {
+    out.push(
+      s.stability > 0.6
+        ? "Price was stable before this change — a trustworthy reference point"
+        : "Price has fluctuated recently — treat this discount with caution"
+    );
+  }
+  out.push(`Tracked for ${s.coverage_days} days across ${s.n_points} price checks`);
+  return out;
+}
+
+export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string) => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
   const prefersReduced = useReducedMotion();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("hero");
+  const [pasteUrl, setPasteUrl] = useState("");
 
-  // Index (deals table) product state
-  const [filterMake, setFilterMake] = useState<string>("all");
+  const [filterDomain, setFilterDomain] = useState<string>("all");
   const [filterMinScore, setFilterMinScore] = useState<number>(0);
-  const [filterSort, setFilterSort] = useState<"delta" | "score" | "posted">("delta");
-  const [savedOnly, setSavedOnly] = useState(false);
-  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [filterSort, setFilterSort] = useState<"deal_score" | "newest">("deal_score");
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  // Live listings from the public /deals API; fall back to curated samples when
-  // the DB is empty / still loading / errored, so the page never looks broken.
-  const dealsQuery = useDeals(15);
-  const liveRows = useMemo<DealRow[]>(() => {
-    const data = dealsQuery.data as ApiListing[] | undefined;
-    if (!data || data.length === 0) return [];
-    return data.slice(0, 12).map(liveToRow);
-  }, [dealsQuery.data]);
-  const isLive = liveRows.length > 0;
-  const rows = useMemo<DealRow[]>(() => (isLive ? liveRows : FEATURED), [isLive, liveRows]);
+  const productsQuery = useProducts({ sort: filterSort, limit: 60 });
+  const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
+  const loading = productsQuery.isLoading;
 
-  const heroLots = useMemo<HeroLot[]>(() => {
-    const source = isLive ? liveRows.slice(0, 4) : FEATURED.slice(0, 4);
-    return source.map((r, i) => ({
-      id: r.id,
-      title: r.title,
-      loc: r.location,
-      miles: r.miles === "—" ? r.miles : `${r.miles} mi`,
-      price: r.price,
-      delta: r.delta,
-      image: r.image ?? thumbFor(i).src,
-      ciLow: r.ciLow,
-      ciHigh: r.ciHigh,
-      ciFair: r.ciFair,
-      ciLowVal: r.ciLowVal,
-      ciHighVal: r.ciHighVal,
-      ciFairVal: r.ciFairVal,
-    }));
-  }, [isLive, liveRows]);
+  const domains = useMemo(
+    () => Array.from(new Set(products.map((p) => p.domain))).slice(0, 10),
+    [products]
+  );
 
-  const makes = useMemo(() => {
-    if (!isLive) return MAKES;
-    return Array.from(new Set(liveRows.map((r) => r.make))).slice(0, 8);
-  }, [isLive, liveRows]);
-
-  const filteredDeals = useMemo(() => {
-    let list = rows.filter((d) => {
-      if (filterMake !== "all" && d.make !== filterMake) return false;
-      if (d.score < filterMinScore) return false;
-      if (savedOnly && !saved.has(d.id)) return false;
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (filterDomain !== "all" && p.domain !== filterDomain) return false;
+      if (filterMinScore > 0 && (p.deal_score == null || p.deal_score < filterMinScore)) return false;
       return true;
     });
-    if (filterSort === "delta") {
-      list = [...list].sort((a, b) => parseFloat(a.delta) - parseFloat(b.delta));
-    } else if (filterSort === "score") {
-      list = [...list].sort((a, b) => b.score - a.score);
-    } else {
-      list = [...list].sort((a, b) => a.postedHours - b.postedHours);
-    }
-    return list;
-  }, [rows, filterMake, filterMinScore, filterSort, savedOnly, saved]);
+  }, [products, filterDomain, filterMinScore]);
 
-  const toggleSave = (id: string) => {
-    setSaved((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const heroSlides = useMemo<HeroSlide[]>(() => {
+    return products
+      .filter((p) => p.deal_score != null)
+      .slice(0, 5)
+      .map((p) => ({
+        id: p.id,
+        title: p.title ?? p.domain,
+        domain: p.domain,
+        image: productImage(p.image_url, p.title ?? p.domain),
+        priceLabel: p.latest_price != null ? formatMoney(p.latest_price, p.currency ?? "USD") : "—",
+        median90dLabel:
+          p.median_90d != null ? `90d median ${formatMoney(p.median_90d, p.currency ?? "USD")}` : null,
+        dealScore: p.deal_score,
+        isLowestEver: p.is_lowest_ever,
+        historyPoints: [],
+      }));
+  }, [products]);
+
+  function goToProduct(id: string) {
+    window.location.hash = `#/product/${id}`;
+  }
+
+  function handlePasteSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onGetStarted(pasteUrl.trim() || undefined);
+  }
 
   // Subtle border/shadow once the page scrolls past the top.
   const [pinned, setPinned] = useState(false);
@@ -145,6 +161,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
   const navLinkClass = (id: string) =>
     `rv-nav-link${activeSection === id ? " rv-nav-link-active" : ""}`;
 
+  const bandProduct = products[0];
+
   return (
     <div ref={scopeRef} className="rv-catalog min-h-screen relative">
       <style>{STYLES}</style>
@@ -160,8 +178,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={onGetStarted} className="hidden sm:inline-flex rv-nav-login">Sign in</button>
-            <button onClick={onGetStarted} className="rv-btn rv-btn-primary hidden sm:inline-flex">
+            <button onClick={() => onGetStarted()} className="hidden sm:inline-flex rv-nav-login">Sign in</button>
+            <button onClick={() => onGetStarted()} className="rv-btn rv-btn-primary hidden sm:inline-flex">
               <span>Get started</span>
               <span className="rv-btn-icon"><Arrow size={12} /></span>
             </button>
@@ -205,66 +223,46 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         </AnimatePresence>
       </nav>
 
-      {/* ── HERO — full-bleed Mustang, content over a legibility scrim ── */}
-      <section data-rv-section="hero" className="rv-hero">
-        <div className="rv-hero-media" aria-hidden>
-          <CarImage
-            image={IMAGES.heroFeature}
-            eager
-            position="center 50%"
-            className="rv-hero-bg"
-            sizes="100vw"
-          />
-          <div className="rv-hero-scrim" />
-        </div>
-
-        <div className="rv-hero-inner">
+      {/* ── HERO — the carousel IS the hero: full-viewport slides cycling
+          through today's top real deals, with the paste-URL CTA overlaid
+          on every slide. ── */}
+      <section data-rv-section="hero">
+        <HeroCarousel slides={heroSlides} onSlideClick={goToProduct}>
           <Reveal className="rv-hero-content">
             <p className="rv-eyebrow rv-hero-eyebrow">
-              <span className="rv-dot" /> Live · {isLive ? `${rows.length} deals on file` : "scanning marketplaces"}
+              <span className="rv-dot" /> Live · {products.length > 0 ? `${products.length} products tracked` : "tracking prices"}
             </p>
             <h1 className="display rv-hero-headline">
-              Find <em className="rv-emph rv-emph-light">underpriced</em> used cars before everyone else.
+              Was it <em className="rv-emph rv-emph-light">actually</em> cheaper? Now you'll know.
             </h1>
             <p className="rv-hero-lede">
-              We scan every major marketplace and surface used cars priced below
-              fair value — with <a href="#how" className="rv-ilink rv-ilink-on-dark">the math attached</a>.
+              Paste any product link. We track its real price history and score
+              every "deal" against 90 days of data — <a href="#how" className="rv-ilink rv-ilink-on-dark">the math attached</a>.
             </p>
-            <div className="rv-hero-cta-row">
-              <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-lg">
-                <span>See today's deals</span>
+
+            <form onSubmit={handlePasteSubmit} className="rv-paste-form">
+              <input
+                type="url"
+                required
+                value={pasteUrl}
+                onChange={(e) => setPasteUrl(e.target.value)}
+                placeholder="Paste a product URL…"
+                className="rv-paste-input"
+                aria-label="Product URL to track"
+              />
+              <button type="submit" className="rv-btn rv-btn-primary rv-btn-lg rv-paste-submit">
+                <span>Track it</span>
                 <span className="rv-btn-icon"><Arrow size={14} /></span>
               </button>
-              <a href="#how" className="rv-btn rv-btn-ghost-light rv-btn-lg">
-                <span>How it works</span>
-              </a>
-            </div>
+            </form>
+
             <div className="rv-hero-meta">
-              <Stat v="12,408" k="scanned today" />
-              <Stat v="8,500+" k="active buyers" />
-              <Stat v="$3,210" k="avg. savings" />
+              <Stat v={String(products.length)} k="products tracked" />
+              <Stat v={String(products.filter((p) => p.is_lowest_ever).length)} k="at lowest ever" />
+              <Stat v="daily" k="price rechecks" />
             </div>
           </Reveal>
-
-          {/* Today's top picks — a small carousel, each slide pairing the car
-              photo with its own fair-value confidence rail ("the math
-              attached"), not just a picture. */}
-          <Reveal className="rv-hero-spotlight" delay={0.14}>
-            <div className="rv-spot-head">
-              <span className="rv-eyebrow rv-eyebrow-accent"><span className="rv-dot" /> Today's top picks</span>
-              <span className="rv-tag">updated live</span>
-            </div>
-            <HeroCarousel lots={heroLots} />
-            <button onClick={onGetStarted} className="rv-btn rv-btn-outline rv-btn-sm rv-spot-cta">
-              <span>See all {rows.length} underpriced today</span>
-              <span className="rv-btn-icon"><Arrow size={11} /></span>
-            </button>
-          </Reveal>
-        </div>
-
-        <a href="#how" className="rv-hero-scroll" aria-label="Scroll to how it works">
-          <span className="rv-hero-scroll-dot" />
-        </a>
+        </HeroCarousel>
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────── */}
@@ -275,14 +273,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               <div className="rv-how-side">
                 <p className="rv-eyebrow mb-3">Process</p>
                 <h2 className="display rv-section-title">How it works</h2>
-                <p className="rv-section-sub">Three steps. No favors, no paid placement.</p>
-                <CarImage
-                  image={IMAGES.detailChrome}
-                  ratio="4 / 5"
-                  position="center 40%"
-                  className="rv-how-figure"
-                  sizes="(max-width: 820px) 90vw, 30vw"
-                />
+                <p className="rv-section-sub">Three steps. Real statistics, not marketing.</p>
               </div>
               <ol className="rv-how-steps">
                 {STEPS.map((s, i) => (
@@ -307,16 +298,16 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
           <Reveal>
             <header className="rv-section-head">
               <p className="rv-eyebrow rv-eyebrow-accent mb-3">Live index</p>
-              <h2 className="display rv-section-title">Today's deals</h2>
-              <p className="rv-section-sub">Ranked by % below fair market value.</p>
+              <h2 className="display rv-section-title">Today's real deals</h2>
+              <p className="rv-section-sub">Ranked by deal score — real discount depth, rarity, and stability, not a claimed discount.</p>
             </header>
 
             <div className="rv-filter-bar">
               <label className="rv-filter">
-                <span className="rv-eyebrow">Make</span>
-                <select className="rv-filter-input" value={filterMake} onChange={(e) => setFilterMake(e.target.value)}>
-                  <option value="all">All makes</option>
-                  {makes.map((m) => <option key={m} value={m}>{m}</option>)}
+                <span className="rv-eyebrow">Store</span>
+                <select className="rv-filter-input" value={filterDomain} onChange={(e) => setFilterDomain(e.target.value)}>
+                  <option value="all">All stores</option>
+                  {domains.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </label>
               <label className="rv-filter">
@@ -330,29 +321,22 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
               </label>
               <label className="rv-filter">
                 <span className="rv-eyebrow">Sort by</span>
-                <select className="rv-filter-input" value={filterSort} onChange={(e) => setFilterSort(e.target.value as "delta" | "score" | "posted")}>
-                  <option value="delta">Largest discount</option>
-                  <option value="score">Highest score</option>
-                  <option value="posted">Recently posted</option>
+                <select className="rv-filter-input" value={filterSort} onChange={(e) => setFilterSort(e.target.value as "deal_score" | "newest")}>
+                  <option value="deal_score">Highest score</option>
+                  <option value="newest">Recently tracked</option>
                 </select>
               </label>
-              <label className="rv-filter rv-filter-toggle">
-                <input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} />
-                <span>Saved only ({saved.size})</span>
-              </label>
-              <span className="rv-tag rv-filter-result">{filteredDeals.length} of {rows.length}</span>
+              <span className="rv-tag rv-filter-result">{filteredProducts.length} of {products.length}</span>
             </div>
 
             <div className="rv-index-wrap">
               <table className="rv-index">
                 <thead>
                   <tr>
-                    <th className="rv-index-th" aria-label="Save"></th>
-                    <th className="rv-index-th">Vehicle</th>
-                    <th className="rv-index-th rv-index-th-loc">Location</th>
-                    <th className="rv-index-th rv-index-th-num">Miles</th>
-                    <th className="rv-index-th rv-index-th-num">Fair</th>
-                    <th className="rv-index-th rv-index-th-num">Asking</th>
+                    <th className="rv-index-th" aria-label="Track"></th>
+                    <th className="rv-index-th">Product</th>
+                    <th className="rv-index-th rv-index-th-num">Current</th>
+                    <th className="rv-index-th rv-index-th-num">90d median</th>
                     <th className="rv-index-th rv-index-th-num">Δ</th>
                     <th className="rv-index-th rv-index-th-conf">Confidence</th>
                     <th className="rv-index-th rv-index-th-num">Score</th>
@@ -360,53 +344,66 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDeals.length === 0 && (
+                  {loading && (
+                    <tr><td colSpan={8} className="rv-index-empty">Loading tracked products…</td></tr>
+                  )}
+                  {!loading && filteredProducts.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="rv-index-empty">
-                        No listings match these filters.{" "}
-                        <button onClick={() => { setFilterMake("all"); setFilterMinScore(0); setSavedOnly(false); }} className="rv-link">Clear filters</button>
+                      <td colSpan={8} className="rv-index-empty">
+                        No products match these filters.{" "}
+                        <button onClick={() => { setFilterDomain("all"); setFilterMinScore(0); }} className="rv-link">Clear filters</button>
                       </td>
                     </tr>
                   )}
-                  {filteredDeals.map((d) => {
-                    const isOpen = expanded === d.id;
-                    const isSaved = saved.has(d.id);
+                  {!loading && filteredProducts.map((p) => {
+                    const isOpen = expanded === p.id;
+                    const currency = p.currency ?? "USD";
+                    const delta = p.stats?.discount_vs_median_pct ?? null;
                     return (
-                      <Fragment key={d.id}>
+                      <Fragment key={p.id}>
                         <tr className={`rv-lot-row ${isOpen ? "rv-lot-row-open" : ""}`}>
                           <td className="rv-lot-cell">
                             <button
-                              onClick={() => toggleSave(d.id)}
-                              className={`rv-save-btn ${isSaved ? "rv-save-btn-on" : ""}`}
-                              aria-label={isSaved ? "Unsave" : "Save listing"}
+                              onClick={() => onGetStarted()}
+                              className="rv-save-btn"
+                              aria-label="Sign in to track this product"
+                              title="Sign in to track this product"
                             >
-                              <Bookmark size={14} strokeWidth={1.8} fill={isSaved ? "currentColor" : "none"} />
+                              <Bell size={14} strokeWidth={1.8} />
                             </button>
                           </td>
                           <td className="rv-lot-cell">
-                            <span className="rv-lot-vehicle-cell">
-                              <CarImage image={toAsset(d.image, d.title)} ratio="4 / 3" className="rv-lot-thumb" />
+                            <a href={`#/product/${p.id}`} className="rv-lot-vehicle-cell">
+                              <ProductImage image={productImage(p.image_url, p.title ?? p.domain)} ratio="4 / 3" className="rv-lot-thumb" />
                               <span className="min-w-0">
-                                <span className="rv-lot-vehicle">{d.title}</span>
-                                <span className="rv-lot-source">{d.source} · {d.postedLabel}</span>
+                                <span className="rv-lot-vehicle">{p.title ?? p.domain}</span>
+                                <span className="rv-lot-source">{p.domain} · {agoLabel(p.created_at)}</span>
                               </span>
-                            </span>
+                            </a>
                           </td>
-                          <td className="rv-lot-cell rv-lot-cell-loc">{d.location}</td>
-                          <td className="rv-lot-cell rv-lot-cell-num">{d.miles}</td>
-                          <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-fade">{d.fair}</td>
-                          <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-strong">{d.price}</td>
-                          <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-delta">{d.delta}</td>
+                          <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-strong">
+                            {p.latest_price != null ? formatMoney(p.latest_price, currency) : "—"}
+                          </td>
+                          <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-fade">
+                            {p.median_90d != null ? formatMoney(p.median_90d, currency) : "—"}
+                          </td>
+                          <td className="rv-lot-cell rv-lot-cell-num rv-lot-cell-delta">
+                            {delta != null ? `−${delta.toFixed(0)}%` : "—"}
+                          </td>
                           <td className="rv-lot-cell rv-lot-cell-conf">
-                            <ConfidenceBars level={d.confidence} />
+                            <ConfidenceBars level={confidenceTier(p)} />
                           </td>
                           <td className="rv-lot-cell rv-lot-cell-num">
-                            <span className="rv-lot-score">{d.score}<span className="rv-lot-score-of">/100</span></span>
+                            {p.deal_score != null ? (
+                              <span className="rv-lot-score">{Math.round(p.deal_score)}<span className="rv-lot-score-of">/100</span></span>
+                            ) : (
+                              <span className="rv-tag">locked</span>
+                            )}
                           </td>
                           <td className="rv-lot-cell rv-lot-cell-act">
                             <button
                               className="rv-lot-expand"
-                              onClick={() => setExpanded(isOpen ? null : d.id)}
+                              onClick={() => setExpanded(isOpen ? null : p.id)}
                               aria-expanded={isOpen}
                               aria-label={isOpen ? "Hide details" : "Why this score?"}
                             >
@@ -418,41 +415,32 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                         </tr>
                         {isOpen && (
                           <tr className="rv-lot-detail">
-                            <td colSpan={10} className="rv-lot-detail-cell">
+                            <td colSpan={8} className="rv-lot-detail-cell">
                               <div className="rv-bezel rv-lot-detail-bezel">
                                 <div className="rv-bezel-core rv-lot-detail-grid">
                                   <div>
                                     <div className="rv-eyebrow mb-2">Why this score</div>
                                     <ul className="rv-lot-detail-list">
-                                      {d.reasons.map((r) => (
+                                      {scoreReasons(p).map((r) => (
                                         <li key={r}>{r}</li>
                                       ))}
                                     </ul>
                                   </div>
                                   <div>
-                                    <div className="rv-eyebrow mb-2">Confidence interval</div>
-                                    <ConfidenceRail
-                                      low={d.ciLow} high={d.ciHigh} fair={d.ciFair}
-                                      lowVal={d.ciLowVal} highVal={d.ciHighVal} fairVal={d.ciFairVal}
-                                    />
-                                    <div className="rv-lot-detail-meta">
-                                      {d.compCount} comparable sales · {d.daysOnMarket} days on market
+                                    <div className="rv-eyebrow mb-2">Price context</div>
+                                    <div className="rv-lot-detail-stats">
+                                      <span>Current <strong>{p.latest_price != null ? formatMoney(p.latest_price, currency) : "—"}</strong></span>
+                                      <span>90d median <strong>{p.median_90d != null ? formatMoney(p.median_90d, currency) : "—"}</strong></span>
+                                      <span>All-time low <strong>{p.min_ever != null ? formatMoney(p.min_ever, currency) : "—"}</strong></span>
                                     </div>
                                   </div>
                                   <div className="rv-lot-detail-actions">
-                                    {isLive ? (
-                                      <a href={`#/deal/${d.id}`} className="rv-btn rv-btn-primary rv-btn-sm">
-                                        <span>View details</span>
-                                        <span className="rv-btn-icon"><Arrow size={11} /></span>
-                                      </a>
-                                    ) : (
-                                      <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-sm">
-                                        <span>View listing</span>
-                                        <span className="rv-btn-icon"><Arrow size={11} /></span>
-                                      </button>
-                                    )}
-                                    <button onClick={() => toggleSave(d.id)} className="rv-btn rv-btn-outline rv-btn-sm">
-                                      <span>{isSaved ? "Saved" : "Save"}</span>
+                                    <a href={`#/product/${p.id}`} className="rv-btn rv-btn-primary rv-btn-sm">
+                                      <span>View details</span>
+                                      <span className="rv-btn-icon"><Arrow size={11} /></span>
+                                    </a>
+                                    <button onClick={() => onGetStarted()} className="rv-btn rv-btn-outline rv-btn-sm">
+                                      <span>Track for alerts</span>
                                     </button>
                                   </div>
                                 </div>
@@ -468,9 +456,9 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
             </div>
 
             <div className="rv-index-foot">
-              <span className="rv-tag">Showing {filteredDeals.length} of 12,408 listings.</span>
-              <button onClick={onGetStarted} className="rv-btn rv-btn-ghost rv-btn-sm">
-                <span>See the full index</span>
+              <span className="rv-tag">Showing {filteredProducts.length} of {products.length} tracked products.</span>
+              <button onClick={() => onGetStarted()} className="rv-btn rv-btn-ghost rv-btn-sm">
+                <span>Track your own product</span>
                 <span className="rv-btn-icon"><Arrow size={11} /></span>
               </button>
             </div>
@@ -483,14 +471,14 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         <div className="rv-section-inner">
           <Reveal>
             <header className="rv-section-head">
-              <p className="rv-eyebrow mb-3">Why Revveal</p>
+              <p className="rv-eyebrow mb-3">Why WasItCheaper</p>
               <h2 className="display rv-section-title">
-                Most sites work for sellers. <em className="rv-emph">We work for buyers.</em>
+                Most "deal" sites show you a discount. <em className="rv-emph">We show you the math.</em>
               </h2>
             </header>
             <div className="rv-manifesto">
               <div className="rv-manifesto-col">
-                <span className="rv-eyebrow">Most listing sites</span>
+                <span className="rv-eyebrow">Most deal sites</span>
                 <ul className="rv-manifesto-list">
                   {LEGACY.map((t) => (
                     <li key={t} className="rv-legacy-item">{t}</li>
@@ -498,9 +486,9 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
                 </ul>
               </div>
               <div className="rv-manifesto-col">
-                <span className="rv-eyebrow rv-eyebrow-accent">Revveal</span>
+                <span className="rv-eyebrow rv-eyebrow-accent">WasItCheaper</span>
                 <ul className="rv-manifesto-list">
-                  {REVVEAL_WAY.map((t) => (
+                  {WIC_WAY.map((t) => (
                     <li key={t} className="rv-reveal-item"><span className="rv-reveal-mark">→</span>{t}</li>
                   ))}
                 </ul>
@@ -513,16 +501,24 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
       {/* ── CTA ──────────────────────────────────────────── */}
       <section data-rv-section="cta" className="rv-cta">
         <div className="rv-cta-media" aria-hidden>
-          <CarImage image={IMAGES.bandFeature} className="rv-cta-img" position="center 62%" />
+          {bandProduct ? (
+            <ProductImage
+              image={productImage(bandProduct.image_url, bandProduct.title ?? bandProduct.domain)}
+              className="rv-cta-img"
+              position="center"
+            />
+          ) : (
+            <div className="rv-cta-img rv-cta-img-fallback" />
+          )}
           <div className="rv-cta-scrim" />
         </div>
         <Reveal className="rv-cta-inner">
           <h2 className="display rv-cta-headline">
-            Stop overpaying. Start <em className="rv-emph rv-emph-light">Revvealing</em>.
+            Stop trusting the badge. Start <em className="rv-emph rv-emph-light">tracking the price</em>.
           </h2>
-          <p className="rv-cta-sub">Free for buyers — we earn from dealers, not from you.</p>
+          <p className="rv-cta-sub">Free to track. We alert you the moment a price genuinely drops.</p>
           <div className="rv-cta-buttons">
-            <button onClick={onGetStarted} className="rv-btn rv-btn-primary rv-btn-xl">
+            <button onClick={() => onGetStarted()} className="rv-btn rv-btn-primary rv-btn-xl">
               <span>Get started — it's free</span>
               <span className="rv-btn-icon"><Arrow size={16} /></span>
             </button>
@@ -533,7 +529,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
         </Reveal>
       </section>
 
-      <Footer onGetStarted={onGetStarted} />
+      <Footer onGetStarted={() => onGetStarted()} />
     </div>
   );
 }
@@ -543,8 +539,8 @@ export default function HomePage({ onGetStarted }: { onGetStarted: () => void })
 function Wordmark() {
   return (
     <a href="#" className="rv-wordmark">
-      <img src="/revveal-logo.png" alt="" aria-hidden className="rv-wordmark-img" />
-      <span className="rv-wordmark-name">Revveal</span>
+      <img src="/wic-logo.svg" alt="" aria-hidden className="rv-wordmark-img" />
+      <span className="rv-wordmark-name">WasItCheaper</span>
     </a>
   );
 }
@@ -616,190 +612,36 @@ const NAV_LINKS: [string, string][] = [
   ["How it works", "how"],
 ];
 
-// Shape returned by GET /deals (subset we use here).
-type ApiListing = {
-  id: string;
-  source: string;
-  url: string;
-  listed_price: number;
-  predicted_price: number;
-  undervalue_percent: number;
-  year: number;
-  make: string;
-  model: string;
-  mileage: number | null;
-  location: string;
-  image_url: string | null;
-  posted_at: string;
-};
-
-function hoursSince(iso: string): number {
-  const t = Date.parse(iso);
-  return Number.isNaN(t) ? 999 : Math.max(0, (Date.now() - t) / 36e5);
-}
-function agoLabel(h: number): string {
-  if (h < 1) return "just now";
-  if (h < 24) return `${Math.round(h)}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
-
-// Adapt an API listing to the table's richer display row. Fields the API
-// doesn't carry (score, confidence, reasons, CI band) are derived for display.
-function liveToRow(l: ApiListing, i: number): DealRow {
-  const u = l.undervalue_percent;
-  const gap = Math.max(0, l.predicted_price - l.listed_price);
-  const h = hoursSince(l.posted_at);
-  const fairK = l.predicted_price / 1000;
-  return {
-    id: l.id,
-    title: `${l.year} ${l.make} ${l.model}`,
-    make: l.make,
-    image: l.image_url,
-    location: l.location,
-    miles: l.mileage != null ? l.mileage.toLocaleString() : "—",
-    price: `$${l.listed_price.toLocaleString()}`,
-    fair: `$${l.predicted_price.toLocaleString()}`,
-    delta: `−${u.toFixed(1)}%`,
-    score: Math.max(40, Math.min(99, Math.round(45 + u * 1.7))),
-    source: l.source ? l.source[0].toUpperCase() + l.source.slice(1) : "—",
-    postedLabel: agoLabel(h),
-    postedHours: h,
-    confidence: u >= 20 ? "high" : u >= 12 ? "med" : "low",
-    reasons: [
-      gap > 0
-        ? `Asking $${gap.toLocaleString()} below estimated fair value`
-        : "Priced near estimated fair value",
-      `${u.toFixed(0)}% under fair market for this listing`,
-      l.mileage != null
-        ? `${l.mileage.toLocaleString()} mi on the odometer`
-        : "Mileage not listed by seller",
-    ],
-    ciLow: 22, ciHigh: 78, ciFair: 50,
-    ciLowVal: (fairK * 0.9).toFixed(1),
-    ciHighVal: (fairK * 1.1).toFixed(1),
-    ciFairVal: fairK.toFixed(1),
-    compCount: 60 + ((i * 37) % 180),
-    daysOnMarket: Math.max(1, Math.round(h / 24)),
-  };
-}
-
 const STEPS = [
   {
-    title: "Scan every listing.",
-    body: "Craigslist, Marketplace, AutoTrader and dealer feeds — refreshed every few minutes, deduped.",
-    foot: "47 markets",
+    title: "Paste any product link.",
+    body: "Amazon, Best Buy, Target, your favorite boutique — an extraction agent reads structured data first, and falls back to an AI reader when a site doesn't publish it.",
+    foot: "Any store",
   },
   {
-    title: "Price against the market.",
-    body: "Each car is scored against thousands of comparable sales, with title and mileage flags.",
-    foot: "Math shown",
+    title: "We track it daily.",
+    body: "A scheduled job rechecks the price every day and appends to a real, append-only history — never overwritten, never guessed.",
+    foot: "Scheduled jobs",
   },
   {
-    title: "Surface the underpriced.",
-    body: "Ranked by % below fair value, with a confidence band on every score.",
-    foot: "Live ranking",
-  },
-];
-
-const MAKES = ["Honda", "Toyota", "Subaru", "Mazda", "Ford"];
-
-type DealRow = {
-  id: string;
-  title: string;
-  make: string;
-  image?: string | null;
-  location: string;
-  miles: string;
-  price: string;
-  fair: string;
-  delta: string;
-  score: number;
-  source: string;
-  postedLabel: string;
-  postedHours: number;
-  confidence: "low" | "med" | "high";
-  reasons: string[];
-  ciLow: number; ciHigh: number; ciFair: number;
-  ciLowVal: string; ciHighVal: string; ciFairVal: string;
-  compCount: number;
-  daysOnMarket: number;
-};
-
-const FEATURED: DealRow[] = [
-  {
-    id: "d1", title: "2018 Toyota Camry SE", make: "Toyota",
-    location: "Phoenix, AZ", miles: "62,450", price: "$11,250", fair: "$14,820", delta: "−24.1%",
-    score: 91, source: "Craigslist", postedLabel: "2h ago", postedHours: 2, confidence: "high",
-    reasons: [
-      "Asking $3,570 below median for trim + mileage band",
-      "Clean title; no major flags on VIN",
-      "Mileage 9% under expected for model year",
-    ],
-    ciLow: 18, ciHigh: 78, ciFair: 50, ciLowVal: "13.2", ciHighVal: "16.4", ciFairVal: "14.8",
-    compCount: 142, daysOnMarket: 1,
-  },
-  {
-    id: "d2", title: "2019 Honda Civic EX", make: "Honda",
-    location: "Austin, TX", miles: "45,210", price: "$12,400", fair: "$15,600", delta: "−20.5%",
-    score: 87, source: "Marketplace", postedLabel: "5h ago", postedHours: 5, confidence: "high",
-    reasons: [
-      "Asking $3,200 below median for this trim",
-      "Single owner; full service history attached",
-      "Strong reliability cohort (this generation)",
-    ],
-    ciLow: 22, ciHigh: 74, ciFair: 50, ciLowVal: "14.1", ciHighVal: "17.1", ciFairVal: "15.6",
-    compCount: 218, daysOnMarket: 1,
-  },
-  {
-    id: "d3", title: "2021 Mazda CX-5 Sport", make: "Mazda",
-    location: "Portland, OR", miles: "28,910", price: "$19,400", fair: "$23,720", delta: "−18.2%",
-    score: 84, source: "Dealer", postedLabel: "1d ago", postedHours: 26, confidence: "med",
-    reasons: [
-      "Asking $4,320 below median for trim + mileage",
-      "Days-on-market: 14 (cohort median: 32)",
-      "Dealer-sourced; price not yet adjusted",
-    ],
-    ciLow: 28, ciHigh: 72, ciFair: 50, ciLowVal: "21.6", ciHighVal: "25.8", ciFairVal: "23.7",
-    compCount: 89, daysOnMarket: 14,
-  },
-  {
-    id: "d4", title: "2020 Subaru Forester", make: "Subaru",
-    location: "Denver, CO", miles: "38,902", price: "$18,900", fair: "$22,400", delta: "−15.6%",
-    score: 81, source: "Marketplace", postedLabel: "8h ago", postedHours: 8, confidence: "med",
-    reasons: [
-      "Asking $3,500 below median for this trim",
-      "AWD/Premium package · uncommon at this price",
-      "Single accident on history (minor, no frame damage)",
-    ],
-    ciLow: 30, ciHigh: 70, ciFair: 50, ciLowVal: "20.8", ciHighVal: "24.0", ciFairVal: "22.4",
-    compCount: 156, daysOnMarket: 3,
-  },
-  {
-    id: "d5", title: "2019 Ford F-150 XLT", make: "Ford",
-    location: "Houston, TX", miles: "54,300", price: "$24,800", fair: "$28,640", delta: "−13.4%",
-    score: 76, source: "Marketplace", postedLabel: "12h ago", postedHours: 12, confidence: "med",
-    reasons: [
-      "Asking $3,840 below median for trim + mileage",
-      "Towing package · 5.0L V8 · in-demand spec",
-      "One small flag: title transferred 3 times",
-    ],
-    ciLow: 34, ciHigh: 66, ciFair: 50, ciLowVal: "26.9", ciHighVal: "30.4", ciFairVal: "28.6",
-    compCount: 201, daysOnMarket: 5,
+    title: "Real math, not marketing.",
+    body: "Every score weighs discount depth against the 90-day median, historical rarity, and pre-drop stability — a raised-then-'dropped' price scores near zero.",
+    foot: "Deterministic scoring",
   },
 ];
 
 const LEGACY = [
-  "Dealers pay to rank higher.",
-  "Badges with no math behind them.",
-  "Private listings buried.",
-  "Pages of sponsored inventory.",
+  "Fake 'was $199' reference prices",
+  "No real price history to check",
+  "Countdown timers with no substance",
+  "Discounts you have to just trust",
 ];
 
-const REVVEAL_WAY = [
-  "Pure ranking. No paid placement.",
-  "Every score shows its comps.",
-  "All sources, one index.",
-  "Built for buyers.",
+const WIC_WAY = [
+  "Deal score from 90 days of real prices",
+  "Every 'lowest ever' badge is verified",
+  "Full price history, charted",
+  "Built for shoppers, not sellers",
 ];
 
 /* ── STYLES ───────────────────────────────────────────────── */
@@ -833,7 +675,7 @@ const STYLES = `
   }
   .rv-catalog .rv-link:hover { color: var(--link-hover); }
 
-  /* ── Nav — dark frosted floating pill island (fixed: the hero photo runs
+  /* ── Nav — dark frosted floating pill island (fixed: hero photos run
      edge-to-edge behind it) ── */
   .rv-catalog .rv-nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-fixed-nav);
@@ -877,7 +719,6 @@ const STYLES = `
     width: 38px; height: 38px; display: inline-flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 4px; border-radius: var(--r-pill);
   }
-  /* Scoped selector out-specifies Tailwind's lg:hidden, so hide the burger here. */
   @media (min-width: 1024px) { .rv-catalog .rv-burger { display: none; } }
   .rv-catalog .rv-burger-bar { width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform .32s var(--ease-out-expo), opacity .2s ease; }
   .rv-catalog .rv-burger-bar-top-open { transform: translateY(6px) rotate(45deg); }
@@ -891,7 +732,7 @@ const STYLES = `
   .rv-catalog .rv-mobile-link { font-size: 16px; font-weight: 600; color: var(--ink); }
   .rv-catalog .rv-rule-static { height: 1px; background: var(--rule); }
 
-  /* ── Layout — macro-whitespace: the page breathes heavily between sections. ── */
+  /* ── Layout — macro-whitespace between sections. ── */
   .rv-catalog .rv-section { padding: 72px 0; }
   @media (min-width: 820px) { .rv-catalog .rv-section { padding: 112px 0; } }
   .rv-catalog .rv-section-alt { background: var(--paper-soft); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
@@ -900,66 +741,34 @@ const STYLES = `
   .rv-catalog .rv-section-title { font-size: clamp(1.9rem, 3.6vw, 2.8rem); line-height: 1.04; }
   .rv-catalog .rv-section-sub { margin-top: 12px; font-size: 16px; color: var(--ink-muted); max-width: 60ch; }
 
-  /* ── Hero — full-bleed Mustang background, frosted content over a scrim ── */
-  .rv-catalog .rv-hero { position: relative; isolation: isolate; min-height: 100vh; min-height: 100svh; overflow: hidden; }
-  .rv-catalog .rv-hero-media { position: absolute; inset: 0; z-index: 0; }
-  .rv-catalog .rv-hero-bg { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
-  .rv-catalog .rv-hero-scrim {
-    position: absolute; inset: 0;
-    background:
-      linear-gradient(180deg, rgba(18,14,11,.34) 0%, rgba(18,14,11,.05) 26%, rgba(18,14,11,.42) 62%, rgba(18,14,11,.86) 100%),
-      linear-gradient(90deg, rgba(18,14,11,.55) 0%, rgba(18,14,11,.14) 46%, rgba(18,14,11,0) 74%);
-  }
-  .rv-catalog .rv-hero-inner {
-    position: relative; z-index: 1;
-    max-width: 1180px; margin: 0 auto;
-    min-height: 100vh; min-height: 100svh;
-    padding: 116px 24px 64px;
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 384px);
-    align-items: end; gap: clamp(24px, 4vw, 48px);
-  }
-  .rv-catalog .rv-hero-content { max-width: 640px; }
-  @media (max-width: 900px) {
-    .rv-catalog .rv-hero-inner { grid-template-columns: 1fr; align-items: end; gap: 22px; padding: 100px 22px 44px; }
-  }
-  .rv-catalog .rv-hero-eyebrow { margin-bottom: 20px; color: rgba(255,255,255,.86); text-shadow: 0 1px 12px rgba(0,0,0,.45); }
-  .rv-catalog .rv-hero-headline { font-size: clamp(2.6rem, 6vw, 4.4rem); line-height: 1.02; color: #fff; text-shadow: 0 2px 30px rgba(0,0,0,.36); }
-  .rv-catalog .rv-hero-lede { margin-top: 20px; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: rgba(255,255,255,.88); max-width: 46ch; text-wrap: pretty; text-shadow: 0 1px 16px rgba(0,0,0,.32); }
-  .rv-catalog .rv-ilink-on-dark { color: #9bd4ee; text-decoration-color: rgba(155,212,238,.5); }
-  .rv-catalog .rv-ilink-on-dark:hover { color: #c4e7f6; text-decoration-color: #9bd4ee; }
-  .rv-catalog .rv-hero-cta-row { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
-  .rv-catalog .rv-hero-meta { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 30px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.22); }
-  .rv-catalog .rv-stat { display: flex; flex-direction: column; gap: 2px; }
-  .rv-catalog .rv-stat-v { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
-  .rv-catalog .rv-stat-k { font-size: 12.5px; color: rgba(255,255,255,.74); }
+  /* ── Hero overlay content (rendered inside HeroCarousel) ── */
+  .rv-hero-content { max-width: 620px; }
+  .rv-hero-eyebrow { margin-bottom: 20px; color: rgba(255,255,255,.86); text-shadow: 0 1px 12px rgba(0,0,0,.45); }
+  .rv-hero-headline { font-size: clamp(2.4rem, 5.6vw, 4.1rem); line-height: 1.02; color: #fff; text-shadow: 0 2px 30px rgba(0,0,0,.36); font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; }
+  .rv-hero-lede { margin-top: 20px; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: rgba(255,255,255,.88); max-width: 46ch; text-wrap: pretty; text-shadow: 0 1px 16px rgba(0,0,0,.32); }
+  .rv-ilink-on-dark { color: #9bd4ee; text-decoration-color: rgba(155,212,238,.5); }
+  .rv-ilink-on-dark:hover { color: #c4e7f6; text-decoration-color: #9bd4ee; }
 
-  /* Today's top picks — frosted carousel card floating over the photo */
-  .rv-catalog .rv-hero-spotlight {
-    position: relative; z-index: 2; width: 100%; min-width: 0; justify-self: end;
-    background: var(--frost-light);
-    -webkit-backdrop-filter: var(--frost-blur);
-    backdrop-filter: var(--frost-blur);
-    border: 1px solid rgba(255,255,255,.72); border-radius: var(--r-card);
-    padding: 14px; box-shadow: var(--shadow-xl);
+  .rv-paste-form {
+    margin-top: 28px; display: flex; gap: 10px; flex-wrap: wrap;
+    max-width: 560px;
   }
-  @media (max-width: 900px) {
-    .rv-catalog .rv-hero-spotlight { justify-self: stretch; }
+  .rv-paste-input {
+    flex: 1 1 260px; min-width: 0;
+    font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 600;
+    color: #fff; background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.34); border-radius: 12px;
+    padding: 14px 16px; outline: none;
+    transition: border-color .15s ease, background-color .15s ease;
   }
+  .rv-paste-input::placeholder { color: rgba(255,255,255,.6); }
+  .rv-paste-input:focus { border-color: #fff; background: rgba(255,255,255,.18); }
+  .rv-paste-submit { flex-shrink: 0; }
 
-  /* Scroll cue — hints the page continues below the full-viewport hero */
-  .rv-catalog .rv-hero-scroll {
-    position: absolute; z-index: 1; left: 50%; bottom: 18px; transform: translateX(-50%);
-    width: 26px; height: 42px; border: 1.5px solid rgba(255,255,255,.5);
-    border-radius: 999px; display: flex; justify-content: center; padding-top: 7px;
-  }
-  .rv-catalog .rv-hero-scroll-dot { width: 4px; height: 8px; border-radius: 2px; background: rgba(255,255,255,.85); animation: rv-scroll 1.7s var(--ease-out-expo) infinite; }
-  @keyframes rv-scroll { 0% { opacity: 0; transform: translateY(-3px); } 40% { opacity: 1; } 80% { opacity: 0; transform: translateY(8px); } 100% { opacity: 0; } }
-  @media (max-width: 900px) { .rv-catalog .rv-hero-scroll { display: none; } }
-  .rv-catalog .rv-spot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; }
-  .rv-catalog .rv-spot-head .rv-eyebrow { font-size: 10.5px; }
-  .rv-catalog .rv-spot-head .rv-dot { width: 6px; height: 6px; }
-  .rv-catalog .rv-spot-cta { margin-top: 12px; width: 100%; justify-content: center; color: var(--primary); }
-  .rv-catalog .rv-spot-cta:hover { background: var(--primary-tint); border-color: var(--primary-tint); }
+  .rv-hero-meta { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,.22); }
+  .rv-stat { display: flex; flex-direction: column; gap: 2px; }
+  .rv-stat-v { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+  .rv-stat-k { font-size: 12.5px; color: rgba(255,255,255,.74); }
 
   /* ── How ── */
   .rv-catalog .rv-how-grid { display: grid; grid-template-columns: 0.7fr 1.3fr; gap: 48px; }
@@ -970,8 +779,6 @@ const STYLES = `
   .rv-catalog .rv-step-num { font-size: 15px; font-weight: 800; color: var(--primary); font-variant-numeric: tabular-nums; }
   .rv-catalog .rv-step-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
   .rv-catalog .rv-step-text { font-size: 15px; line-height: 1.55; color: var(--ink-muted); max-width: 52ch; margin-bottom: 10px; }
-  .rv-catalog .rv-how-figure { margin-top: 28px; max-width: 300px; border-radius: var(--img-radius); box-shadow: var(--shadow-md); }
-  @media (max-width: 820px) { .rv-catalog .rv-how-figure { display: none; } }
 
   /* ── Deals table ── */
   .rv-catalog .rv-filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 24px; padding: 16px 18px; margin-bottom: 18px; background: var(--paper-pale); border: 1px solid var(--rule); border-radius: 12px; }
@@ -979,12 +786,10 @@ const STYLES = `
   .rv-catalog .rv-filter-input { font-family: 'Manrope', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--ink); background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 7px 10px; outline: none; cursor: pointer; }
   .rv-catalog .rv-filter-input:focus { border-color: var(--primary); }
   .rv-catalog .rv-filter-range { width: 130px; accent-color: var(--primary); }
-  .rv-catalog .rv-filter-toggle { flex-direction: row; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--ink-muted); cursor: pointer; }
-  .rv-catalog .rv-filter-toggle input { accent-color: var(--primary); width: 15px; height: 15px; }
   .rv-catalog .rv-filter-result { margin-left: auto; }
 
   .rv-catalog .rv-index-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow-sm); background: var(--paper-pale); }
-  .rv-catalog .rv-index { width: 100%; border-collapse: collapse; min-width: 860px; }
+  .rv-catalog .rv-index { width: 100%; border-collapse: collapse; min-width: 780px; }
   .rv-catalog .rv-index-th { text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); padding: 13px 14px; border-bottom: 1px solid var(--rule); background: var(--paper-soft); white-space: nowrap; }
   .rv-catalog .rv-index-th-num { text-align: right; }
   .rv-catalog .rv-index-th-conf { text-align: left; }
@@ -992,11 +797,10 @@ const STYLES = `
   .rv-catalog .rv-lot-row:hover, .rv-catalog .rv-lot-row-open { background: var(--paper-soft); }
   .rv-catalog .rv-lot-cell { padding: 14px 14px; border-bottom: 1px solid var(--rule); font-size: 14px; vertical-align: middle; }
   .rv-catalog .rv-lot-cell-num { text-align: right; font-variant-numeric: tabular-nums; }
-  .rv-catalog .rv-lot-cell-loc { color: var(--ink-muted); font-size: 13px; white-space: nowrap; }
-  .rv-catalog .rv-lot-cell-fade { color: var(--ink-fade); text-decoration: line-through; }
+  .rv-catalog .rv-lot-cell-fade { color: var(--ink-fade); }
   .rv-catalog .rv-lot-cell-strong { font-weight: 700; }
   .rv-catalog .rv-lot-cell-delta { font-weight: 700; color: var(--green); }
-  .rv-catalog .rv-lot-vehicle-cell { display: flex; align-items: center; gap: 12px; }
+  .rv-catalog .rv-lot-vehicle-cell { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
   .rv-catalog .rv-lot-thumb { width: 48px; border-radius: 8px; flex-shrink: 0; }
   .rv-catalog .rv-lot-vehicle { display: block; font-weight: 600; }
   .rv-catalog .rv-lot-source { display: block; font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
@@ -1004,8 +808,7 @@ const STYLES = `
   .rv-catalog .rv-lot-score-of { font-size: 11px; font-weight: 600; color: var(--ink-fade); }
   .rv-catalog .rv-lot-cell-act { text-align: right; }
   .rv-catalog .rv-save-btn { color: var(--ink-fade); padding: 4px; border-radius: 6px; transition: color .15s ease; }
-  .rv-catalog .rv-save-btn:hover { color: var(--ink); }
-  .rv-catalog .rv-save-btn-on { color: var(--primary); }
+  .rv-catalog .rv-save-btn:hover { color: var(--primary); }
   .rv-catalog .rv-lot-expand { color: var(--ink-muted); padding: 6px; border-radius: 6px; transition: color .15s ease, background-color .15s ease; }
   .rv-catalog .rv-lot-expand:hover { color: var(--ink); background: var(--rule); }
   .rv-catalog .rv-index-empty { padding: 28px 14px; text-align: center; color: var(--ink-muted); font-size: 14px; }
@@ -1024,7 +827,8 @@ const STYLES = `
   .rv-catalog .rv-lot-detail-list { list-style: none; margin: 0; padding: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }
   .rv-catalog .rv-lot-detail-list li { padding: 3px 0 3px 14px; position: relative; }
   .rv-catalog .rv-lot-detail-list li::before { content: "·"; position: absolute; left: 2px; color: var(--primary); font-weight: 700; }
-  .rv-catalog .rv-lot-detail-meta { margin-top: 10px; font-size: 12px; color: var(--ink-muted); }
+  .rv-catalog .rv-lot-detail-stats { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-muted); }
+  .rv-catalog .rv-lot-detail-stats strong { color: var(--ink); font-variant-numeric: tabular-nums; }
   .rv-catalog .rv-lot-detail-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 
   .rv-catalog .rv-index-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 18px; flex-wrap: wrap; }
@@ -1041,6 +845,7 @@ const STYLES = `
   .rv-catalog .rv-cta { position: relative; isolation: isolate; padding: clamp(100px, 14vw, 168px) 24px; text-align: center; overflow: hidden; border-top: 1px solid var(--rule); }
   .rv-catalog .rv-cta-media { position: absolute; inset: 0; z-index: -1; }
   .rv-catalog .rv-cta-img { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+  .rv-catalog .rv-cta-img-fallback { background: linear-gradient(135deg, var(--primary-deep, var(--primary)), var(--ink)); }
   .rv-catalog .rv-cta-scrim {
     position: absolute; inset: 0;
     background:

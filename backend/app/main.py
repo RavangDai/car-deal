@@ -1,29 +1,20 @@
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Any, List, Optional
-from uuid import UUID
 
-from celery.result import AsyncResult
-from fastapi import FastAPI, HTTPException, Depends, Request, Response, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import get_current_user, router as auth_router
-from .celery_app import celery_app
-from .cookies import require_csrf
-from .db import engine, get_db
+from .auth import router as auth_router
+from .db import engine
 from .donations import router as donations_router
 from .limiter import limiter
-from .models import Listing, User
 from .oauth import router as oauth_router
+from .products_api import router as products_router
 from .settings import settings
-from .tasks import scrape_craigslist_task
+from .watches_api import router as watches_router
 
 
 @asynccontextmanager
@@ -33,9 +24,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Car Deal Finder API",
-    version="0.5.0",
-    description="Undervalued used cars — async scraping (Celery) + JWT auth + rate limiting.",
+    title="WasItCheaper API",
+    version="1.0.0",
+    description=(
+        "Track any product URL, watch its real price history, and get "
+        "alerted on genuine drops — Celery-scheduled scraping + JWT auth + "
+        "rate limiting + Claude-powered extraction and deal analysis."
+    ),
     lifespan=lifespan,
 )
 
@@ -67,145 +62,10 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(oauth_router)
 app.include_router(donations_router)
+app.include_router(products_router)
+app.include_router(watches_router)
 
-
-# ── Schemas ───────────────────────────────────────────────────────────────────
-
-class Deal(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    source: str
-    url: str
-
-    title: str
-    description: Optional[str] = None
-
-    listed_price: int
-    predicted_price: int
-    undervalue_percent: float
-
-    year: int
-    make: str
-    model: str
-    mileage: Optional[int] = None
-    location: str
-
-    image_url: Optional[str] = None
-    image_urls: Optional[List[str]] = None
-
-    created_at: datetime
-    posted_at: datetime
-
-
-class ScrapeJobAccepted(BaseModel):
-    job_id: str
-    status: str = "queued"
-    city: str
-    query: str
-    max_results: int
-
-
-class ScrapeJobStatus(BaseModel):
-    job_id: str
-    state: str
-    progress: Optional[dict[str, Any]] = None
-    result: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
-
-
-# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health", tags=["meta"])
 async def health_check():
-    return {"status": "ok", "service": "car-deal-finder-api"}
-
-
-@app.get("/deals", response_model=List[Deal], tags=["deals"])
-@limiter.limit("60/minute")
-async def list_deals(
-    request: Request,
-    response: Response,  # required by slowapi (headers_enabled) to attach X-RateLimit-* headers
-    min_undervalue_percent: float = 15.0,
-    make: Optional[str] = None,
-    model: Optional[str] = None,
-    location: Optional[str] = None,
-    db: AsyncSession = Depends(get_db),
-):
-    stmt = select(Listing).where(Listing.undervalue_percent >= min_undervalue_percent)
-
-    if make:
-        stmt = stmt.where(Listing.make.ilike(make))
-    if model:
-        stmt = stmt.where(Listing.model.ilike(model))
-    if location:
-        stmt = stmt.where(Listing.location.ilike(f"%{location}%"))
-
-    stmt = stmt.order_by(Listing.undervalue_percent.desc())
-
-    result = await db.execute(stmt)
-    return result.scalars().all()
-
-
-@app.get("/deals/{deal_id}", response_model=Deal, tags=["deals"])
-async def get_deal(deal_id: UUID, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Listing).where(Listing.id == deal_id))
-    listing = result.scalar_one_or_none()
-    if not listing:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    return listing
-
-
-@app.post(
-    "/scrape/craigslist",
-    response_model=ScrapeJobAccepted,
-    status_code=status.HTTP_202_ACCEPTED,
-    tags=["scraper"],
-)
-@limiter.limit("5/minute")
-async def enqueue_craigslist_scrape(
-    request: Request,
-    response: Response,
-    city: str,
-    query: str,
-    max_results: int = 10,
-    user: User = Depends(get_current_user),
-    _csrf: None = Depends(require_csrf),
-):
-    async_result = scrape_craigslist_task.delay(
-        city=city, query=query, max_results=max_results
-    )
-    return ScrapeJobAccepted(
-        job_id=async_result.id,
-        city=city,
-        query=query,
-        max_results=max_results,
-    )
-
-
-@app.get(
-    "/scrape/jobs/{job_id}",
-    response_model=ScrapeJobStatus,
-    tags=["scraper"],
-)
-@limiter.limit("120/minute")
-async def get_scrape_job(
-    request: Request,
-    response: Response,
-    job_id: str,
-    user: User = Depends(get_current_user),
-):
-    result = AsyncResult(job_id, app=celery_app)
-    state = result.state
-
-    payload = ScrapeJobStatus(job_id=job_id, state=state)
-
-    if state == "PROGRESS":
-        info = result.info if isinstance(result.info, dict) else None
-        payload.progress = info
-    elif state == "SUCCESS":
-        payload.result = result.result
-    elif state == "FAILURE":
-        payload.error = str(result.info) if result.info else "Task failed"
-
-    return payload
+    return {"status": "ok", "service": "wasitcheaper-api"}

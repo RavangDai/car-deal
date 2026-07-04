@@ -1,4 +1,15 @@
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, Boolean, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from datetime import datetime, timezone
 import uuid
@@ -6,36 +17,144 @@ import uuid
 from .db import Base
 
 
-class Listing(Base):
-    __tablename__ = "listings"
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class Product(Base):
+    __tablename__ = "products"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    source = Column(String, nullable=False)
-    url = Column(String, nullable=False, unique=True)
+    # Canonical (tracking-param-stripped) URL, keyed globally so any user
+    # pasting the same product is merged onto one tracked row. url_hash is a
+    # fixed-width sha256 of the normalized URL — safer to index than a TEXT
+    # column of unbounded length.
+    url = Column(Text, nullable=False)
+    url_hash = Column(String(64), nullable=False, unique=True, index=True)
+    domain = Column(String, nullable=False, index=True)
 
-    title = Column(String, nullable=False)
-    description = Column(Text, nullable=True)
-
-    listed_price = Column(Integer, nullable=False)
-    predicted_price = Column(Integer, nullable=False)
-    undervalue_percent = Column(Float, nullable=False)
-
-    year = Column(Integer, nullable=False)
-    make = Column(String, nullable=False)
-    model = Column(String, nullable=False)
-    mileage = Column(Integer, nullable=True)
-
-    location = Column(String, nullable=False)
-
-    # Primary listing photo (hotlinked source URL) + a best-effort gallery for
-    # the detail page. Both nullable: scraping images is best-effort and the UI
-    # falls back to a neutral placeholder when absent.
+    title = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
-    image_urls = Column(JSONB, nullable=True)
+    currency = Column(String(3), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
-    posted_at = Column(DateTime(timezone=True), nullable=False)
+    # Which extraction strategy last succeeded, so daily rechecks can try it
+    # first before falling back through the chain (cheap self-healing: a site
+    # that adds JSON-LD later gets demoted off the LLM path automatically).
+    extraction_strategy = Column(String, nullable=True)
+    extraction_meta = Column(JSONB, nullable=True)
+
+    # pending: tracked but not yet successfully extracted once.
+    # active: tracking normally. unavailable: repeated fetch/parse failures.
+    # blocked: site actively refuses automated checks (403/429/robots).
+    # demo: seeded data, excluded from the daily recheck fan-out.
+    status = Column(String, nullable=False, default="pending")
+    consecutive_failures = Column(Integer, nullable=False, default=0)
+    last_checked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    # Materialized stats, recomputed by the worker on every recheck (and once
+    # at initial tracking). Recomputing here — rather than on read — is what
+    # lets the deals feed sort/paginate by an indexed deal_score without
+    # scanning price_points on every request.
+    latest_price = Column(Numeric(12, 2), nullable=True)
+    latest_price_at = Column(DateTime(timezone=True), nullable=True)
+    median_90d = Column(Numeric(12, 2), nullable=True)
+    min_ever = Column(Numeric(12, 2), nullable=True)
+    is_lowest_ever = Column(Boolean, nullable=False, default=False)
+    deal_score = Column(Numeric(5, 1), nullable=True)  # NULL = insufficient history
+    stats = Column(JSONB, nullable=True)  # full component breakdown, for the UI
+
+
+class PricePoint(Base):
+    """Append-only price observation. Never overwritten, never deleted by
+    normal operation — this table IS the price history."""
+
+    __tablename__ = "price_points"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    product_id = Column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+
+    price = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(3), nullable=False)
+    in_stock = Column(Boolean, nullable=False, default=True)
+
+    captured_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    source = Column(String, nullable=False, default="scrape")  # scrape | seed | initial
+
+
+class Watch(Base):
+    """A user's subscription to price-drop alerts on one product."""
+
+    __tablename__ = "watches"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), nullable=False
+    )
+
+    rule_type = Column(String, nullable=False, default="any_drop")  # any_drop | percent_drop | target_price
+    threshold = Column(Numeric(12, 2), nullable=True)  # % for percent_drop, price for target_price
+
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    # Dedup/re-arm state: the price this watch last fired an alert at.
+    last_notified_at = Column(DateTime(timezone=True), nullable=True)
+    last_notified_price = Column(Numeric(12, 2), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "product_id", name="uq_watches_user_product"),
+    )
+
+
+class AlertEvent(Base):
+    """Audit trail + idempotency guard for fired alerts. The DB-level unique
+    constraint on (watch_id, price_point_id) makes Celery task retries safe —
+    a retried recheck can't double-fire the same alert."""
+
+    __tablename__ = "alert_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    watch_id = Column(UUID(as_uuid=True), ForeignKey("watches.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=False)  # denormalized: survives watch edits
+    product_id = Column(UUID(as_uuid=True), nullable=False)
+    price_point_id = Column(BigInteger, ForeignKey("price_points.id"), nullable=False)
+
+    rule_type = Column(String, nullable=False)  # snapshot at fire time
+    threshold = Column(Numeric(12, 2), nullable=True)
+    previous_price = Column(Numeric(12, 2), nullable=True)
+    new_price = Column(Numeric(12, 2), nullable=False)
+
+    status = Column(String, nullable=False, default="pending")  # pending | sent | failed
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("watch_id", "price_point_id", name="uq_alert_events_watch_pricepoint"),
+    )
+
+
+class ProductVerdict(Base):
+    """Cached AI "Buy or Wait" analysis. Valid iff based_on_price_point_id
+    still matches the most recent price-changing point — i.e. roughly one
+    Claude call per actual price change, not per page view."""
+
+    __tablename__ = "product_verdicts"
+
+    product_id = Column(
+        UUID(as_uuid=True), ForeignKey("products.id", ondelete="CASCADE"), primary_key=True
+    )
+    verdict = Column(String, nullable=False)  # buy | wait | watch
+    rationale = Column(Text, nullable=False)
+    confidence = Column(String, nullable=True)  # low | medium | high
+    model = Column(String, nullable=False)
+    based_on_price_point_id = Column(BigInteger, nullable=False)
+    computed_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 
 
 class User(Base):

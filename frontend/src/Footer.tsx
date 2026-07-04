@@ -20,10 +20,10 @@ export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
         <div className="rv-footer-grid">
           <Reveal className="rv-footer-col rv-footer-brand">
             <a href="#" className="rv-wordmark">
-              <img src="/revveal-logo.png" alt="" aria-hidden className="rv-wordmark-img" />
-              <span className="rv-wordmark-name">Revveal</span>
+              <img src="/wic-logo.svg" alt="" aria-hidden className="rv-wordmark-img" />
+              <span className="rv-wordmark-name">WasItCheaper</span>
             </a>
-            <p className="rv-footer-tagline">Buyer-first used car index. No paid placement, ever.</p>
+            <p className="rv-footer-tagline">Real price history for anything you shop for. No fake discounts.</p>
           </Reveal>
 
           <Reveal className="rv-footer-col" delay={0.06}>
@@ -45,13 +45,13 @@ export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
 
           <Reveal className="rv-footer-col rv-footer-donate-col" delay={0.18}>
             <h3 className="rv-footer-heading">Keep it running</h3>
-            <p className="rv-footer-donate-copy">Revveal is free for buyers. Donations are optional.</p>
+            <p className="rv-footer-donate-copy">WasItCheaper is free to track. Donations are optional.</p>
             <DonatePill />
           </Reveal>
         </div>
 
         <Reveal className="rv-footer-bottom" delay={0.24}>
-          <span className="rv-footer-copy">© 2026 Revveal · Built for buyers, not dealers.</span>
+          <span className="rv-footer-copy">© 2026 WasItCheaper · Built for shoppers, not sellers.</span>
         </Reveal>
       </div>
     </footer>

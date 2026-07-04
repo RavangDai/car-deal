@@ -36,12 +36,35 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     frontend_url: str = "http://localhost:5173"
 
-    # Craigslist scraper
+    # Product-page scraper (shared user agent for both the tracking fetch and
+    # the daily recheck fan-out).
     scraper_user_agent: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
     )
     scraper_request_timeout: float = 20.0
+
+    # SSRF-guarded product-page fetch (backend/app/extraction/fetch.py).
+    fetch_timeout: float = 15.0
+    fetch_max_bytes: int = 2_000_000
+
+    # Claude API (extraction fallback + "Buy or Wait" verdicts). Leave the key
+    # blank to disable both features entirely — extraction falls back to
+    # structured-data-only, and the verdict endpoint reports "unavailable".
+    anthropic_api_key: str = ""
+    ai_extraction_model: str = "claude-opus-4-8"
+    ai_verdict_model: str = "claude-opus-4-8"
+
+    # Price-drop alert email. "console" (default) logs the rendered email —
+    # safe zero-dependency local dev. Set email_backend="resend" + resend_api_key
+    # to send real email via Resend.
+    email_backend: str = "console"
+    resend_api_key: str = ""
+    email_from: str = "alerts@wasitcheaper.dev"
+
+    # Daily price-recheck fan-out (backend/app/celery_app.py beat schedule).
+    recheck_cron_hour: int = 6
+    max_watches_per_user: int = 50
 
     # OAuth (social login). Leave a provider's id/secret blank to disable it.
     google_client_id: str = ""

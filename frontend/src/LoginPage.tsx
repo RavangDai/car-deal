@@ -4,8 +4,6 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
-import { CarImage } from "./CarImage";
-import { IMAGES } from "./images";
 import { Arrow } from "./primitives";
 import PasswordStrength from "./PasswordStrength";
 import { MIN_STRENGTH_SCORE, passwordScore } from "./passwordRules";
@@ -108,41 +106,36 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
     <div className="rv-login min-h-screen flex">
       <style>{STYLES}</style>
 
-      {/* ── LEFT — brand panel (full-bleed photography) ──────── */}
+      {/* ── LEFT — brand panel ──────────────────────────────── */}
       <aside className="rv-login-side">
-        <div className="rv-login-side-media" aria-hidden>
-          <CarImage image={IMAGES.loginFeature} className="rv-login-side-img" position="center 42%" eager />
-          <div className="rv-login-side-scrim" />
-        </div>
+        <div className="rv-login-side-media" aria-hidden />
 
         <header className="rv-login-side-z">
           <Wordmark />
         </header>
 
         <div className="rv-login-side-body rv-login-side-z">
-          <p className="rv-eyebrow">Buyer-first car index</p>
+          <p className="rv-eyebrow">Real price history, for everything</p>
           <h2 className="display rv-login-side-title">
             {isRegister ? (
-              <>Find <em className="rv-emph">underpriced</em> cars before anyone else.</>
+              <>Never <em className="rv-emph">overpay</em> for anything again.</>
             ) : (
-              <>Welcome <em className="rv-emph">back</em>. Your deals are waiting.</>
+              <>Welcome <em className="rv-emph">back</em>. Your alerts are waiting.</>
             )}
           </h2>
           <p className="rv-login-side-sub">
             {isRegister
-              ? "Save searches, set drop alerts, and move on a great deal in hours — not days."
-              : "Pick up where you left off — saved searches, alerts, and today's freshest deals."}
+              ? "Paste any product link. We track the price daily and score every drop against real history."
+              : "Pick up where you left off — tracked products, alert rules, and today's real deals."}
           </p>
         </div>
 
         <div className="rv-login-side-foot rv-login-side-z">
-          <p className="rv-eyebrow mb-3">Most undervalued · last 24 hours</p>
+          <p className="rv-eyebrow mb-3">What you get</p>
           <ul className="rv-login-side-deals">
-            {RECENT_DEALS.map((d) => (
-              <li key={d.label} className="rv-login-side-deal">
-                <span className="rv-login-side-deal-title">{d.label}</span>
-                <span className="rv-login-side-deal-loc">{d.loc}</span>
-                <span className="rv-login-side-deal-delta">{d.delta}</span>
+            {WHY_SIGN_UP.map((t) => (
+              <li key={t} className="rv-login-side-deal">
+                <span className="rv-login-side-deal-title">{t}</span>
               </li>
             ))}
           </ul>
@@ -171,8 +164,8 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
           </motion.h1>
           <motion.p className="rv-login-sub" variants={formItem}>
             {isRegister
-              ? "Takes under a minute. Free for buyers."
-              : "Continue to your saved searches and alerts."}
+              ? "Takes under a minute. Free to track."
+              : "Continue to your tracked products and alerts."}
           </motion.p>
 
           <motion.div className="rv-login-social" variants={formItem}>
@@ -323,8 +316,8 @@ function parseAuthError(raw: string): string {
 function Wordmark() {
   return (
     <a href="/" className="rv-wordmark">
-      <img src="/revveal-logo.png" alt="" aria-hidden className="rv-wordmark-img" />
-      <span className="rv-wordmark-name">Revveal</span>
+      <img src="/wic-logo.svg" alt="" aria-hidden className="rv-wordmark-img" />
+      <span className="rv-wordmark-name">WasItCheaper</span>
     </a>
   );
 }
@@ -381,10 +374,10 @@ function GitHubIcon() {
 
 /* ── DATA ─────────────────────────────────────────────────── */
 
-const RECENT_DEALS = [
-  { label: "2018 Toyota Camry SE", loc: "Phoenix, AZ", delta: "−24.1%" },
-  { label: "2017 Nissan Altima",   loc: "Atlanta, GA", delta: "−31.4%" },
-  { label: "2019 Honda Civic EX",  loc: "Austin, TX",  delta: "−20.5%" },
+const WHY_SIGN_UP = [
+  "Daily price rechecks, automatically",
+  "Real 90-day price history, charted",
+  "Alerts the moment it's genuinely cheaper",
 ];
 
 /* ── STYLES ───────────────────────────────────────────────── */
@@ -414,13 +407,11 @@ const STYLES = `
     color: #fff;
   }
   @media (min-width: 1024px) { .rv-login .rv-login-side { display: flex; } }
-  .rv-login .rv-login-side-media { position: absolute; inset: 0; z-index: -1; }
-  .rv-login .rv-login-side-img { width: 100%; height: 100%; box-shadow: none; }
-  .rv-login .rv-login-side-scrim {
-    position: absolute; inset: 0;
+  .rv-login .rv-login-side-media {
+    position: absolute; inset: 0; z-index: -1;
     background:
-      linear-gradient(180deg, rgba(14,14,16,.52) 0%, rgba(14,14,16,.34) 36%, rgba(14,14,16,.84) 100%),
-      linear-gradient(90deg, rgba(14,14,16,.34), rgba(14,14,16,0) 58%);
+      radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--primary) 55%, transparent), transparent 60%),
+      linear-gradient(165deg, var(--ink) 0%, #10182a 60%, var(--ink) 100%);
   }
   .rv-login .rv-login-side-z { position: relative; z-index: 1; }
   .rv-login .rv-login-side .rv-wordmark-name { color: #fff; }
@@ -429,10 +420,8 @@ const STYLES = `
   .rv-login .rv-login-side-title { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1.05; margin-top: 18px; color: #fff; text-shadow: 0 1px 18px rgba(0,0,0,.28); }
   .rv-login .rv-login-side-sub { margin-top: 18px; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.82); max-width: 40ch; }
   .rv-login .rv-login-side-deals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .rv-login .rv-login-side-deal { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; padding: 11px 0; border-top: 1px solid rgba(255,255,255,.16); font-size: 13.5px; }
+  .rv-login .rv-login-side-deal { padding: 11px 0; border-top: 1px solid rgba(255,255,255,.16); font-size: 13.5px; }
   .rv-login .rv-login-side-deal-title { font-weight: 600; color: rgba(255,255,255,.95); }
-  .rv-login .rv-login-side-deal-loc { color: rgba(255,255,255,.6); font-size: 12.5px; }
-  .rv-login .rv-login-side-deal-delta { font-weight: 700; color: #5fd6a6; font-variant-numeric: tabular-nums; }
 
   /* Right form */
   .rv-login .rv-login-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }

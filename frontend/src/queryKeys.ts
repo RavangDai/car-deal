@@ -6,14 +6,21 @@ export const queryKeys = {
     all: ["auth"] as const,
     me: ["auth", "me"] as const,
   },
-  deals: {
-    all: ["deals"] as const,
-    list: (minUndervaluePercent: number) =>
-      ["deals", "list", { minUndervaluePercent }] as const,
-    detail: (id: string) => ["deals", "detail", id] as const,
+  products: {
+    all: ["products"] as const,
+    list: (params: { sort?: string; minScore?: number; q?: string } = {}) =>
+      ["products", "list", params] as const,
+    detail: (id: string) => ["products", "detail", id] as const,
+    history: (id: string, window: string) => ["products", "history", id, window] as const,
+    verdict: (id: string) => ["products", "verdict", id] as const,
   },
-  scrape: {
-    all: ["scrape"] as const,
-    job: (jobId: string) => ["scrape", "job", jobId] as const,
+  track: {
+    job: (jobId: string) => ["track", "job", jobId] as const,
+  },
+  watches: {
+    all: ["watches"] as const,
+  },
+  alerts: {
+    all: ["alerts"] as const,
   },
 } as const;

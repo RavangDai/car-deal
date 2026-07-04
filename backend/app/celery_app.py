@@ -1,10 +1,11 @@
 from celery import Celery
+from celery.schedules import crontab
 
 from .settings import settings
 
 
 celery_app = Celery(
-    "car_deal_finder",
+    "wasitcheaper",
     broker=f"{settings.redis_url}/0",
     backend=f"{settings.redis_url}/1",
     include=["app.tasks"],
@@ -21,4 +22,10 @@ celery_app.conf.update(
     task_soft_time_limit=90,
     result_expires=3600,
     worker_prefetch_multiplier=1,
+    beat_schedule={
+        "daily-price-recheck": {
+            "task": "prices.schedule_rechecks",
+            "schedule": crontab(hour=settings.recheck_cron_hour, minute=0),
+        },
+    },
 )

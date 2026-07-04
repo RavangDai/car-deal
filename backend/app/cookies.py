@@ -1,8 +1,8 @@
 """Session-cookie + CSRF helpers — the single source of cookie-attribute truth.
 
-The app JWT lives in an httpOnly cookie (``revveal_session``) so JavaScript /
-XSS can't read it. A non-httpOnly CSRF token (``revveal_csrf``) backs a
-double-submit check, and a non-httpOnly hint (``revveal_authed``) lets the SPA
+The app JWT lives in an httpOnly cookie (``wic_session``) so JavaScript /
+XSS can't read it. A non-httpOnly CSRF token (``wic_csrf``) backs a
+double-submit check, and a non-httpOnly hint (``wic_authed``) lets the SPA
 know a session probably exists without exposing anything sensitive.
 """
 
@@ -14,9 +14,9 @@ from fastapi import HTTPException, Request, status
 
 from .settings import settings
 
-SESSION_COOKIE = "revveal_session"
-CSRF_COOKIE = "revveal_csrf"
-HINT_COOKIE = "revveal_authed"
+SESSION_COOKIE = "wic_session"
+CSRF_COOKIE = "wic_csrf"
+HINT_COOKIE = "wic_authed"
 
 CSRF_HEADER = "X-CSRF-Token"
 

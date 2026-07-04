@@ -1,49 +1,28 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { hasSessionHint, isGuest, setGuestMode } from "./api";
+import type { Product, Watch } from "./api";
 import {
-  useDeals,
+  useDeleteWatch,
   useLogoutMutation,
   useMe,
-  useScrapeJob,
-  useScrapeMutation,
+  usePriceHistory,
+  useProducts,
+  useTrackJob,
+  useTrackUrl,
+  useWatches,
 } from "./hooks";
 import LoginPage from "./LoginPage";
 import HomePage from "./HomePage";
 import LegalPage, { type LegalKind } from "./LegalPage";
 import { Spinner } from "./Spinner";
-import { CarImage } from "./CarImage";
-import { placeholderImage, type ImageAsset } from "./images";
-import DealDetailPage from "./DealDetailPage";
-import { UndervalueHistogram, PriceScatter } from "./charts";
+import { ProductImage } from "./ProductImage";
+import { productImage } from "./images";
+import { formatMoney } from "./format";
+import ProductDetailPage from "./ProductDetailPage";
+import AlertsPage from "./AlertsPage";
+import { Sparkline, ScoreHistogram } from "./charts";
 import { Arrow, PRIMITIVE_STYLES } from "./primitives";
-
-type Deal = {
-  id: string;
-  source: string;
-  url: string;
-  title: string;
-  description: string;
-  listed_price: number;
-  predicted_price: number;
-  undervalue_percent: number;
-  year: number;
-  make: string;
-  model: string;
-  mileage: number | null;
-  location: string;
-  image_url: string | null;
-  image_urls: string[] | null;
-  created_at: string;
-  posted_at: string;
-};
-
-// Real listing photo, or the neutral placeholder when the listing has none.
-function dealImage(d: Deal): ImageAsset {
-  return d.image_url
-    ? { src: d.image_url, alt: `${d.year} ${d.make} ${d.model}` }
-    : placeholderImage;
-}
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
 
@@ -73,9 +52,13 @@ function readLegalHash(): LegalKind | null {
   return null;
 }
 
-function readDealHash(): string | null {
-  const m = window.location.hash.match(/^#\/deal\/(.+)$/);
+function readProductHash(): string | null {
+  const m = window.location.hash.match(/^#\/product\/(.+)$/);
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+function readIsAlertsHash(): boolean {
+  return window.location.hash === "#/alerts";
 }
 
 export default function App() {
@@ -87,31 +70,42 @@ export default function App() {
   );
   const [guest, setGuest] = useState(isGuest);
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
-  const [dealId, setDealId] = useState<string | null>(readDealHash);
+  const [productId, setProductId] = useState<string | null>(readProductHash);
+  const [onAlerts, setOnAlerts] = useState<boolean>(readIsAlertsHash);
+  const [pendingUrl, setPendingUrl] = useState<string | undefined>(undefined);
   const logoutMut = useLogoutMutation();
   const prefersReduced = useReducedMotion();
 
-  // Hash-based routing for the standalone legal pages (#/terms, #/privacy) and
-  // the per-listing detail page (#/deal/:id) so links navigate without coupling
-  // to the auth-derived routing.
+  // Hash-based routing for the standalone legal pages (#/terms, #/privacy),
+  // the per-product detail page (#/product/:id), and the alerts page
+  // (#/alerts) — all reachable without coupling to the auth-derived routing.
   useEffect(() => {
     const onHash = () => {
       setLegal(readLegalHash());
-      setDealId(readDealHash());
+      setProductId(readProductHash());
+      setOnAlerts(readIsAlertsHash());
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  function closeLegal() {
-    // Drop the fragment without leaving a bare "#" in the URL.
+  function clearHash() {
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+
+  function closeLegal() {
+    clearHash();
     setLegal(null);
   }
 
-  function closeDeal() {
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    setDealId(null);
+  function closeProduct() {
+    clearHash();
+    setProductId(null);
+  }
+
+  function closeAlerts() {
+    clearHash();
+    setOnAlerts(false);
   }
 
   const bootstrapping = hasSessionHint() && me.isLoading;
@@ -149,21 +143,31 @@ export default function App() {
     setShowLogin(false);
   }
 
+  // From the marketing homepage: "Get started" (optionally with a URL the
+  // visitor already typed into the paste box) always routes to sign-in.
+  function goToSignIn(url?: string) {
+    if (url) setPendingUrl(url);
+    setShowLogin(true);
+  }
+
   // Pick the active route. Legal pages are reachable from any state.
   let routeKey: string;
   let routeEl: ReactNode;
   if (legal) {
     routeKey = `legal-${legal}`;
     routeEl = <LegalPage kind={legal} onBack={closeLegal} />;
-  } else if (dealId) {
-    routeKey = `deal-${dealId}`;
-    routeEl = <DealDetailPage id={dealId} onBack={closeDeal} />;
+  } else if (productId) {
+    routeKey = `product-${productId}`;
+    routeEl = <ProductDetailPage id={productId} onBack={closeProduct} />;
+  } else if (onAlerts && me.data) {
+    routeKey = "alerts";
+    routeEl = <AlertsPage onBack={closeAlerts} />;
   } else if (bootstrapping) {
     routeKey = "boot";
     routeEl = <BootSplash />;
   } else if (me.data) {
     routeKey = "dashboard";
-    routeEl = <Dashboard onLogout={handleLogout} />;
+    routeEl = <Dashboard onLogout={handleLogout} initialTrackUrl={pendingUrl} />;
   } else if (guest) {
     routeKey = "guest";
     routeEl = <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />;
@@ -172,7 +176,7 @@ export default function App() {
     routeEl = <LoginPage onLogin={handleRealLogin} onGuest={enterGuest} />;
   } else {
     routeKey = "home";
-    routeEl = <HomePage onGetStarted={() => setShowLogin(true)} />;
+    routeEl = <HomePage onGetStarted={goToSignIn} />;
   }
 
   // Simple opacity crossfade between routes.
@@ -203,8 +207,8 @@ function BootSplash() {
       <style>{REPORT_STYLES}</style>
       <div className="flex flex-col items-center gap-5">
         <div className="flex items-center gap-2.5">
-          <img src="/revveal-logo.png" alt="" aria-hidden className="w-9 h-9 object-contain" />
-          <span className="text-[1.5rem] leading-none font-extrabold tracking-[-0.02em]">Revveal</span>
+          <img src="/wic-logo.svg" alt="" aria-hidden className="w-9 h-9 object-contain" />
+          <span className="text-[1.5rem] leading-none font-extrabold tracking-[-0.02em]">WasItCheaper</span>
         </div>
         <Spinner size={20} className="text-[var(--ink-muted)]" />
       </div>
@@ -217,99 +221,94 @@ function Dashboard({
   guest = false,
   onCreateAccount,
   onExitGuest,
+  initialTrackUrl,
 }: {
   onLogout?: () => void;
   guest?: boolean;
   onCreateAccount?: () => void;
   onExitGuest?: () => void;
+  initialTrackUrl?: string;
 }) {
-  const [city, setCity] = useState("austin");
-  const [query, setQuery] = useState("honda civic");
-  const [maxResults, setMaxResults] = useState(10);
-  const [minUndervalue, setMinUndervalue] = useState(10);
+  const [pasteUrl, setPasteUrl] = useState(initialTrackUrl ?? "");
   const [jobId, setJobId] = useState<string | null>(null);
 
-  const scrapeMutation = useScrapeMutation();
-  const scrapeJob = useScrapeJob(jobId);
-  const dealsQuery = useDeals(minUndervalue);
+  const trackMutation = useTrackUrl();
+  const trackJob = useTrackJob(jobId);
+  const watchesQuery = useWatches(!guest);
+  const browseQuery = useProducts(guest ? { sort: "deal_score", limit: 30 } : { limit: 1 });
+  const deleteWatchMutation = useDeleteWatch();
   const prefersReduced = useReducedMotion();
   const initial = prefersReduced ? "show" : "hidden";
 
-  function handleSearch(e: React.FormEvent) {
+  function handleTrack(e: React.FormEvent) {
     e.preventDefault();
-    // Live search is account-only — nudge guests toward sign-up instead.
     if (guest) {
       onCreateAccount?.();
       return;
     }
-    scrapeMutation.mutate(
-      { city, query, maxResults },
-      { onSuccess: (data) => setJobId(data.job_id) },
-    );
+    const url = pasteUrl.trim();
+    if (!url) return;
+    trackMutation.mutate(url, {
+      onSuccess: (data) => setJobId(data.job_id),
+    });
   }
 
   const stage = useMemo<string | null>(() => {
-    if (scrapeMutation.isPending) return "queueing job";
-    const s = scrapeJob.data;
-    if (!s) return null;
-    if (TERMINAL_STATES.has(s.state)) {
-      if (s.state === "SUCCESS" && dealsQuery.isFetching) return "loading deals";
-      return null;
-    }
-    if (s.state === "PROGRESS" && typeof s.progress?.stage === "string") return s.progress.stage;
-    if (s.state === "STARTED") return "started";
-    if (s.state === "PENDING") return "queued";
-    if (s.state === "RETRY") return "retrying";
+    if (trackMutation.isPending) return "queueing";
+    const j = trackJob.data;
+    if (!j) return null;
+    if (TERMINAL_STATES.has(j.state)) return null;
+    if (j.state === "PROGRESS" && typeof j.progress?.stage === "string") return j.progress.stage;
+    if (j.state === "STARTED") return "started";
+    if (j.state === "PENDING") return "queued";
+    if (j.state === "RETRY") return "retrying";
     return "running";
-  }, [scrapeMutation.isPending, scrapeJob.data, dealsQuery.isFetching]);
+  }, [trackMutation.isPending, trackJob.data]);
 
-  const loading = stage !== null;
+  const loadingTrack = stage !== null;
 
-  const error =
-    scrapeMutation.error?.message ??
-    (scrapeJob.data?.state === "FAILURE" ? scrapeJob.data.error : null) ??
-    scrapeJob.error?.message ??
-    dealsQuery.error?.message ??
+  const trackError =
+    trackMutation.error?.message ??
+    (trackJob.data?.state === "FAILURE" ? trackJob.data.error : null) ??
+    trackJob.error?.message ??
     null;
 
-  const jobSummary =
-    scrapeJob.data?.state === "SUCCESS" ? scrapeJob.data.result : null;
+  const trackResult = trackJob.data?.state === "SUCCESS" ? trackJob.data.result : null;
 
-  const dealsData = dealsQuery.data as Deal[] | undefined;
-  const deals: Deal[] = useMemo(() => dealsData ?? [], [dealsData]);
-
-  const totalSavings = useMemo(
-    () => deals.reduce((sum, d) => sum + Math.max(0, d.predicted_price - d.listed_price), 0),
-    [deals],
-  );
+  const watches = guest ? [] : (watchesQuery.data ?? []);
+  const guestProducts = guest ? (browseQuery.data ?? []) : [];
+  const watchlistLoading = guest ? browseQuery.isLoading : watchesQuery.isLoading;
 
   return (
     <div className="rv-report min-h-screen flex flex-col">
       <style>{REPORT_STYLES}</style>
 
-      {/* ── HEADER — floating frosted pill (cohesive with marketing nav) ── */}
+      {/* ── HEADER — floating frosted pill ── */}
       <header className="rv-dash-nav">
         <div className="rv-dash-nav-inner">
           <a href="#" className="rv-dash-brand">
-            <img src="/revveal-logo.png" alt="" aria-hidden className="w-[26px] h-[26px] object-contain" />
-            <span className="rv-dash-name">Revveal</span>
-            <span className="rv-dash-tag">Buyer dashboard</span>
+            <img src="/wic-logo.svg" alt="" aria-hidden className="w-[26px] h-[26px] object-contain" />
+            <span className="rv-dash-name">WasItCheaper</span>
+            <span className="rv-dash-tag">Tracked products</span>
           </a>
-          {guest ? (
-            <div className="rv-dash-actions">
-              <button onClick={onExitGuest} className="rv-dash-ghost">Exit</button>
-              <button onClick={onCreateAccount} className="rv-btn rv-btn-primary rv-btn-sm">
-                Create account
-              </button>
-            </div>
-          ) : (
-            <button onClick={onLogout} className="rv-dash-ghost">Sign out</button>
-          )}
+          <div className="rv-dash-actions">
+            {!guest && <a href="#/alerts" className="rv-dash-ghost">Alerts</a>}
+            {guest ? (
+              <>
+                <button onClick={onExitGuest} className="rv-dash-ghost">Exit</button>
+                <button onClick={onCreateAccount} className="rv-btn rv-btn-primary rv-btn-sm">
+                  Create account
+                </button>
+              </>
+            ) : (
+              <button onClick={onLogout} className="rv-dash-ghost">Sign out</button>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="flex-1 w-full">
-        {/* ── SEARCH ─────────────────────────────────────── */}
+        {/* ── TRACK ─────────────────────────────────── */}
         <motion.section
           className="max-w-[1180px] mx-auto w-full px-6 md:px-10 grid lg:grid-cols-[1.05fr_1fr] gap-10 lg:gap-16 pt-12 pb-12"
           variants={dashContainer}
@@ -318,45 +317,47 @@ function Dashboard({
         >
           <div className="self-center">
             <motion.p className="rv-eyebrow mb-5" variants={dashLine}>
-              Live index
+              Track anything
             </motion.p>
             <motion.h1
               className="display text-[clamp(2.4rem,5vw,3.8rem)] leading-[0.98] mb-5"
               variants={dashLine}
             >
-              Find cars priced<br />below market.
+              Paste a link.<br />We'll watch the price.
             </motion.h1>
             <motion.p
               className="text-[16px] leading-relaxed text-[var(--ink-muted)] max-w-[44ch]"
               variants={dashLine}
             >
-              Name a city and a model. We scan the live listings, price each
-              against the model, and list every undervalued car below.
+              We extract the product, track its price daily, and score every
+              drop against real history — then alert you the moment it's
+              genuinely cheaper.
             </motion.p>
           </div>
 
           <motion.form
-            onSubmit={handleSearch}
+            onSubmit={handleTrack}
             variants={dashForm}
             className="relative rv-bezel self-start"
           >
             <div className="rv-bezel-core p-6 md:p-7">
-              <h2 className="text-[15px] font-bold mb-6">New search</h2>
+              <h2 className="text-[15px] font-bold mb-6">Track a product</h2>
 
               <div className="space-y-5">
-                <Field label="City" value={city} onChange={setCity} placeholder="austin" disabled={guest} />
-                <Field label="Search query" value={query} onChange={setQuery} placeholder="honda civic" disabled={guest} />
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Max results" value={maxResults} type="number" onChange={(v) => setMaxResults(Number(v))} disabled={guest} />
-                  <Field label="Min save %" value={minUndervalue} type="number" onChange={(v) => setMinUndervalue(Number(v))} disabled={guest} />
-                </div>
+                <Field
+                  label="Product URL"
+                  value={pasteUrl}
+                  onChange={setPasteUrl}
+                  placeholder="https://shop.example.com/p/widget"
+                  disabled={guest}
+                />
               </div>
 
               <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
-                <button type="submit" disabled={loading || guest} className="rv-btn rv-btn-primary">
-                  {loading && <Spinner size={14} className="text-current" />}
-                  <span>{loading ? (stage ?? "Searching") : "Run search"}</span>
-                  {!loading && (
+                <button type="submit" disabled={loadingTrack || guest} className="rv-btn rv-btn-primary">
+                  {loadingTrack && <Spinner size={14} className="text-current" />}
+                  <span>{loadingTrack ? (stage ?? "Tracking") : "Track it"}</span>
+                  {!loadingTrack && (
                     <span className="rv-btn-icon"><Arrow size={12} /></span>
                   )}
                 </button>
@@ -365,17 +366,18 @@ function Dashboard({
                 )}
               </div>
 
-              {error && (
+              {trackError && (
                 <p className="mt-5 text-[13.5px] text-[var(--err)] flex items-start gap-2">
                   <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--red)] text-white font-bold text-[10px] mt-0.5 shrink-0">!</span>
-                  {error}
+                  {trackError}
                 </p>
               )}
 
-              {jobSummary && !loading && (
+              {trackResult && !loadingTrack && (
                 <p className="mt-5 text-[13px] text-[var(--ink-muted)] flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-[var(--green)] shrink-0" />
-                  Done · {jobSummary.fetched} fetched · {jobSummary.inserted} new · {jobSummary.skipped} skipped
+                  {trackResult.created ? "Tracking started." : "Already tracked — added to your list."}{" "}
+                  <a href={`#/product/${trackResult.product_id}`} className="rv-link">View product</a>
                 </p>
               )}
 
@@ -384,118 +386,64 @@ function Dashboard({
           </motion.form>
         </motion.section>
 
-        {/* ── RESULTS ────────────────────────────────────── */}
+        {/* ── WATCHLIST / BROWSE ────────────────────────── */}
         <div className="border-t border-[var(--rule)] bg-[var(--paper-soft)]">
           <section className="max-w-[1180px] mx-auto w-full px-6 md:px-10 grid lg:grid-cols-[1fr_300px] gap-10 lg:gap-14 pt-10 pb-16">
             <div>
               <div className="flex items-baseline justify-between gap-4 mb-5">
-                <h2 className="display text-[1.6rem] leading-tight">Results</h2>
+                <h2 className="display text-[1.6rem] leading-tight">
+                  {guest ? "Today's deals" : "Your tracked products"}
+                </h2>
                 <span className="rv-tag whitespace-nowrap">
-                  {loading ? (stage ?? "fetching") : `${deals.length} cars`}
+                  {guest ? `${guestProducts.length} products` : `${watches.length} tracked`}
                 </span>
               </div>
 
-              {loading && deals.length === 0 ? (
+              {watchlistLoading ? (
                 <ResultsSkeleton />
-              ) : !loading && deals.length === 0 ? (
-                <EmptyResults />
+              ) : guest && guestProducts.length === 0 ? (
+                <EmptyResults guest />
+              ) : !guest && watches.length === 0 ? (
+                <EmptyResults guest={false} />
               ) : (
-                <>
-                  {loading && (
-                    <div className="flex items-center gap-3 border-y border-[var(--rule)] py-3 mb-2 text-[var(--ink-muted)]">
-                      <Spinner size={14} />
-                      <p className="text-[13px]">Scanning listings · {stage ?? "starting"}…</p>
-                    </div>
-                  )}
-                  <motion.ol
-                    className="rv-lotindex list-none m-0 p-0"
-                    variants={cardGrid}
-                    initial="hidden"
-                    animate="show"
-                    key={`${deals.length}-${dealsQuery.dataUpdatedAt}`}
-                  >
-                  {deals.map((deal, i) => {
-                    const save = Math.max(0, deal.predicted_price - deal.listed_price);
-                    return (
-                      <motion.li key={deal.id} variants={cardItem}>
-                        <a href={`#/deal/${deal.id}`} className="rv-lotrow group">
-                          <span className="rv-lotrow-num" aria-hidden>{i + 1}</span>
-                          <CarImage image={dealImage(deal)} ratio="4 / 3" className="rv-lotrow-thumb" />
-
-                          <div className="min-w-0">
-                            <h3 className="text-[clamp(1.1rem,2vw,1.35rem)] font-bold leading-tight mb-1.5">
-                              {deal.year} {deal.make} {deal.model}
-                            </h3>
-                            <p className="text-[13px] text-[var(--ink-muted)] mb-3 flex items-center flex-wrap gap-x-2 gap-y-1">
-                              <span>{deal.location}</span>
-                              {deal.mileage != null && (
-                                <>
-                                  <span className="text-[var(--rule-strong)]">·</span>
-                                  <span className="tabular-nums">{deal.mileage.toLocaleString()} mi</span>
-                                </>
-                              )}
-                            </p>
-                            <p className="text-[13.5px] flex items-center flex-wrap gap-x-2 gap-y-1 tabular-nums">
-                              <span className="text-[var(--ink-muted)]">Listed</span>
-                              <span className="font-semibold">${deal.listed_price.toLocaleString()}</span>
-                              <span className="text-[var(--rule-strong)]">·</span>
-                              <span className="text-[var(--ink-muted)]">Fair</span>
-                              <span className="font-semibold">${deal.predicted_price.toLocaleString()}</span>
-                            </p>
-                          </div>
-
-                          <div className="rv-lotrow-right">
-                            <VerdictBadge value={deal.undervalue_percent} />
-                            <span className="text-[15px] font-extrabold text-[var(--green)] tabular-nums whitespace-nowrap">
-                              Save ${save.toLocaleString()}
-                              <span className="text-[13px] font-bold"> · −{deal.undervalue_percent.toFixed(0)}%</span>
-                            </span>
-                            <span className="rv-tag inline-flex items-center gap-1 group-hover:text-[var(--primary)] transition-colors whitespace-nowrap">
-                              View details
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
-                            </span>
-                          </div>
-                        </a>
-                      </motion.li>
-                    );
-                  })}
-                  </motion.ol>
-                </>
+                <WatchRows
+                  rows={
+                    guest
+                      ? guestProducts.map((p) => ({ product: p, watch: null }))
+                      : watches.map((w) => ({ product: w.product, watch: w }))
+                  }
+                  onUnwatch={(id) => deleteWatchMutation.mutate(id)}
+                />
               )}
             </div>
 
-            {/* Side column — figures + note */}
             <aside className="space-y-5 lg:sticky lg:top-[88px] self-start">
-              {loading && deals.length === 0 && <SidebarSkeleton />}
-              {!loading && deals.length > 0 && (
-                <>
-                  <div className="rv-bezel m-0">
-                    <figure className="rv-bezel-core p-5 m-0">
-                      <figcaption className="rv-eyebrow mb-3">Undervalue distribution</figcaption>
-                      <UndervalueHistogram deals={deals} />
-                    </figure>
-                  </div>
-                  <div className="rv-bezel m-0">
-                    <figure className="rv-bezel-core p-5 m-0">
-                      <figcaption className="rv-eyebrow mb-3">Asking vs fair value</figcaption>
-                      <PriceScatter deals={deals} />
-                    </figure>
-                  </div>
-                  <div className="rv-bezel">
-                    <div className="rv-bezel-core p-5">
-                      <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
-                        <span className="text-[var(--green)] font-semibold">Green</span> verdicts are
-                        safe to proceed; <span className="text-[var(--amber-deep)] font-semibold">amber</span> means
-                        a thin margin.
-                      </p>
-                      <p className="mt-3 text-[13px] font-semibold">
-                        Total savings on file:{" "}
-                        <span className="text-[var(--green)] font-extrabold tabular-nums">${totalSavings.toLocaleString()}</span>
-                      </p>
-                    </div>
-                  </div>
-                </>
+              {!guest && watches.length > 0 && (
+                <div className="rv-bezel m-0">
+                  <figure className="rv-bezel-core p-5 m-0">
+                    <figcaption className="rv-eyebrow mb-3">Score distribution</figcaption>
+                    <ScoreHistogram products={watches.map((w) => ({ deal_score: w.product.deal_score }))} />
+                  </figure>
+                </div>
               )}
+              {guest && guestProducts.length > 0 && (
+                <div className="rv-bezel m-0">
+                  <figure className="rv-bezel-core p-5 m-0">
+                    <figcaption className="rv-eyebrow mb-3">Score distribution</figcaption>
+                    <ScoreHistogram products={guestProducts.map((p) => ({ deal_score: p.deal_score }))} />
+                  </figure>
+                </div>
+              )}
+              <div className="rv-bezel">
+                <div className="rv-bezel-core p-5">
+                  <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
+                    <span className="text-[var(--green)] font-semibold">Great price</span> means a
+                    verified discount against 90 days of real history;{" "}
+                    <span className="text-[var(--amber-deep)] font-semibold">wait</span> means the
+                    math says it isn't a real drop yet.
+                  </p>
+                </div>
+              </div>
             </aside>
           </section>
         </div>
@@ -504,7 +452,7 @@ function Dashboard({
       {/* ── FOOTER ───────────────────────────────────────── */}
       <footer className="border-t border-[var(--rule)] bg-[var(--paper-pale)]">
         <div className="max-w-[1180px] mx-auto px-6 md:px-10 py-7 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <span className="text-[14px] font-semibold">Revveal</span>
+          <span className="text-[14px] font-semibold">WasItCheaper</span>
           <span className="rv-tag">© 2026 · Set in Manrope</span>
         </div>
       </footer>
@@ -520,6 +468,86 @@ const cardItem: Variants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: EASE_OUT_EXPO } },
 };
+
+function WatchRows({
+  rows,
+  onUnwatch,
+}: {
+  rows: { product: Product; watch: Watch | null }[];
+  onUnwatch?: (watchId: string) => void;
+}) {
+  return (
+    <motion.ol
+      className="rv-lotindex list-none m-0 p-0"
+      variants={cardGrid}
+      initial="hidden"
+      animate="show"
+      key={rows.length}
+    >
+      {rows.map(({ product, watch }) => (
+        <motion.li key={product.id} variants={cardItem}>
+          <WatchRow product={product} watch={watch} onUnwatch={onUnwatch} />
+        </motion.li>
+      ))}
+    </motion.ol>
+  );
+}
+
+function WatchRow({
+  product,
+  watch,
+  onUnwatch,
+}: {
+  product: Product;
+  watch: Watch | null;
+  onUnwatch?: (watchId: string) => void;
+}) {
+  const historyQuery = usePriceHistory(product.id, "90");
+  const points = historyQuery.data?.points ?? [];
+  const currency = product.currency ?? "USD";
+
+  return (
+    <div className="rv-lotrow group">
+      <a href={`#/product/${product.id}`} className="rv-lotrow-link">
+        <ProductImage
+          image={productImage(product.image_url, product.title ?? product.domain)}
+          ratio="4 / 3"
+          className="rv-lotrow-thumb"
+        />
+        <div className="min-w-0">
+          <h3 className="rv-lotrow-title">{product.title ?? product.domain}</h3>
+          <p className="rv-lotrow-domain">{product.domain}</p>
+          <div className="rv-lotrow-spark"><Sparkline points={points} /></div>
+        </div>
+        <div className="rv-lotrow-right">
+          <ScoreBadge score={product.deal_score} isLowestEver={product.is_lowest_ever} />
+          <span className="rv-lotrow-price tabular-nums">
+            {product.latest_price != null ? formatMoney(product.latest_price, currency) : "—"}
+          </span>
+        </div>
+      </a>
+      {watch ? (
+        <button onClick={() => onUnwatch?.(watch.id)} className="rv-lotrow-unwatch">Unwatch</button>
+      ) : (
+        <span />
+      )}
+    </div>
+  );
+}
+
+function ScoreBadge({ score, isLowestEver }: { score: number | null; isLowestEver: boolean }) {
+  if (score == null) {
+    return <span className="rv-tag">score locked</span>;
+  }
+  const tier = score >= 70 ? "best" : score >= 40 ? "rec" : "thin";
+  const label = tier === "best" ? "Great price" : tier === "rec" ? "Fair" : "Wait";
+  return (
+    <span className="flex items-center gap-1.5 flex-wrap justify-end">
+      {isLowestEver && <span className="rv-badge rv-badge--best">Lowest ever</span>}
+      <span className={`rv-badge rv-badge--${tier}`}>{label} · {Math.round(score)}</span>
+    </span>
+  );
+}
 
 // Clean labeled input.
 function Field({
@@ -557,10 +585,10 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
     <div className="rv-guest-lock">
       <div className="rv-guest-lock-card">
         <p className="text-[1.15rem] font-bold leading-tight mb-1.5">
-          Live searches need an account
+          Tracking needs an account
         </p>
         <p className="text-[13.5px] text-[var(--ink-muted)] max-w-[34ch] mb-5 leading-relaxed">
-          Create a free account to run live searches. Browsing today's results stays free.
+          Create a free account to track products and get price-drop alerts. Browsing today's deals stays free.
         </p>
         <button onClick={onCreateAccount} className="rv-btn rv-btn-primary">
           Create a free account
@@ -570,13 +598,12 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
   );
 }
 
-// First-load skeleton for the results list — quiet shimmer, no spinner.
+// First-load skeleton — quiet shimmer, no spinner.
 function ResultsSkeleton() {
   return (
     <div className="rv-lotindex" aria-hidden>
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="rv-skel-row">
-          <div className="rv-skel" style={{ height: 14, width: 14 }} />
           <div className="rv-skel" style={{ aspectRatio: "4 / 3", width: "100%" }} />
           <div className="flex flex-col gap-2.5">
             <div className="rv-skel" style={{ height: 17, width: "54%" }} />
@@ -593,23 +620,8 @@ function ResultsSkeleton() {
   );
 }
 
-function SidebarSkeleton() {
-  return (
-    <>
-      {[0, 1].map((i) => (
-        <div key={i} className="rv-bezel" aria-hidden>
-          <div className="rv-bezel-core p-5">
-            <div className="rv-skel mb-3" style={{ height: 11, width: 130 }} />
-            <div className="rv-skel" style={{ height: 130, width: "100%" }} />
-          </div>
-        </div>
-      ))}
-    </>
-  );
-}
-
 // Empty state that teaches the interface rather than just saying "nothing here".
-function EmptyResults() {
+function EmptyResults({ guest }: { guest: boolean }) {
   return (
     <div className="rv-bezel">
       <div className="rv-bezel-core text-center px-6 py-16">
@@ -618,25 +630,15 @@ function EmptyResults() {
             <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
           </svg>
         </span>
-        <p className="display text-[1.4rem] mb-1.5">No results yet.</p>
+        <p className="display text-[1.4rem] mb-1.5">{guest ? "No deals to show yet." : "Nothing tracked yet."}</p>
         <p className="text-[14px] text-[var(--ink-muted)] max-w-[40ch] mx-auto leading-relaxed">
-          Name a city and a model above, then run a search to list today's
-          undervalued cars — ranked by how far below fair value they sit.
+          {guest
+            ? "Check back soon — new products are tracked and scored daily."
+            : "Paste a product URL above to start tracking its price history."}
         </p>
       </div>
     </div>
   );
-}
-
-// Verdict pill — green means "safe to proceed", amber means "thin margin".
-function VerdictBadge({ value }: { value: number }) {
-  const tier = value >= 25 ? "best" : value >= 15 ? "rec" : "thin";
-  const v = {
-    best: { cls: "rv-badge--best", label: "Best buy" },
-    rec:  { cls: "rv-badge--rec",  label: "Recommended" },
-    thin: { cls: "rv-badge--thin", label: "Thin margin" },
-  }[tier];
-  return <span className={`rv-badge ${v.cls}`}>{v.label}</span>;
 }
 
 const REPORT_STYLES = `
@@ -682,14 +684,12 @@ const REPORT_STYLES = `
     border-left: 1px solid rgba(255,255,255,.22); padding-left: 11px; white-space: nowrap;
   }
   @media (max-width: 560px) { .rv-report .rv-dash-tag { display: none; } }
-  .rv-report .rv-dash-actions { display: flex; align-items: center; gap: 12px; }
+  .rv-report .rv-dash-actions { display: flex; align-items: center; gap: 16px; }
   .rv-report .rv-dash-ghost { font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,.82); transition: color .15s ease; }
   .rv-report .rv-dash-ghost:hover { color: #fff; }
 
-  /* Tailwind font-mono → Manrope tabular numerals. */
   .rv-report .font-mono { font-family: 'Manrope', sans-serif; font-variant-numeric: tabular-nums; }
 
-  /* Mono-ish tag chip for metadata. */
   .rv-report .rv-tag {
     font-size: 11px;
     font-weight: 600;
@@ -727,9 +727,6 @@ const REPORT_STYLES = `
   }
   .rv-report .rv-input:disabled { opacity: 0.55; cursor: not-allowed; }
   .rv-report .rv-input::placeholder { color: var(--ink-fade); }
-  .rv-report .rv-input::-webkit-outer-spin-button,
-  .rv-report .rv-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .rv-report .rv-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
   /* Verdict pills. */
   .rv-report .rv-badge {
@@ -744,15 +741,13 @@ const REPORT_STYLES = `
   .rv-report .rv-badge--rec  { background: var(--green-tint); color: var(--green); }
   .rv-report .rv-badge--thin { background: var(--amber-tint); color: var(--amber-deep); }
 
-  /* Results list. */
+  /* Tracked-products list. */
   .rv-report .rv-lotrow {
     display: grid;
-    grid-template-columns: 26px 64px minmax(0, 1fr) auto;
+    grid-template-columns: 64px minmax(0, 1fr) auto auto;
     gap: 4px 18px;
     align-items: center;
     padding: 18px 4px;
-    text-decoration: none;
-    color: inherit;
     border-top: 1px solid var(--rule);
     border-radius: 12px;
     transition: background-color 0.15s ease, box-shadow 0.25s var(--ease-out-expo);
@@ -760,15 +755,27 @@ const REPORT_STYLES = `
   .rv-report .rv-lotindex > li:first-child .rv-lotrow { border-top: none; }
   .rv-report .rv-lotrow:hover { background: var(--paper-pale); box-shadow: var(--shadow-md); }
 
-  .rv-report .rv-lotrow-num {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--ink-fade);
-    font-variant-numeric: tabular-nums;
-    align-self: start;
-    padding-top: 2px;
-  }
+  .rv-report .rv-lotrow-link { display: contents; text-decoration: none; color: inherit; }
   .rv-report .rv-lotrow-thumb { width: 64px; border-radius: 9px; align-self: center; }
+  .rv-report .rv-lotrow-title {
+    font-size: clamp(1.05rem, 2vw, 1.2rem); font-weight: 700; line-height: 1.25;
+    display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .rv-report .rv-lotrow-domain { font-size: 13px; color: var(--ink-muted); margin: 3px 0 6px; }
+  .rv-report .rv-lotrow-spark { width: 120px; }
+  .rv-report .rv-lotrow-right {
+    display: flex; flex-direction: column;
+    align-items: flex-end; justify-content: center;
+    gap: 7px; text-align: right;
+  }
+  .rv-report .rv-lotrow-price { font-size: 16px; font-weight: 800; }
+  .rv-report .rv-lotrow-unwatch {
+    font-size: 12.5px; font-weight: 600; color: var(--ink-muted);
+    padding: 6px 10px; border-radius: 999px; border: 1px solid var(--rule-strong);
+    transition: color .15s ease, border-color .15s ease;
+    white-space: nowrap; justify-self: end; align-self: center;
+  }
+  .rv-report .rv-lotrow-unwatch:hover { color: var(--err); border-color: var(--err); }
 
   /* Skeletons — quiet shimmer for first load (no spinner-in-content). */
   .rv-report .rv-skel { position: relative; overflow: hidden; background: var(--paper-soft); border-radius: 7px; }
@@ -779,7 +786,7 @@ const REPORT_STYLES = `
   }
   @keyframes rv-skel-sh { to { background-position: -120% 0; } }
   .rv-report .rv-skel-row {
-    display: grid; grid-template-columns: 26px 64px minmax(0, 1fr) auto;
+    display: grid; grid-template-columns: 64px minmax(0, 1fr) auto;
     gap: 4px 18px; align-items: center; padding: 18px 4px; border-top: 1px solid var(--rule);
   }
   .rv-report .rv-skel-row:first-child { border-top: none; }
@@ -792,21 +799,16 @@ const REPORT_STYLES = `
     border: 1px solid var(--rule);
   }
 
-  .rv-report .rv-lotrow-right {
-    display: flex; flex-direction: column;
-    align-items: flex-end; justify-content: center;
-    gap: 7px;
-    text-align: right;
-  }
   @media (max-width: 760px) {
     .rv-report .rv-lotrow,
-    .rv-report .rv-skel-row { grid-template-columns: 24px 56px minmax(0, 1fr); }
+    .rv-report .rv-skel-row { grid-template-columns: 56px minmax(0, 1fr); }
     .rv-report .rv-lotrow-right {
       grid-column: 1 / -1;
       flex-direction: row; align-items: center; justify-content: flex-start;
       flex-wrap: wrap; gap: 10px;
       margin-top: 8px;
     }
+    .rv-report .rv-lotrow-unwatch { grid-column: 1 / -1; justify-self: start; }
   }
 
   /* Guest lock — plain frosted card, no blur. */

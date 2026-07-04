@@ -6,18 +6,28 @@ import {
 } from "@tanstack/react-query";
 
 import {
-  fetchDeal,
-  fetchDeals,
+  createWatch,
+  deleteWatch,
+  fetchAlerts,
+  fetchHistory,
+  fetchProduct,
+  fetchProducts,
+  fetchVerdict,
+  fetchWatches,
   getMe,
-  getScrapeJob,
+  getTrackJob,
   hasSessionHint,
   login,
   logout,
   register,
-  runCraigslistScrape,
-  type ScrapeJobAccepted,
-  type ScrapeJobStatus,
+  trackUrl,
+  updateWatch,
+  type RuleType,
+  type TrackJobAccepted,
+  type TrackJobStatus,
   type UserOut,
+  type VerdictOut,
+  type Watch,
 } from "./api";
 import { queryClient } from "./queryClient";
 import { queryKeys } from "./queryKeys";
@@ -45,7 +55,7 @@ export function useLoginMutation() {
   });
 }
 
-// Register now also logs the user in (the backend sets the session cookie on
+// Register also logs the user in (the backend sets the session cookie on
 // register), so the LoginPage register form drops straight into the dashboard.
 export function useRegisterAndLoginMutation() {
   const qc = useQueryClient();
@@ -66,55 +76,30 @@ export function useLogoutMutation() {
     },
     onSuccess: () => {
       qc.setQueryData(queryKeys.auth.me, null);
-      // Drop scrape/deal caches — they belonged to the previous user.
-      qc.removeQueries({ queryKey: queryKeys.deals.all });
-      qc.removeQueries({ queryKey: queryKeys.scrape.all });
+      // Drop everything scoped to the previous user.
+      qc.removeQueries({ queryKey: queryKeys.watches.all });
+      qc.removeQueries({ queryKey: queryKeys.alerts.all });
+      qc.removeQueries({ queryKey: queryKeys.track.job("") });
     },
   });
 }
 
-// ── Deals ─────────────────────────────────────────────────────────────────
+// ── Track a URL ─────────────────────────────────────────────────────────
 
-export function useDeals(minUndervaluePercent: number, enabled = true) {
-  return useQuery({
-    queryKey: queryKeys.deals.list(minUndervaluePercent),
-    queryFn: () => fetchDeals(minUndervaluePercent),
-    enabled,
-    staleTime: 30_000,
-  });
-}
-
-// Single listing for the detail page (#/deal/:id). Public — no auth needed.
-export function useDeal(id: string | null) {
-  return useQuery({
-    queryKey: queryKeys.deals.detail(id ?? ""),
-    queryFn: () => fetchDeal(id!),
-    enabled: !!id,
-    staleTime: 30_000,
-  });
-}
-
-// ── Scrape ────────────────────────────────────────────────────────────────
-
-export function useScrapeMutation() {
-  return useMutation<
-    ScrapeJobAccepted,
-    Error,
-    { city: string; query: string; maxResults: number }
-  >({
-    mutationFn: ({ city, query, maxResults }) =>
-      runCraigslistScrape(city, query, maxResults),
+export function useTrackUrl() {
+  return useMutation<TrackJobAccepted, Error, string>({
+    mutationFn: (url) => trackUrl(url),
   });
 }
 
 const TERMINAL_STATES = new Set(["SUCCESS", "FAILURE"]);
 
-export function useScrapeJob(jobId: string | null) {
+export function useTrackJob(jobId: string | null) {
   const qc = useQueryClient();
 
-  const result = useQuery<ScrapeJobStatus>({
-    queryKey: queryKeys.scrape.job(jobId ?? ""),
-    queryFn: () => getScrapeJob(jobId!),
+  const result = useQuery<TrackJobStatus>({
+    queryKey: queryKeys.track.job(jobId ?? ""),
+    queryFn: () => getTrackJob(jobId!),
     enabled: !!jobId,
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -125,17 +110,116 @@ export function useScrapeJob(jobId: string | null) {
     gcTime: 5 * 60_000,
   });
 
-  // When a job finishes successfully, invalidate every deals list so the UI
-  // re-fetches with the new rows the worker just inserted. Done here rather
-  // than at the call site so any future consumer of useScrapeJob gets it for
-  // free.
+  // When tracking finishes, invalidate the products feed and watchlist so
+  // the newly-tracked product appears without a manual refresh.
   useEffect(() => {
     if (result.data?.state === "SUCCESS") {
-      qc.invalidateQueries({ queryKey: queryKeys.deals.all });
+      qc.invalidateQueries({ queryKey: queryKeys.products.all });
+      qc.invalidateQueries({ queryKey: queryKeys.watches.all });
     }
   }, [result.data?.state, qc]);
 
   return result;
+}
+
+// ── Products ────────────────────────────────────────────────────────────
+
+export function useProducts(
+  params: { sort?: "deal_score" | "newest"; minScore?: number; q?: string; limit?: number } = {}
+) {
+  return useQuery({
+    queryKey: queryKeys.products.list(params),
+    queryFn: () => fetchProducts(params),
+    staleTime: 30_000,
+  });
+}
+
+export function useProduct(id: string | null) {
+  return useQuery({
+    queryKey: queryKeys.products.detail(id ?? ""),
+    queryFn: () => fetchProduct(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function usePriceHistory(id: string | null, window: "90" | "180" | "all" = "90") {
+  return useQuery({
+    queryKey: queryKeys.products.history(id ?? "", window),
+    queryFn: () => fetchHistory(id!, window),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
+}
+
+export function useVerdict(id: string | null, enabled = true) {
+  return useQuery<VerdictOut>({
+    queryKey: queryKeys.products.verdict(id ?? ""),
+    queryFn: () => fetchVerdict(id!),
+    enabled: !!id && enabled,
+    staleTime: 60_000,
+    refetchInterval: (query) => (query.state.data?.state === "pending" ? 2000 : false),
+  });
+}
+
+// ── Watches ─────────────────────────────────────────────────────────────
+
+export function useWatches(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.watches.all,
+    queryFn: fetchWatches,
+    enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useCreateWatch() {
+  const qc = useQueryClient();
+  return useMutation<
+    Watch,
+    Error,
+    { product_id: string; rule_type?: RuleType; threshold?: number | null }
+  >({
+    mutationFn: createWatch,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.watches.all });
+    },
+  });
+}
+
+export function useUpdateWatch() {
+  const qc = useQueryClient();
+  return useMutation<
+    Watch,
+    Error,
+    { id: string; rule_type?: RuleType; threshold?: number | null; is_active?: boolean }
+  >({
+    mutationFn: ({ id, ...body }) => updateWatch(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.watches.all });
+    },
+  });
+}
+
+export function useDeleteWatch() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (id) => deleteWatch(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.watches.all });
+    },
+  });
+}
+
+// ── Alerts ──────────────────────────────────────────────────────────────
+
+export function useAlerts(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.alerts.all,
+    queryFn: fetchAlerts,
+    enabled,
+    staleTime: 15_000,
+  });
 }
 
 // Re-export the singleton so non-component code (e.g. the LoginPage submit

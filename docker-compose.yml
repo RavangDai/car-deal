@@ -51,6 +51,12 @@ services:
       # Session cookie. In prod (cross-site) set COOKIE_SECURE=true + COOKIE_SAMESITE=none.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      # Claude API (extraction fallback + "Buy or Wait" verdicts). Blank = disabled.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Price-drop alert email. "console" (default) logs the email; set to
+      # "resend" + RESEND_API_KEY to send real email.
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
@@ -74,6 +80,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/cardeals
       REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -84,6 +93,32 @@ services:
     volumes:
       - ./backend:/app
     command: celery -A app.celery_app:celery_app worker --loglevel=info --concurrency=2
+
+  # Schedules the daily price-recheck fan-out (prices.schedule_rechecks).
+  # Exactly ONE beat replica must ever run — celery beat is not designed for
+  # multiple concurrent schedulers, which would double-fire every job.
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/cardeals
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+    command: >
+      celery -A app.celery_app:celery_app beat --loglevel=info
+             --schedule /tmp/celerybeat-schedule
 
 volumes:
   postgres_data:
