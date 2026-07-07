@@ -163,9 +163,8 @@ const CAROUSEL_STYLES = `
     overflow: hidden;
   }
   .wic-hero-carousel-empty {
-    background:
-      radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--primary) 45%, transparent), transparent 60%),
-      linear-gradient(165deg, var(--ink) 0%, #10182a 60%, var(--ink) 100%);
+    background: var(--desktop);
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 22px);
   }
   .wic-hero-slide-bg { position: absolute; inset: 0; z-index: 0; }
   .wic-hero-slide-img { width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
@@ -190,16 +189,15 @@ const CAROUSEL_STYLES = `
     width: min(300px, calc(100vw - 48px));
     display: flex; flex-direction: column; gap: 6px;
     text-align: left; cursor: pointer;
-    background: var(--frost-light);
-    -webkit-backdrop-filter: var(--frost-blur);
-    backdrop-filter: var(--frost-blur);
-    border: 1px solid rgba(255,255,255,.6);
-    border-radius: var(--r-card);
+    background: var(--paper);
+    border-top: var(--bevel-width) solid var(--bevel-hi); border-left: var(--bevel-width) solid var(--bevel-hi);
+    border-right: var(--bevel-width) solid var(--bevel-lo); border-bottom: var(--bevel-width) solid var(--bevel-lo);
     padding: 16px 18px;
     box-shadow: var(--shadow-xl);
-    transition: transform .3s var(--ease-out-expo);
+    transition: transform .15s var(--ease-out-expo);
   }
   .wic-hero-slide-card:hover { transform: translateY(-2px); }
+  .wic-hero-slide-card:active { transform: translate(1px, 1px); }
   .wic-hero-slide-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .wic-hero-slide-domain { font-size: 11px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.05em; }
   .wic-hero-lowest-badge {

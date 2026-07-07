@@ -22,7 +22,7 @@ import { formatMoney } from "./format";
 import ProductDetailPage from "./ProductDetailPage";
 import AlertsPage from "./AlertsPage";
 import { Sparkline, ScoreHistogram } from "./charts";
-import { Arrow, PRIMITIVE_STYLES } from "./primitives";
+import { Arrow, PRIMITIVE_STYLES, RetroButton, RetroWindow, Taskbar } from "./primitives";
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
 
@@ -231,6 +231,7 @@ function Dashboard({
 }) {
   const [pasteUrl, setPasteUrl] = useState(initialTrackUrl ?? "");
   const [jobId, setJobId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const trackMutation = useTrackUrl();
   const trackJob = useTrackJob(jobId);
@@ -280,32 +281,29 @@ function Dashboard({
   const watchlistLoading = guest ? browseQuery.isLoading : watchesQuery.isLoading;
 
   return (
-    <div className="rv-report min-h-screen flex flex-col">
+    <div className="rv-report rv-page min-h-screen flex flex-col">
       <style>{REPORT_STYLES}</style>
 
-      {/* ── HEADER — floating frosted pill ── */}
-      <header className="rv-dash-nav">
-        <div className="rv-dash-nav-inner">
-          <a href="#" className="rv-dash-brand">
-            <img src="/wic-logo.svg" alt="" aria-hidden className="w-[26px] h-[26px] object-contain" />
-            <span className="rv-dash-name">WasItCheaper</span>
-            <span className="rv-dash-tag">Tracked products</span>
-          </a>
-          <div className="rv-dash-actions">
-            {!guest && <a href="#/alerts" className="rv-dash-ghost">Alerts</a>}
-            {guest ? (
-              <>
-                <button onClick={onExitGuest} className="rv-dash-ghost">Exit</button>
-                <button onClick={onCreateAccount} className="rv-btn rv-btn-primary rv-btn-sm">
-                  Create account
-                </button>
-              </>
-            ) : (
-              <button onClick={onLogout} className="rv-dash-ghost">Sign out</button>
-            )}
-          </div>
-        </div>
-      </header>
+      <Taskbar
+        links={[
+          { href: "#", label: "Home" },
+          ...(!guest ? [{ href: "#/alerts", label: "Alerts" }] : []),
+        ]}
+        activeHref="#"
+        status={guest ? `${guestProducts.length} products` : `${watches.length} tracked`}
+        actions={
+          guest ? (
+            <>
+              <RetroButton variant="ghost" size="sm" onClick={onExitGuest}>Exit</RetroButton>
+              <RetroButton variant="primary" size="sm" onClick={onCreateAccount}>Create account</RetroButton>
+            </>
+          ) : (
+            <RetroButton variant="ghost" size="sm" onClick={onLogout}>Sign out</RetroButton>
+          )
+        }
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+      />
 
       <main className="flex-1 w-full">
         {/* ── TRACK ─────────────────────────────────── */}
@@ -335,61 +333,57 @@ function Dashboard({
             </motion.p>
           </div>
 
-          <motion.form
-            onSubmit={handleTrack}
-            variants={dashForm}
-            className="relative rv-bezel self-start"
-          >
-            <div className="rv-bezel-core p-6 md:p-7">
-              <h2 className="text-[15px] font-bold mb-6">Track a product</h2>
+          <motion.div variants={dashForm} className="self-start">
+            <RetroWindow title="track.exe">
+              <form onSubmit={handleTrack} className="relative">
+                <h2 className="text-[15px] font-bold mb-6">Track a product</h2>
 
-              <div className="space-y-5">
-                <Field
-                  label="Product URL"
-                  value={pasteUrl}
-                  onChange={setPasteUrl}
-                  placeholder="https://shop.example.com/p/widget"
-                  disabled={guest}
-                />
-              </div>
+                <div className="space-y-5">
+                  <Field
+                    label="Product URL"
+                    value={pasteUrl}
+                    onChange={setPasteUrl}
+                    placeholder="https://shop.example.com/p/widget"
+                    disabled={guest}
+                  />
+                </div>
 
-              <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
-                <button type="submit" disabled={loadingTrack || guest} className="rv-btn rv-btn-primary">
-                  {loadingTrack && <Spinner size={14} className="text-current" />}
-                  <span>{loadingTrack ? (stage ?? "Tracking") : "Track it"}</span>
-                  {!loadingTrack && (
-                    <span className="rv-btn-icon"><Arrow size={12} /></span>
+                <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
+                  <RetroButton type="submit" variant="primary" disabled={loadingTrack || guest}>
+                    {loadingTrack && <Spinner size={14} className="text-current" />}
+                    <span>{loadingTrack ? (stage ?? "Tracking") : "Track it"}</span>
+                    {!loadingTrack && <Arrow size={12} />}
+                  </RetroButton>
+                  {jobId && (
+                    <span className="rv-tag">Job {jobId.slice(0, 8)}</span>
                   )}
-                </button>
-                {jobId && (
-                  <span className="rv-tag">Job {jobId.slice(0, 8)}</span>
+                </div>
+
+                {trackError && (
+                  <p className="mt-5 text-[13.5px] text-[var(--err)] flex items-start gap-2">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--red)] text-white font-bold text-[10px] mt-0.5 shrink-0">!</span>
+                    {trackError}
+                  </p>
                 )}
-              </div>
 
-              {trackError && (
-                <p className="mt-5 text-[13.5px] text-[var(--err)] flex items-start gap-2">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[var(--red)] text-white font-bold text-[10px] mt-0.5 shrink-0">!</span>
-                  {trackError}
-                </p>
-              )}
+                {trackResult && !loadingTrack && (
+                  <p className="mt-5 text-[13px] text-[var(--ink-muted)] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[var(--green)] shrink-0" />
+                    {trackResult.created ? "Tracking started." : "Already tracked — added to your list."}{" "}
+                    <a href={`#/product/${trackResult.product_id}`} className="rv-link">View product</a>
+                  </p>
+                )}
 
-              {trackResult && !loadingTrack && (
-                <p className="mt-5 text-[13px] text-[var(--ink-muted)] flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[var(--green)] shrink-0" />
-                  {trackResult.created ? "Tracking started." : "Already tracked — added to your list."}{" "}
-                  <a href={`#/product/${trackResult.product_id}`} className="rv-link">View product</a>
-                </p>
-              )}
-
-              {guest && <GuestLock onCreateAccount={onCreateAccount} />}
-            </div>
-          </motion.form>
+                {guest && <GuestLock onCreateAccount={onCreateAccount} />}
+              </form>
+            </RetroWindow>
+          </motion.div>
         </motion.section>
 
         {/* ── WATCHLIST / BROWSE ────────────────────────── */}
         <div className="border-t border-[var(--rule)] bg-[var(--paper-soft)]">
           <section className="max-w-[1180px] mx-auto w-full px-6 md:px-10 grid lg:grid-cols-[1fr_300px] gap-10 lg:gap-14 pt-10 pb-16">
-            <div>
+            <RetroWindow title="watchlist.exe">
               <div className="flex items-baseline justify-between gap-4 mb-5">
                 <h2 className="display text-[1.6rem] leading-tight">
                   {guest ? "Today's deals" : "Your tracked products"}
@@ -415,35 +409,33 @@ function Dashboard({
                   onUnwatch={(id) => deleteWatchMutation.mutate(id)}
                 />
               )}
-            </div>
+            </RetroWindow>
 
             <aside className="space-y-5 lg:sticky lg:top-[88px] self-start">
               {!guest && watches.length > 0 && (
-                <div className="rv-bezel m-0">
-                  <figure className="rv-bezel-core p-5 m-0">
+                <RetroWindow title="stats.exe" className="m-0">
+                  <figure className="m-0">
                     <figcaption className="rv-eyebrow mb-3">Score distribution</figcaption>
                     <ScoreHistogram products={watches.map((w) => ({ deal_score: w.product.deal_score }))} />
                   </figure>
-                </div>
+                </RetroWindow>
               )}
               {guest && guestProducts.length > 0 && (
-                <div className="rv-bezel m-0">
-                  <figure className="rv-bezel-core p-5 m-0">
+                <RetroWindow title="stats.exe" className="m-0">
+                  <figure className="m-0">
                     <figcaption className="rv-eyebrow mb-3">Score distribution</figcaption>
                     <ScoreHistogram products={guestProducts.map((p) => ({ deal_score: p.deal_score }))} />
                   </figure>
-                </div>
+                </RetroWindow>
               )}
-              <div className="rv-bezel">
-                <div className="rv-bezel-core p-5">
-                  <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
-                    <span className="text-[var(--green)] font-semibold">Great price</span> means a
-                    verified discount against 90 days of real history;{" "}
-                    <span className="text-[var(--amber-deep)] font-semibold">wait</span> means the
-                    math says it isn't a real drop yet.
-                  </p>
-                </div>
-              </div>
+              <RetroWindow title="readme.txt">
+                <p className="text-[13px] leading-relaxed text-[var(--ink-muted)]">
+                  <span className="text-[var(--green)] font-semibold">Great price</span> means a
+                  verified discount against 90 days of real history;{" "}
+                  <span className="text-[var(--amber-deep)] font-semibold">wait</span> means the
+                  math says it isn't a real drop yet.
+                </p>
+              </RetroWindow>
             </aside>
           </section>
         </div>
@@ -590,9 +582,9 @@ function GuestLock({ onCreateAccount }: { onCreateAccount?: () => void }) {
         <p className="text-[13.5px] text-[var(--ink-muted)] max-w-[34ch] mb-5 leading-relaxed">
           Create a free account to track products and get price-drop alerts. Browsing today's deals stays free.
         </p>
-        <button onClick={onCreateAccount} className="rv-btn rv-btn-primary">
+        <RetroButton variant="primary" onClick={onCreateAccount}>
           Create a free account
-        </button>
+        </RetroButton>
       </div>
     </div>
   );
@@ -623,20 +615,18 @@ function ResultsSkeleton() {
 // Empty state that teaches the interface rather than just saying "nothing here".
 function EmptyResults({ guest }: { guest: boolean }) {
   return (
-    <div className="rv-bezel">
-      <div className="rv-bezel-core text-center px-6 py-16">
-        <span className="rv-empty-mark" aria-hidden>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
-          </svg>
-        </span>
-        <p className="display text-[1.4rem] mb-1.5">{guest ? "No deals to show yet." : "Nothing tracked yet."}</p>
-        <p className="text-[14px] text-[var(--ink-muted)] max-w-[40ch] mx-auto leading-relaxed">
-          {guest
-            ? "Check back soon — new products are tracked and scored daily."
-            : "Paste a product URL above to start tracking its price history."}
-        </p>
-      </div>
+    <div className="text-center px-6 py-16">
+      <span className="rv-empty-mark" aria-hidden>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" />
+        </svg>
+      </span>
+      <p className="display text-[1.4rem] mb-1.5">{guest ? "No deals to show yet." : "Nothing tracked yet."}</p>
+      <p className="text-[14px] text-[var(--ink-muted)] max-w-[40ch] mx-auto leading-relaxed">
+        {guest
+          ? "Check back soon — new products are tracked and scored daily."
+          : "Paste a product URL above to start tracking its price history."}
+      </p>
     </div>
   );
 }
@@ -659,34 +649,6 @@ const REPORT_STYLES = `
   }
 
   .rv-report .rv-emph { color: var(--primary); }
-
-  /* Dashboard nav — dark frosted floating pill, matched to the marketing nav. */
-  .rv-report .rv-dash-nav {
-    position: sticky; top: 0; z-index: var(--z-sticky-nav);
-    display: flex; justify-content: center;
-    padding: 14px 16px 0; pointer-events: none;
-  }
-  .rv-report .rv-dash-nav-inner {
-    pointer-events: auto; width: min(1180px, 100%);
-    display: flex; align-items: center; justify-content: space-between; gap: 18px;
-    padding: 9px 11px 9px 18px;
-    background: var(--frost-dark);
-    -webkit-backdrop-filter: var(--frost-blur);
-    backdrop-filter: var(--frost-blur);
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: var(--r-pill);
-    box-shadow: var(--pill-shadow);
-  }
-  .rv-report .rv-dash-brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-  .rv-report .rv-dash-name { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; color: #fff; line-height: 1; }
-  .rv-report .rv-dash-tag {
-    font-size: 12px; font-weight: 600; color: rgba(255,255,255,.62);
-    border-left: 1px solid rgba(255,255,255,.22); padding-left: 11px; white-space: nowrap;
-  }
-  @media (max-width: 560px) { .rv-report .rv-dash-tag { display: none; } }
-  .rv-report .rv-dash-actions { display: flex; align-items: center; gap: 16px; }
-  .rv-report .rv-dash-ghost { font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,.82); transition: color .15s ease; }
-  .rv-report .rv-dash-ghost:hover { color: #fff; }
 
   .rv-report .font-mono { font-family: 'Manrope', sans-serif; font-variant-numeric: tabular-nums; }
 
@@ -811,15 +773,12 @@ const REPORT_STYLES = `
     .rv-report .rv-lotrow-unwatch { grid-column: 1 / -1; justify-self: start; }
   }
 
-  /* Guest lock — plain frosted card, no blur. */
+  /* Guest lock — solid paper overlay, no blur/glow per retro chrome rules. */
   .rv-report .rv-guest-lock {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
-    border-radius: var(--r-card);
-    background: var(--frost-light);
-    -webkit-backdrop-filter: var(--frost-blur);
-    backdrop-filter: var(--frost-blur);
+    background: var(--paper);
   }
   .rv-report .rv-guest-lock-card {
     display: flex; flex-direction: column; align-items: center;

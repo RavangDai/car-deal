@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
+import { RetroWindow, Taskbar } from "./primitives";
 
 export type LegalKind = "terms" | "privacy";
 
@@ -14,6 +15,7 @@ interface Props {
 export default function LegalPage({ kind, onBack }: Props) {
   const doc = kind === "terms" ? TERMS : PRIVACY;
   const other: LegalKind = kind === "terms" ? "privacy" : "terms";
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Start at the top whenever the document changes.
   useEffect(() => {
@@ -21,7 +23,7 @@ export default function LegalPage({ kind, onBack }: Props) {
   }, [kind]);
 
   return (
-    <div className="rv-legal min-h-screen">
+    <div className="rv-legal rv-page min-h-screen">
       <style>{STYLES}</style>
 
       <nav className="rv-legal-nav">
@@ -30,65 +32,59 @@ export default function LegalPage({ kind, onBack }: Props) {
             <ArrowLeft size={13} />
             <span>Back to home</span>
           </button>
-          <Wordmark />
         </div>
       </nav>
 
+      <Taskbar
+        links={[{ href: "#", label: "Home" }]}
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+      />
+
       <main className="rv-legal-main">
-        <header className="rv-legal-head">
-          <span className="rv-eyebrow rv-eyebrow-accent mb-3.5">Legal</span>
-          <h1 className="rv-display rv-legal-title">{doc.title}</h1>
-          <p className="rv-legal-meta">Last updated · {LAST_UPDATED}</p>
-          <p className="rv-legal-intro">{doc.intro}</p>
-        </header>
+        <RetroWindow title={kind === "terms" ? "terms_of_service.txt" : "privacy_policy.txt"}>
+          <header className="rv-legal-head">
+            <span className="rv-eyebrow rv-eyebrow-accent mb-3.5">Legal</span>
+            <h1 className="rv-display rv-legal-title">{doc.title}</h1>
+            <p className="rv-legal-meta">Last updated · {LAST_UPDATED}</p>
+            <p className="rv-legal-intro">{doc.intro}</p>
+          </header>
 
-        <article className="rv-legal-body">
-          {doc.sections.map((s, i) => (
-            <section key={s.h} className="rv-legal-section">
-              <h2 className="rv-display rv-legal-h2">
-                <span className="rv-legal-h2-num">{String(i + 1).padStart(2, "0")}</span>
-                {s.h}
-              </h2>
-              {s.body?.map((p, j) => (
-                <p key={j} className="rv-legal-p">{p}</p>
-              ))}
-              {s.bullets && (
-                <ul className="rv-legal-list">
-                  {s.bullets.map((b, j) => (
-                    <li key={j}>{b}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          ))}
-        </article>
+          <article className="rv-legal-body">
+            {doc.sections.map((s, i) => (
+              <section key={s.h} className="rv-legal-section">
+                <h2 className="rv-display rv-legal-h2">
+                  <span className="rv-legal-h2-num">{String(i + 1).padStart(2, "0")}</span>
+                  {s.h}
+                </h2>
+                {s.body?.map((p, j) => (
+                  <p key={j} className="rv-legal-p">{p}</p>
+                ))}
+                {s.bullets && (
+                  <ul className="rv-legal-list">
+                    {s.bullets.map((b, j) => (
+                      <li key={j}>{b}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            ))}
+          </article>
 
-        <footer className="rv-legal-foot">
-          <p className="rv-legal-foot-line">
-            Questions? Email us at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
-          </p>
-          <div className="rv-legal-foot-links">
-            <a href={`#/${other}`} className="rv-legal-foot-link">
-              Read our {other === "terms" ? "Terms of Service" : "Privacy Policy"} →
-            </a>
-            <button onClick={onBack} className="rv-legal-foot-link rv-legal-foot-link-btn">Back to home</button>
-          </div>
-        </footer>
+          <footer className="rv-legal-foot">
+            <p className="rv-legal-foot-line">
+              Questions? Email us at <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            </p>
+            <div className="rv-legal-foot-links">
+              <a href={`#/${other}`} className="rv-legal-foot-link">
+                Read our {other === "terms" ? "Terms of Service" : "Privacy Policy"} →
+              </a>
+              <button onClick={onBack} className="rv-legal-foot-link rv-legal-foot-link-btn">Back to home</button>
+            </div>
+          </footer>
+        </RetroWindow>
       </main>
     </div>
-  );
-}
-
-/* ── COMPONENTS ───────────────────────────────────────────── */
-
-function Wordmark() {
-  return (
-    <span className="rv-legal-wordmark">
-      <span className="rv-legal-wordmark-mark">
-        <img src="/wic-logo.svg" alt="WasItCheaper" className="rv-legal-wordmark-img" />
-      </span>
-      <span className="rv-legal-wordmark-name">WasItCheaper</span>
-    </span>
   );
 }
 
@@ -298,16 +294,12 @@ const STYLES = `
     text-rendering: optimizeLegibility;
   }
 
-  .rv-legal .rv-display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; text-wrap: balance; }
+  .rv-legal .rv-display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; text-wrap: balance; }
 
   /* Nav */
   .rv-legal .rv-legal-nav {
-    position: sticky; top: 0; z-index: var(--z-sticky-nav);
-    background: var(--frost-light);
-    backdrop-filter: saturate(180%) blur(10px);
-    -webkit-backdrop-filter: saturate(180%) blur(10px);
+    background: var(--paper-pale);
     border-bottom: 1px solid var(--rule);
-    box-shadow: var(--shadow-sm);
   }
   .rv-legal .rv-legal-nav-inner {
     max-width: 760px; margin: 0 auto;
@@ -324,10 +316,6 @@ const STYLES = `
   .rv-legal .rv-legal-back:hover { color: var(--ink); }
   .rv-legal .rv-legal-back svg { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); }
   .rv-legal .rv-legal-back:hover svg { transform: translateX(-3px); }
-  .rv-legal .rv-legal-wordmark { display: inline-flex; align-items: center; gap: 9px; color: var(--ink); }
-  .rv-legal .rv-legal-wordmark-mark { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; }
-  .rv-legal .rv-legal-wordmark-img { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .rv-legal .rv-legal-wordmark-name { font-weight: 800; font-size: 19px; letter-spacing: -0.02em; line-height: 1; }
 
   /* Main column */
   .rv-legal .rv-legal-main {

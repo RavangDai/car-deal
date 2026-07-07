@@ -197,6 +197,7 @@ export type Product = {
   is_lowest_ever: boolean;
   deal_score: number | null;
   stats: ProductStats | null;
+  last_checked_at: string | null;
   created_at: string;
 };
 

@@ -1,9 +1,11 @@
 // Alert history (#/alerts) — every price-drop email fired for the signed-in
 // user, audited from the real alert_events table (not a client-side log).
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useAlerts, useProduct } from "./hooks";
 import { formatMoney } from "./format";
 import { Spinner } from "./Spinner";
+import { RetroWindow, Taskbar } from "./primitives";
 import type { AlertEvent } from "./api";
 
 const RULE_LABEL: Record<string, string> = {
@@ -25,9 +27,10 @@ function timeLabel(iso: string): string {
 
 export default function AlertsPage({ onBack }: { onBack: () => void }) {
   const { data: alerts, isLoading } = useAlerts();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="rv-alerts min-h-screen">
+    <div className="rv-alerts rv-page min-h-screen">
       <style>{ALERTS_STYLES}</style>
 
       <header className="rv-alerts-nav">
@@ -36,12 +39,15 @@ export default function AlertsPage({ onBack }: { onBack: () => void }) {
             <ArrowLeft size={15} />
             <span>Back</span>
           </button>
-          <a href="#" className="rv-alerts-brand">
-            <img src="/wic-logo.svg" alt="" aria-hidden className="rv-alerts-logo" />
-            <span>WasItCheaper</span>
-          </a>
         </div>
       </header>
+
+      <Taskbar
+        links={[{ href: "#", label: "Home" }, { href: "#/alerts", label: "Alerts" }]}
+        activeHref="#/alerts"
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+      />
 
       <main className="rv-alerts-main">
         <h1 className="rv-alerts-title">Alert history</h1>
@@ -55,20 +61,22 @@ export default function AlertsPage({ onBack }: { onBack: () => void }) {
         )}
 
         {!isLoading && (alerts ?? []).length === 0 && (
-          <div className="rv-alerts-empty">
+          <RetroWindow title="alerts.log" bodyClassName="rv-alerts-empty">
             <p className="rv-alerts-empty-title">No alerts yet.</p>
             <p className="rv-alerts-empty-sub">
               Track a product and set an alert rule — we'll email you the moment the price genuinely drops.
             </p>
-          </div>
+          </RetroWindow>
         )}
 
         {!isLoading && (alerts ?? []).length > 0 && (
-          <ul className="rv-alerts-list">
-            {(alerts ?? []).map((a) => (
-              <AlertRow key={a.id} alert={a} />
-            ))}
-          </ul>
+          <RetroWindow title="alerts.log" bodyClassName="p-0">
+            <ul className="rv-alerts-list">
+              {(alerts ?? []).map((a) => (
+                <AlertRow key={a.id} alert={a} />
+              ))}
+            </ul>
+          </RetroWindow>
         )}
       </main>
     </div>
@@ -118,20 +126,18 @@ const ALERTS_STYLES = `
     transition: color .15s ease;
   }
   .rv-alerts-back:hover { color: var(--ink); }
-  .rv-alerts-brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 800; font-size: 17px; letter-spacing: -0.02em; }
-  .rv-alerts-logo { width: 24px; height: 24px; object-fit: contain; }
 
   .rv-alerts-main { max-width: 780px; margin: 0 auto; padding: 40px 24px 64px; }
-  .rv-alerts-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.7rem, 3vw, 2.2rem); letter-spacing: -0.03em; }
+  .rv-alerts-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 3.2vw, 2.4rem); letter-spacing: 0.01em; }
   .rv-alerts-sub { margin-top: 8px; font-size: 14.5px; color: var(--ink-muted); margin-bottom: 32px; }
 
   .rv-alerts-state { display: flex; align-items: center; gap: 10px; padding: 40px 0; color: var(--ink-muted); }
 
-  .rv-alerts-empty { text-align: center; padding: 60px 20px; border: 1px solid var(--rule); border-radius: 14px; background: var(--paper-pale); }
-  .rv-alerts-empty-title { font-family: var(--font-display); font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .rv-alerts-empty { text-align: center; padding: 60px 20px; }
+  .rv-alerts-empty-title { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; margin-bottom: 8px; }
   .rv-alerts-empty-sub { font-size: 14px; color: var(--ink-muted); max-width: 42ch; margin: 0 auto; line-height: 1.5; }
 
-  .rv-alerts-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--rule); border-radius: 14px; background: var(--paper-pale); overflow: hidden; }
+  .rv-alerts-list { list-style: none; margin: 0; padding: 0; }
   .rv-alert-row {
     display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center; gap: 16px;

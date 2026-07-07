@@ -2,69 +2,80 @@
    Single source of truth for typography + design tokens — loaded once,
    globally, via main.tsx (:root), inherited by every page's own wrapper.
 
-   Direction: modern SaaS/dashboard. A single clean grotesk (Manrope) carries
-   everything, headlines included — no serif contrast. A cool neutral-slate
-   canvas grounds the page; a saturated blue is the one brand/CTA color.
-   Card depth is a restrained double-bezel (small radius, tight padding),
-   not an exaggerated nested-shell — the previous pass's oversized bezel +
-   warm-editorial serif pairing is what read as "not high end," not the
-   underlying mechanics (button-in-button, scroll-reveal, macro-whitespace),
-   which are kept and just retuned to this cooler idiom.
+   Direction: retro desktop OS ("pseudo-retro" — Windows-95-style window
+   chrome: beveled panels, gradient titlebars, a taskbar) wrapped around
+   modern, highly legible typography. The bevel is real border technique
+   (light top/left, dark bottom/right), not a filter; shadows are hard
+   0-blur offsets, not soft glow. Every token NAME below is unchanged from
+   the prior "cool SaaS" pass — only values repoint — so call sites across
+   every page keep working untouched.
 
-   Semantic mapping:
-     primary → brand / CTA / interactive (saturated blue)
+   Semantic mapping (unchanged from the prior system):
+     primary → brand / CTA / interactive — ALSO the titlebar gradient's
+               light stop, so retro chrome and the CTA color are one blue,
+               not two systems. primary-deep is the titlebar's dark stop.
      link    → quiet inline text links only (a second, calmer blue — never CTA)
-     green   → good deal / confidence / savings / undervalue % (all positive
-               dollar-amount and confidence signals consolidate here)
-     amber   → caution / thin margin / warnings
-     red     → error / danger ONLY (weak password, form validation) — no
-               longer a brand or CTA color
-     ink     → near-black text; paper → neutral canvas; paper-pale → cards/inputs
+     green   → good deal / confidence / savings / a real price drop
+     amber   → caution / thin margin / a real price rise (never red)
+     red     → error / danger ONLY (weak password, form validation, a
+               failed request) — never repurposed for "price went up"
+     ink     → near-black warm text; paper → window/panel canvas;
+               desktop  → the outer wallpaper behind every window
 */
 
 :root {
-  /* ── Typography — one typeface, no serif contrast. */
-  --font-display: 'Manrope', system-ui, -apple-system, sans-serif;
+  /* ── Typography — pixel/terminal face for titlebars + big display text
+     only (that's exactly what --font-display already gates); Manrope
+     carries every price, sentence, and button label via --font-sans. */
+  --font-display: 'VT323', 'Consolas', ui-monospace, monospace;
   --font-sans: 'Manrope', system-ui, -apple-system, sans-serif;
 
-  /* ── Canvas — cool neutral slate, not warm cream. */
-  --paper:        #f8fafc;
-  --paper-deep:   #e2e8f0;
-  --paper-soft:   #f1f5f9;
+  /* ── Desktop — the outer wallpaper behind every window. New token: the
+     prior system had no concept of a canvas behind the page background. */
+  --desktop:      #0e7e81;
+  --desktop-deep: #0a5f61;
+
+  /* ── Canvas — window/panel surface. Warm off-white, not cool slate. */
+  --paper:        #f3f1ea;
+  --paper-deep:   #e6e2d4;
+  --paper-soft:   #ece7da;
   --paper-pale:   #ffffff;
   --bone:         #ffffff;
 
-  /* ── Ink — cool near-black ramp. Muted/fade kept dark enough to clear 4.5:1. */
-  --ink:          #0f172a;
-  --ink-soft:     #1e293b;
-  --ink-muted:    #55627a;
-  --ink-fade:     #7d879c;
+  /* ── Ink — warm near-black ramp (was cool slate). Muted/fade kept dark
+     enough to clear 4.5:1 against --paper. */
+  --ink:          #201f1a;
+  --ink-soft:     #3a382f;
+  --ink-muted:    #57544a;
+  --ink-fade:     #7a7566;
 
-  /* ── Red — error/danger ONLY (weak password, form errors). No longer brand/CTA. */
-  --red:          #dc2626;
-  --red-deep:     #b91c1c;
-  --red-tint:     #fee2e2;
-  --red-wash:     rgba(220,38,38,.08);
+  /* ── Red — error/danger ONLY. Never used for "price went up" — that's
+     amber. A real price rise is a caution, not an error. */
+  --red:          #a92318;
+  --red-deep:     #7c1912;
+  --red-tint:     #f8ddd9;
+  --red-wash:     rgba(169,35,24,.08);
 
-  /* ── Green — good deal / confidence / savings / undervalue %. */
-  --green:        #2d6a4f;
-  --green-deep:   #1f4d3a;
-  --green-tint:   #dde9e1;
+  /* ── Green — good deal / confidence / savings / a real price drop. */
+  --green:        #1a6b45;
+  --green-deep:   #123f29;
+  --green-tint:   #dcefe3;
 
-  /* ── Amber — caution / thin margin. */
-  --amber:        #b07d2b;
-  --amber-deep:   #8a5f1d;
-  --amber-tint:   #f3e6cf;
+  /* ── Amber — caution / thin margin / a real price rise. */
+  --amber:        #8a5e09;
+  --amber-deep:   #664508;
+  --amber-tint:   #f6ecd2;
 
-  /* ── Primary — the new brand/CTA color: saturated blue. */
+  /* ── Primary — brand/CTA blue. Unchanged value on purpose: this is the
+     titlebar gradient's light stop, bridging the retro chrome and the
+     existing CTA color into one system. */
   --primary:      #2563eb;
-  --primary-deep: #1d4ed8;
+  --primary-deep: #0e2258;
   --primary-tint: #dbeafe;
   --primary-wash: rgba(37,99,235,.08);
 
-  /* ── Link — a second, quieter blue: inline text links only, never CTA. Kept
-     distinct from --primary so "brand action" and "quiet reference" stay
-     visually separate jobs. */
+  /* ── Link — a second, quieter blue: inline text links only, never CTA.
+     Unchanged — orthogonal to the retro chrome shift. */
   --blue:         #136f96;
   --blue-bright:  #0081c0;
   --blue-deep:    #0d5c7e;
@@ -72,46 +83,47 @@
   --link:         #136f96;
   --link-hover:   #0d5c7e;
 
-  /* ── Hairlines. */
-  --rule:         #e2e8f0;
-  --rule-strong:  #cbd5e1;
+  /* ── Hairlines — warm, for internal row dividers inside a window (the
+     bevel border technique below carries most surface separation now). */
+  --rule:         #ded7c4;
+  --rule-strong:  #c3b99f;
   --border:       var(--rule);
   --border-strong: var(--rule-strong);
   --err:          var(--red);
 
-  /* ── Elevation — cool-black shadow color, tighter blur than the prior pass. */
-  --shadow-sm:   0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
-  --shadow-md:   0 2px 6px rgba(15,23,42,.05), 0 6px 16px rgba(15,23,42,.08);
-  --shadow-lg:   0 4px 10px rgba(15,23,42,.06), 0 14px 32px rgba(15,23,42,.12);
-  --shadow-xl:   0 8px 18px rgba(15,23,42,.07), 0 24px 56px rgba(15,23,42,.16);
+  /* ── Bevel — real outset/inset border technique (light top/left, dark
+     bottom/right), the actual retro chrome mechanic. New tokens: the prior
+     double-bezel system used shadow+radius, not borders, for card depth. */
+  --bevel-hi:    #ffffff;
+  --bevel-lo:    #8a8778;
+  --bevel-width: 2px;
 
-  /* ── Frosted glass — purposeful only: the floating pill nav + the hero
-     carousel overlay. Never a default card treatment. */
-  --frost-light: rgba(248,250,252,.74);
-  --frost-dark:  rgba(15,23,42,.82);
-  --frost-blur:  saturate(180%) blur(14px);
-  --pill-shadow: 0 2px 8px rgba(15,23,42,.14), 0 12px 32px rgba(15,23,42,.20);
+  /* ── Elevation — hard 0-blur offset shadows (retro, not soft glow). */
+  --shadow-sm: 3px 3px 0 rgba(32,31,26,.22);
+  --shadow-md: 5px 5px 0 rgba(32,31,26,.28);
+  --shadow-lg: 8px 8px 0 rgba(32,31,26,.34);
+  --shadow-xl: 10px 10px 0 rgba(32,31,26,.4);
 
-  /* ── Radius scale — restrained, shadcn-adjacent sizing (was larger/"paper-like"). */
-  --r-sm:   6px;
-  --r-md:   8px;
-  --r-lg:   10px;
-  --r-xl:   14px;
-  --r-card: 10px;
+  /* ── Radius scale — Windows-95 chrome is square-cornered. */
+  --r-sm:   0px;
+  --r-md:   0px;
+  --r-lg:   0px;
+  --r-xl:   0px;
+  --r-card: 0px;
   --r-pill: 999px;
 
   /* ── Imagery */
-  --img-radius:  14px;
-  --img-ring:    inset 0 0 0 1px rgba(15,23,42,.08);
+  --img-radius:  0px;
+  --img-ring:    inset 0 0 0 1px rgba(32,31,26,.14);
 
-  /* ── Motion — one named easing carries the system. */
+  /* ── Motion — one named easing carries the system. Unchanged — motion
+     feel isn't era-specific. */
   --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
   --dur-fast:    .15s;
   --dur-mid:     .25s;
   --dur-slow:    .5s;
 
-  /* ── Z-index scale — structural app-chrome layers only. Local same-component
-     stacking (photo-behind-scrim, etc.) stays plain 0/-1 literals. */
+  /* ── Z-index scale — structural app-chrome layers only. */
   --z-raised:     1;
   --z-raised-2:   2;
   --z-sticky-nav: 40;
@@ -120,29 +132,14 @@
   --z-grain:      90;
   --z-modal:      100;
 
-  /* ── Double-bezel — nested "outer shell + inner core" card architecture.
-     Deliberately tight/subtle now (was 22px/6px "exaggerated agency" sizing) —
-     a restrained, shadcn-adjacent surface reads more premium than an oversized
-     nested shell in this cooler idiom. */
-  --bezel-pad:            3px;
-  --bezel-radius-outer:   12px;
-  --bezel-radius-inner:   calc(var(--bezel-radius-outer) - var(--bezel-pad));
-  --bezel-shell-bg:       rgba(15,23,42,.03);
-  --bezel-shell-ring:     inset 0 0 0 1px rgba(15,23,42,.06);
-  --bezel-core-highlight: inset 0 1px 0 rgba(255,255,255,.7), inset 0 0 0 1px rgba(15,23,42,.05);
-
-  /* ── Scroll-reveal — heavier fade-up-blur for whileInView entrances. */
+  /* ── Scroll-reveal — heavier fade-up-blur for whileInView entrances.
+     Unchanged. */
   --reveal-y:        44px;
   --reveal-blur:     6px;
   --reveal-duration: .8s;
 
-  /* ── Button-in-button trailing icon. */
-  --btn-icon-size:    26px;
-  --btn-icon-size-lg: 30px;
-  --btn-icon-size-sm: 22px;
-
-  /* ── Noise/grain overlay — DEFINED BUT UNUSED (dropped from the app shell;
-     film-grain read as an editorial/print tell, mismatched with this cooler
-     SaaS idiom). Kept for easy reversal, not rendered anywhere. */
+  /* ── Noise/grain overlay — DEFINED BUT UNUSED, kept for easy reversal
+     (same convention as the prior pass). Retro texture instead comes from
+     the desktop's hard-edged diagonal pattern, applied per-page. */
   --noise-opacity: 0.035;
 }

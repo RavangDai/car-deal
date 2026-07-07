@@ -1,29 +1,13 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion, type Variants } from "framer-motion";
 import { Bell } from "lucide-react";
 import { useProducts } from "./hooks";
 import { ProductImage } from "./ProductImage";
 import { productImage } from "./images";
 import { formatMoney } from "./format";
-import { Arrow, Reveal } from "./primitives";
+import { Arrow, RetroButton, RetroWindow, Reveal, Taskbar } from "./primitives";
 import HeroCarousel, { type HeroSlide } from "./HeroCarousel";
 import Footer from "./Footer";
 import type { Product } from "./api";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-const mobileMenuContainer: Variants = {
-  hidden: { opacity: 0, y: -8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.25, ease: EASE_OUT_EXPO, staggerChildren: 0.05, delayChildren: 0.05 },
-  },
-};
-const mobileMenuItem: Variants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE_OUT_EXPO } },
-};
 
 function agoLabel(iso: string): string {
   const t = Date.parse(iso);
@@ -66,7 +50,6 @@ function scoreReasons(p: Product): string[] {
 
 export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string) => void }) {
   const scopeRef = useRef<HTMLDivElement>(null);
-  const prefersReduced = useReducedMotion();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("hero");
@@ -121,15 +104,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
     onGetStarted(pasteUrl.trim() || undefined);
   }
 
-  // Subtle border/shadow once the page scrolls past the top.
-  const [pinned, setPinned] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setPinned(window.scrollY > 12);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   // Highlight the nav link for the section currently in view.
   useEffect(() => {
     const root = scopeRef.current;
@@ -158,70 +132,26 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
     return () => window.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  const navLinkClass = (id: string) =>
-    `rv-nav-link${activeSection === id ? " rv-nav-link-active" : ""}`;
-
   const bandProduct = products[0];
 
   return (
-    <div ref={scopeRef} className="rv-catalog min-h-screen relative">
+    <div ref={scopeRef} className="rv-catalog rv-page min-h-screen relative">
       <style>{STYLES}</style>
       <DonateBanner />
 
       {/* ── NAV ──────────────────────────────────────────── */}
-      <nav className={`rv-nav${pinned ? " rv-nav-pinned" : ""}`}>
-        <div className="rv-nav-inner">
-          <Wordmark />
-          <div className="hidden lg:flex items-center gap-1">
-            {NAV_LINKS.map(([l, h]) => (
-              <a key={h} href={`#${h}`} className={navLinkClass(h)}>{l}</a>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => onGetStarted()} className="hidden sm:inline-flex rv-nav-login">Sign in</button>
-            <button onClick={() => onGetStarted()} className="rv-btn rv-btn-primary hidden sm:inline-flex">
-              <span>Get started</span>
-              <span className="rv-btn-icon"><Arrow size={12} /></span>
-            </button>
-            <button
-              onClick={() => setMobileOpen((v) => !v)}
-              className="lg:hidden rv-burger"
-              aria-label="Toggle menu"
-              aria-expanded={mobileOpen}
-            >
-              <span className={`rv-burger-bar ${mobileOpen ? "rv-burger-bar-top-open" : ""}`} />
-              <span className={`rv-burger-bar ${mobileOpen ? "rv-burger-bar-mid-open" : ""}`} />
-              <span className={`rv-burger-bar ${mobileOpen ? "rv-burger-bar-bot-open" : ""}`} />
-            </button>
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {mobileOpen && (
-            <motion.div
-              className="rv-mobile-panel"
-              variants={mobileMenuContainer}
-              initial={prefersReduced ? "show" : "hidden"}
-              animate="show"
-              exit={prefersReduced ? "show" : "hidden"}
-            >
-              <div className="px-5 py-6 flex flex-col gap-3">
-                {NAV_LINKS.map(([l, h]) => (
-                  <motion.a key={h} href={`#${h}`} onClick={() => setMobileOpen(false)} className="rv-mobile-link" variants={mobileMenuItem}>{l}</motion.a>
-                ))}
-                <div className="rv-rule-static my-1" />
-                <motion.button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-mobile-link text-left" variants={mobileMenuItem}>
-                  Sign in
-                </motion.button>
-                <motion.button onClick={() => { setMobileOpen(false); onGetStarted(); }} className="rv-btn rv-btn-primary self-start" variants={mobileMenuItem}>
-                  <span>Get started</span>
-                  <span className="rv-btn-icon"><Arrow size={12} /></span>
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+      <Taskbar
+        links={NAV_LINKS.map(([l, h]) => ({ href: `#${h}`, label: l }))}
+        activeHref={`#${activeSection}`}
+        status={products.length > 0 ? `${products.length} tracked` : undefined}
+        actions={
+          <RetroButton variant="primary" size="sm" onClick={() => onGetStarted()}>
+            Get started
+          </RetroButton>
+        }
+        menuOpen={mobileOpen}
+        onToggleMenu={() => setMobileOpen((v) => !v)}
+      />
 
       {/* ── HERO — the carousel IS the hero: full-viewport slides cycling
           through today's top real deals, with the paste-URL CTA overlaid
@@ -250,10 +180,10 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
                 className="rv-paste-input"
                 aria-label="Product URL to track"
               />
-              <button type="submit" className="rv-btn rv-btn-primary rv-btn-lg rv-paste-submit">
+              <RetroButton type="submit" variant="primary" size="lg" className="rv-paste-submit">
                 <span>Track it</span>
-                <span className="rv-btn-icon"><Arrow size={14} /></span>
-              </button>
+                <Arrow size={14} />
+              </RetroButton>
             </form>
 
             <div className="rv-hero-meta">
@@ -269,25 +199,27 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
       <section id="how" data-rv-section="how" className="rv-section rv-section-alt">
         <div className="rv-section-inner">
           <Reveal>
-            <div className="rv-how-grid">
-              <div className="rv-how-side">
-                <p className="rv-eyebrow mb-3">Process</p>
-                <h2 className="display rv-section-title">How it works</h2>
-                <p className="rv-section-sub">Three steps. Real statistics, not marketing.</p>
+            <RetroWindow title="how_it_works.txt">
+              <div className="rv-how-grid">
+                <div className="rv-how-side">
+                  <p className="rv-eyebrow mb-3">Process</p>
+                  <h2 className="display rv-section-title">How it works</h2>
+                  <p className="rv-section-sub">Three steps. Real statistics, not marketing.</p>
+                </div>
+                <ol className="rv-how-steps">
+                  {STEPS.map((s, i) => (
+                    <li key={s.title} className="rv-step-row">
+                      <span className="rv-step-num">{String(i + 1).padStart(2, "0")}</span>
+                      <div className="rv-step-body">
+                        <h3 className="rv-step-title">{s.title}</h3>
+                        <p className="rv-step-text">{s.body}</p>
+                        <span className="rv-tag">{s.foot}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
-              <ol className="rv-how-steps">
-                {STEPS.map((s, i) => (
-                  <li key={s.title} className="rv-step-row">
-                    <span className="rv-step-num">{String(i + 1).padStart(2, "0")}</span>
-                    <div className="rv-step-body">
-                      <h3 className="rv-step-title">{s.title}</h3>
-                      <p className="rv-step-text">{s.body}</p>
-                      <span className="rv-tag">{s.foot}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            </RetroWindow>
           </Reveal>
         </div>
       </section>
@@ -302,6 +234,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
               <p className="rv-section-sub">Ranked by deal score — real discount depth, rarity, and stability, not a claimed discount.</p>
             </header>
 
+            <RetroWindow title="deals.exe" bodyClassName="p-0">
             <div className="rv-filter-bar">
               <label className="rv-filter">
                 <span className="rv-eyebrow">Store</span>
@@ -416,8 +349,7 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
                         {isOpen && (
                           <tr className="rv-lot-detail">
                             <td colSpan={8} className="rv-lot-detail-cell">
-                              <div className="rv-bezel rv-lot-detail-bezel">
-                                <div className="rv-bezel-core rv-lot-detail-grid">
+                              <div className="rv-lot-detail-bevel rv-lot-detail-grid">
                                   <div>
                                     <div className="rv-eyebrow mb-2">Why this score</div>
                                     <ul className="rv-lot-detail-list">
@@ -435,15 +367,14 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
                                     </div>
                                   </div>
                                   <div className="rv-lot-detail-actions">
-                                    <a href={`#/product/${p.id}`} className="rv-btn rv-btn-primary rv-btn-sm">
+                                    <RetroButton as="a" href={`#/product/${p.id}`} variant="primary" size="sm">
                                       <span>View details</span>
-                                      <span className="rv-btn-icon"><Arrow size={11} /></span>
-                                    </a>
-                                    <button onClick={() => onGetStarted()} className="rv-btn rv-btn-outline rv-btn-sm">
+                                      <Arrow size={11} />
+                                    </RetroButton>
+                                    <RetroButton as="button" onClick={() => onGetStarted()} variant="outline" size="sm">
                                       <span>Track for alerts</span>
-                                    </button>
+                                    </RetroButton>
                                   </div>
-                                </div>
                               </div>
                             </td>
                           </tr>
@@ -457,11 +388,12 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
 
             <div className="rv-index-foot">
               <span className="rv-tag">Showing {filteredProducts.length} of {products.length} tracked products.</span>
-              <button onClick={() => onGetStarted()} className="rv-btn rv-btn-ghost rv-btn-sm">
+              <RetroButton as="button" onClick={() => onGetStarted()} variant="ghost" size="sm">
                 <span>Track your own product</span>
-                <span className="rv-btn-icon"><Arrow size={11} /></span>
-              </button>
+                <Arrow size={11} />
+              </RetroButton>
             </div>
+            </RetroWindow>
           </Reveal>
         </div>
       </section>
@@ -476,24 +408,26 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
                 Most "deal" sites show you a discount. <em className="rv-emph">We show you the math.</em>
               </h2>
             </header>
-            <div className="rv-manifesto">
-              <div className="rv-manifesto-col">
-                <span className="rv-eyebrow">Most deal sites</span>
-                <ul className="rv-manifesto-list">
-                  {LEGACY.map((t) => (
-                    <li key={t} className="rv-legacy-item">{t}</li>
-                  ))}
-                </ul>
+            <RetroWindow title="compare.txt">
+              <div className="rv-manifesto">
+                <div className="rv-manifesto-col">
+                  <span className="rv-eyebrow">Most deal sites</span>
+                  <ul className="rv-manifesto-list">
+                    {LEGACY.map((t) => (
+                      <li key={t} className="rv-legacy-item">{t}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="rv-manifesto-col">
+                  <span className="rv-eyebrow rv-eyebrow-accent">WasItCheaper</span>
+                  <ul className="rv-manifesto-list">
+                    {WIC_WAY.map((t) => (
+                      <li key={t} className="rv-reveal-item"><span className="rv-reveal-mark">→</span>{t}</li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <div className="rv-manifesto-col">
-                <span className="rv-eyebrow rv-eyebrow-accent">WasItCheaper</span>
-                <ul className="rv-manifesto-list">
-                  {WIC_WAY.map((t) => (
-                    <li key={t} className="rv-reveal-item"><span className="rv-reveal-mark">→</span>{t}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            </RetroWindow>
           </Reveal>
         </div>
       </section>
@@ -518,13 +452,13 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
           </h2>
           <p className="rv-cta-sub">Free to track. We alert you the moment a price genuinely drops.</p>
           <div className="rv-cta-buttons">
-            <button onClick={() => onGetStarted()} className="rv-btn rv-btn-primary rv-btn-xl">
+            <RetroButton onClick={() => onGetStarted()} variant="primary" size="xl">
               <span>Get started — it's free</span>
-              <span className="rv-btn-icon"><Arrow size={16} /></span>
-            </button>
-            <a href="#how" className="rv-btn rv-btn-ghost-light rv-btn-xl">
+              <Arrow size={16} />
+            </RetroButton>
+            <RetroButton as="a" href="#how" variant="ghost-light" size="xl">
               <span>How it works</span>
-            </a>
+            </RetroButton>
           </div>
         </Reveal>
       </section>
@@ -535,15 +469,6 @@ export default function HomePage({ onGetStarted }: { onGetStarted: (url?: string
 }
 
 /* ── COMPONENTS ───────────────────────────────────────────── */
-
-function Wordmark() {
-  return (
-    <a href="#" className="rv-wordmark">
-      <img src="/wic-logo.svg" alt="" aria-hidden className="rv-wordmark-img" />
-      <span className="rv-wordmark-name">WasItCheaper</span>
-    </a>
-  );
-}
 
 function Stat({ v, k }: { v: string; k: string }) {
   return (
@@ -655,7 +580,7 @@ const STYLES = `
     text-rendering: optimizeLegibility;
   }
   .rv-catalog * { box-sizing: border-box; }
-  .rv-catalog .display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance; }
+  .rv-catalog .display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; line-height: 1.06; text-wrap: balance; }
   .rv-catalog .rv-emph { color: var(--primary); font-style: normal; }
   .rv-catalog .rv-ilink { color: var(--blue); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--blue) 45%, transparent); transition: text-decoration-color .15s ease, color .15s ease; }
   .rv-catalog .rv-ilink:hover { color: var(--link-hover); text-decoration-color: var(--blue); }
@@ -675,63 +600,6 @@ const STYLES = `
   }
   .rv-catalog .rv-link:hover { color: var(--link-hover); }
 
-  /* ── Nav — dark frosted floating pill island (fixed: hero photos run
-     edge-to-edge behind it) ── */
-  .rv-catalog .rv-nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-fixed-nav);
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    padding: 14px 16px 0;
-    pointer-events: none;
-  }
-  .rv-catalog #how, .rv-catalog #deals { scroll-margin-top: 92px; }
-  .rv-catalog .rv-nav-inner {
-    pointer-events: auto;
-    width: min(1100px, 100%);
-    display: flex; align-items: center; justify-content: space-between; gap: 18px;
-    padding: 9px 11px 9px 18px;
-    background: var(--frost-dark);
-    -webkit-backdrop-filter: var(--frost-blur);
-    backdrop-filter: var(--frost-blur);
-    border: 1px solid rgba(255,255,255,.10);
-    border-radius: var(--r-pill);
-    box-shadow: var(--pill-shadow);
-    transition: transform .35s var(--ease-out-expo), box-shadow .35s var(--ease-out-expo);
-  }
-  .rv-catalog .rv-nav-pinned .rv-nav-inner {
-    box-shadow: 0 4px 12px rgba(28,24,20,.20), 0 22px 54px rgba(28,24,20,.30);
-  }
-  .rv-catalog .rv-nav-link {
-    font-size: 14px; font-weight: 600; color: rgba(255,255,255,.66);
-    padding: 8px 13px; border-radius: var(--r-pill);
-    transition: color .15s ease, background-color .15s ease;
-  }
-  .rv-catalog .rv-nav-link:hover { color: #fff; background: rgba(255,255,255,.09); }
-  .rv-catalog .rv-nav-link-active { color: #fff; }
-  .rv-catalog .rv-nav-login { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.82); transition: color .15s ease; }
-  .rv-catalog .rv-nav-login:hover { color: #fff; }
-
-  .rv-catalog .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
-  .rv-catalog .rv-wordmark-img { width: 26px; height: 26px; object-fit: contain; }
-  .rv-catalog .rv-wordmark-name { font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
-  .rv-catalog .rv-nav .rv-wordmark-name { color: #fff; }
-
-  .rv-catalog .rv-burger {
-    width: 38px; height: 38px; display: inline-flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 4px; border-radius: var(--r-pill);
-  }
-  @media (min-width: 1024px) { .rv-catalog .rv-burger { display: none; } }
-  .rv-catalog .rv-burger-bar { width: 18px; height: 2px; background: #fff; border-radius: 2px; transition: transform .32s var(--ease-out-expo), opacity .2s ease; }
-  .rv-catalog .rv-burger-bar-top-open { transform: translateY(6px) rotate(45deg); }
-  .rv-catalog .rv-burger-bar-mid-open { opacity: 0; }
-  .rv-catalog .rv-burger-bar-bot-open { transform: translateY(-6px) rotate(-45deg); }
-  .rv-catalog .rv-mobile-panel {
-    pointer-events: auto; width: min(1100px, 100%);
-    border: 1px solid var(--rule); background: var(--paper-pale);
-    border-radius: var(--r-lg); box-shadow: var(--shadow-lg); overflow: hidden;
-  }
-  .rv-catalog .rv-mobile-link { font-size: 16px; font-weight: 600; color: var(--ink); }
-  .rv-catalog .rv-rule-static { height: 1px; background: var(--rule); }
-
   /* ── Layout — macro-whitespace between sections. ── */
   .rv-catalog .rv-section { padding: 72px 0; }
   @media (min-width: 820px) { .rv-catalog .rv-section { padding: 112px 0; } }
@@ -744,7 +612,7 @@ const STYLES = `
   /* ── Hero overlay content (rendered inside HeroCarousel) ── */
   .rv-hero-content { max-width: 620px; }
   .rv-hero-eyebrow { margin-bottom: 20px; color: rgba(255,255,255,.86); text-shadow: 0 1px 12px rgba(0,0,0,.45); }
-  .rv-hero-headline { font-size: clamp(2.4rem, 5.6vw, 4.1rem); line-height: 1.02; color: #fff; text-shadow: 0 2px 30px rgba(0,0,0,.36); font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; }
+  .rv-hero-headline { font-size: clamp(2.6rem, 5.8vw, 4.3rem); line-height: 1.05; color: #fff; text-shadow: 0 2px 30px rgba(0,0,0,.36); font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; }
   .rv-hero-lede { margin-top: 20px; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.55; color: rgba(255,255,255,.88); max-width: 46ch; text-wrap: pretty; text-shadow: 0 1px 16px rgba(0,0,0,.32); }
   .rv-ilink-on-dark { color: #9bd4ee; text-decoration-color: rgba(155,212,238,.5); }
   .rv-ilink-on-dark:hover { color: #c4e7f6; text-decoration-color: #9bd4ee; }
@@ -821,7 +689,11 @@ const STYLES = `
   .rv-catalog .rv-conf-label { margin-left: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-muted); }
 
   .rv-catalog .rv-lot-detail-cell { padding: 0 14px 22px; background: var(--paper-soft); border-bottom: 1px solid var(--rule); }
-  .rv-catalog .rv-lot-detail-bezel { margin-top: 4px; }
+  .rv-catalog .rv-lot-detail-bevel {
+    margin-top: 4px; background: var(--paper);
+    border-top: var(--bevel-width) solid var(--bevel-hi); border-left: var(--bevel-width) solid var(--bevel-hi);
+    border-right: var(--bevel-width) solid var(--bevel-lo); border-bottom: var(--bevel-width) solid var(--bevel-lo);
+  }
   .rv-catalog .rv-lot-detail-grid { display: grid; grid-template-columns: 1.2fr 1fr auto; gap: 32px; padding: 20px 22px; }
   @media (max-width: 760px) { .rv-catalog .rv-lot-detail-grid { grid-template-columns: 1fr; gap: 20px; } }
   .rv-catalog .rv-lot-detail-list { list-style: none; margin: 0; padding: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-soft); }

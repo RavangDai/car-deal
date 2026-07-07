@@ -3,6 +3,7 @@
 // uses a step-after path rather than smooth interpolation: a curve would
 // literally fabricate prices that were never observed.
 import { formatMoney } from "./format";
+import { computeStepSegments } from "./priceHistoryGeometry";
 
 export type PricePointLike = { t: string; price: number; in_stock?: boolean };
 
@@ -43,19 +44,11 @@ export function PriceHistoryChart({
     );
   }
 
-  const dates = points.map((p) => Date.parse(p.t));
-  const prices = points.map((p) => p.price);
-  const minX = Math.min(...dates);
-  const maxX = Math.max(...dates);
+  const geo = computeStepSegments(points, { median90d, minEver })!;
+  const { dates, prices, oosSpans, lowestIdx, lastIdx } = geo;
+  const [minX, maxX] = geo.xDomain;
+  const [yMin, yMax] = geo.yDomain;
   const spanX = Math.max(maxX - minX, 1);
-
-  const candidateMins = [...prices, median90d ?? Infinity, minEver ?? Infinity].filter(Number.isFinite);
-  const candidateMaxs = [...prices, median90d ?? -Infinity].filter(Number.isFinite);
-  const rawMin = Math.min(...candidateMins);
-  const rawMax = Math.max(...candidateMaxs);
-  const padP = (rawMax - rawMin) * 0.1 || rawMax * 0.1 || 1;
-  const yMin = rawMin - padP;
-  const yMax = rawMax + padP;
   const spanY = Math.max(yMax - yMin, 0.01);
 
   const sx = (t: number) => pad.l + ((t - minX) / spanX) * plotW;
@@ -65,36 +58,9 @@ export function PriceHistoryChart({
   const ys = prices.map(sy);
   const linePath = stepPath(xs, ys);
 
-  // Out-of-stock spans, rendered as dimmed background bands.
-  const oosSpans: [number, number][] = [];
-  let spanStart: number | null = null;
-  points.forEach((p, i) => {
-    const outOfStock = p.in_stock === false;
-    if (outOfStock && spanStart === null) spanStart = i;
-    if (!outOfStock && spanStart !== null) {
-      oosSpans.push([spanStart, i - 1]);
-      spanStart = null;
-    }
-  });
-  if (spanStart !== null) oosSpans.push([spanStart, points.length - 1]);
-
-  let lowestIdx = -1;
-  if (minEver != null) {
-    let bestDiff = Infinity;
-    points.forEach((p, i) => {
-      const diff = Math.abs(p.price - minEver);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        lowestIdx = i;
-      }
-    });
-  }
-
   const xTickCount = 4;
   const xTicks = Array.from({ length: xTickCount }, (_, i) => minX + (spanX * i) / (xTickCount - 1));
   const yTicks = [yMin + spanY * 0.15, yMin + spanY * 0.5, yMin + spanY * 0.85];
-
-  const lastIdx = points.length - 1;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="auto" role="img" aria-label="Price history">

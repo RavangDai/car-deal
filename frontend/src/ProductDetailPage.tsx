@@ -2,7 +2,7 @@
 // + /history, shows the real price chart, the deal-score breakdown, watch
 // controls, and the cached "Buy or Wait" AI verdict. Publicly readable;
 // tracking/alerts and the verdict require sign-in.
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
   useCreateWatch,
@@ -17,21 +17,22 @@ import {
 import type { RuleType } from "./api";
 import { ProductImage } from "./ProductImage";
 import { productImage } from "./images";
-import { formatMoney } from "./format";
+import { formatMoney, formatCheckedAgo } from "./format";
 import { PriceHistoryChart } from "./charts";
 import { Spinner } from "./Spinner";
-import { Reveal } from "./primitives";
+import { RetroButton, RetroWindow, Reveal, Taskbar } from "./primitives";
 
 export default function ProductDetailPage({ id, onBack }: { id: string; onBack: () => void }) {
   const { data: product, isLoading, isError } = useProduct(id);
   const me = useMe();
   const [windowSize, setWindowSize] = useState<"90" | "180" | "all">("90");
+  const [menuOpen, setMenuOpen] = useState(false);
   const historyQuery = usePriceHistory(id, windowSize);
 
   const currency = product?.currency ?? "USD";
 
   return (
-    <div className="rv-detail min-h-screen">
+    <div className="rv-detail rv-page min-h-screen">
       <style>{DETAIL_STYLES}</style>
 
       <header className="rv-detail-nav">
@@ -40,12 +41,18 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
             <ArrowLeft size={15} />
             <span>Back</span>
           </button>
-          <a href="#" className="rv-detail-brand">
-            <img src="/wic-logo.svg" alt="" aria-hidden className="rv-detail-logo" />
-            <span>WasItCheaper</span>
-          </a>
         </div>
       </header>
+
+      <Taskbar
+        links={[
+          { href: "#", label: "Home" },
+          ...(me.data ? [{ href: "#/alerts", label: "Alerts" }] : []),
+        ]}
+        status={product ? formatCheckedAgo(product.last_checked_at) : undefined}
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+      />
 
       <main className="rv-detail-main">
         {isLoading && (
@@ -59,7 +66,7 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
           <div className="rv-detail-state">
             <p className="rv-detail-state-title">Product not found</p>
             <p className="rv-detail-state-sub">It may have been removed or the link is out of date.</p>
-            <button onClick={onBack} className="rv-btn rv-btn-primary">Back</button>
+            <RetroButton onClick={onBack} variant="primary">Back</RetroButton>
           </div>
         )}
 
@@ -87,28 +94,26 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
               </p>
               <h1 className="rv-detail-title">{product.title ?? product.domain}</h1>
 
-              <div className="rv-bezel rv-detail-pricebox">
-                <div className="rv-bezel-core rv-detail-pricebox-core">
-                  <div className="rv-detail-priceline">
-                    <span className="rv-detail-asking">
-                      {product.latest_price != null ? formatMoney(product.latest_price, currency) : "—"}
-                    </span>
-                    {product.median_90d != null && (
-                      <span className="rv-detail-fair">90d median {formatMoney(product.median_90d, currency)}</span>
-                    )}
-                  </div>
-                  {product.deal_score != null ? (
-                    <div className="rv-detail-savings">
-                      Deal score {Math.round(product.deal_score)}/100
-                      {product.is_lowest_ever && <span className="rv-detail-pct"> · lowest ever</span>}
-                    </div>
-                  ) : (
-                    <div className="rv-detail-savings rv-detail-savings-muted">
-                      Score unlocks after 2 weeks of tracking
-                    </div>
+              <RetroWindow title="price.exe" className="rv-detail-pricebox" bodyClassName="rv-detail-pricebox-core">
+                <div className="rv-detail-priceline">
+                  <span className="rv-detail-asking">
+                    {product.latest_price != null ? formatMoney(product.latest_price, currency) : "—"}
+                  </span>
+                  {product.median_90d != null && (
+                    <span className="rv-detail-fair">90d median {formatMoney(product.median_90d, currency)}</span>
                   )}
                 </div>
-              </div>
+                {product.deal_score != null ? (
+                  <div className="rv-detail-savings">
+                    Deal score {Math.round(product.deal_score)}/100
+                    {product.is_lowest_ever && <span className="rv-detail-pct"> · lowest ever</span>}
+                  </div>
+                ) : (
+                  <div className="rv-detail-savings rv-detail-savings-muted">
+                    Score unlocks after 2 weeks of tracking
+                  </div>
+                )}
+              </RetroWindow>
 
               <div className="rv-detail-chart-head">
                 <span className="rv-eyebrow">Price history</span>
@@ -124,16 +129,14 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
                   ))}
                 </div>
               </div>
-              <div className="rv-bezel rv-detail-chart-box">
-                <div className="rv-bezel-core p-5">
-                  <PriceHistoryChart
-                    points={historyQuery.data?.points ?? []}
-                    median90d={historyQuery.data?.median_90d ?? product.median_90d}
-                    minEver={historyQuery.data?.min_ever ?? product.min_ever}
-                    currency={currency}
-                  />
-                </div>
-              </div>
+              <RetroWindow title="price_history.log" className="rv-detail-chart-box" bodyClassName="p-5">
+                <PriceHistoryChart
+                  points={historyQuery.data?.points ?? []}
+                  median90d={historyQuery.data?.median_90d ?? product.median_90d}
+                  minEver={historyQuery.data?.min_ever ?? product.min_ever}
+                  currency={currency}
+                />
+              </RetroWindow>
 
               {product.stats && (
                 <div className="rv-detail-stats-panel">
@@ -160,12 +163,10 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
               )}
 
               <div className="rv-detail-actions-row">
-                <a href={product.url} target="_blank" rel="noreferrer" className="rv-btn rv-btn-primary rv-btn-lg">
+                <RetroButton as="a" href={product.url} target="_blank" rel="noreferrer" variant="primary" size="lg">
                   <span>View original listing</span>
-                  <span className="rv-btn-icon">
-                    <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
-                  </span>
-                </a>
+                  <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
+                </RetroButton>
               </div>
 
               <div className="rv-detail-panels">
@@ -198,20 +199,6 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
     }
   }, [myWatch?.id, myWatch?.rule_type, myWatch?.threshold]);
 
-  if (!signedIn) {
-    return (
-      <div className="rv-bezel rv-watch-panel">
-        <div className="rv-bezel-core p-5">
-          <p className="text-[14px] font-semibold mb-2">Get alerted on real price drops</p>
-          <p className="text-[13px] text-[var(--ink-muted)] mb-4">
-            Sign in to track this product and set an alert rule.
-          </p>
-          <a href="#" className="rv-btn rv-btn-primary rv-btn-sm">Sign in to track</a>
-        </div>
-      </div>
-    );
-  }
-
   function save() {
     const thresholdNum = threshold.trim() ? Number(threshold) : null;
     if (myWatch) {
@@ -224,57 +211,69 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
   const pending = createWatch.isPending || updateWatch.isPending;
 
   return (
-    <div className="rv-bezel rv-watch-panel">
-      <div className="rv-bezel-core p-5">
-        <p className="text-[14px] font-semibold mb-4">
-          {myWatch ? "You're tracking this product" : "Track this product"}
-        </p>
+    <RetroWindow title="watch.exe" className="rv-watch-panel" bodyClassName="p-5">
+      {!signedIn ? (
+        <>
+          <p className="text-[14px] font-semibold mb-2">Get alerted on real price drops</p>
+          <p className="text-[13px] text-[var(--ink-muted)] mb-4">
+            Sign in to track this product and set an alert rule.
+          </p>
+          <RetroButton as="a" href="#" variant="primary" size="sm">Sign in to track</RetroButton>
+        </>
+      ) : (
+        <>
+          <p className="text-[14px] font-semibold mb-4">
+            {myWatch ? "You're tracking this product" : "Track this product"}
+          </p>
 
-        <div className="rv-watch-form">
-          <label className="rv-watch-field">
-            <span className="rv-eyebrow mb-1">Alert me when</span>
-            <select
-              value={ruleType}
-              onChange={(e) => setRuleType(e.target.value as RuleType)}
-              className="rv-filter-input"
-            >
-              <option value="any_drop">Price drops at all</option>
-              <option value="percent_drop">Drops by at least %</option>
-              <option value="target_price">Hits a target price</option>
-            </select>
-          </label>
-          {ruleType !== "any_drop" && (
+          <div className="rv-watch-form">
             <label className="rv-watch-field">
-              <span className="rv-eyebrow mb-1">
-                {ruleType === "percent_drop" ? "Percent (1–90)" : "Target price"}
-              </span>
-              <input
-                type="number"
-                value={threshold}
-                onChange={(e) => setThreshold(e.target.value)}
-                className="rv-input"
-                placeholder={ruleType === "percent_drop" ? "15" : "49.99"}
-              />
+              <span className="rv-eyebrow mb-1">Alert me when</span>
+              <select
+                value={ruleType}
+                onChange={(e) => setRuleType(e.target.value as RuleType)}
+                className="rv-filter-input"
+              >
+                <option value="any_drop">Price drops at all</option>
+                <option value="percent_drop">Drops by at least %</option>
+                <option value="target_price">Hits a target price</option>
+              </select>
             </label>
-          )}
-        </div>
+            {ruleType !== "any_drop" && (
+              <label className="rv-watch-field">
+                <span className="rv-eyebrow mb-1">
+                  {ruleType === "percent_drop" ? "Percent (1–90)" : "Target price"}
+                </span>
+                <input
+                  type="number"
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  className="rv-input"
+                  placeholder={ruleType === "percent_drop" ? "15" : "49.99"}
+                />
+              </label>
+            )}
+          </div>
 
-        <div className="mt-4 flex items-center gap-3 flex-wrap">
-          <button onClick={save} disabled={pending} className="rv-btn rv-btn-primary rv-btn-sm">
-            {myWatch ? "Update alert" : "Track & alert me"}
-          </button>
-          {myWatch && (
-            <button
-              onClick={() => deleteWatch.mutate(myWatch.id)}
-              disabled={deleteWatch.isPending}
-              className="rv-btn rv-btn-outline rv-btn-sm"
-            >
-              Unwatch
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+          <div className="mt-4 flex items-center gap-3 flex-wrap">
+            <RetroButton onClick={save} disabled={pending} variant="primary" size="sm">
+              {myWatch ? "Update alert" : "Track & alert me"}
+            </RetroButton>
+            {myWatch && (
+              <RetroButton
+                as="button"
+                onClick={() => deleteWatch.mutate(myWatch.id)}
+                disabled={deleteWatch.isPending}
+                variant="outline"
+                size="sm"
+              >
+                Unwatch
+              </RetroButton>
+            )}
+          </div>
+        </>
+      )}
+    </RetroWindow>
   );
 }
 
@@ -288,62 +287,45 @@ function VerdictCard({
   hasScore: boolean;
 }) {
   const verdictQuery = useVerdict(productId, enabled);
-
-  if (!enabled) {
-    return (
-      <div className="rv-bezel rv-verdict-card">
-        <div className="rv-bezel-core p-5">
-          <p className="rv-eyebrow mb-2">Buy or wait?</p>
-          <p className="text-[13px] text-[var(--ink-muted)]">
-            Sign in to see the AI analysis of this product's price statistics.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasScore) {
-    return (
-      <div className="rv-bezel rv-verdict-card">
-        <div className="rv-bezel-core p-5">
-          <p className="rv-eyebrow mb-2">Buy or wait?</p>
-          <p className="text-[13px] text-[var(--ink-muted)]">
-            Not enough price history yet — check back once this product has been tracked for a couple of weeks.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const data = verdictQuery.data;
 
-  if (verdictQuery.isLoading || data?.state === "pending") {
-    return (
-      <div className="rv-bezel rv-verdict-card">
-        <div className="rv-bezel-core p-5 flex items-center gap-3">
-          <Spinner size={16} />
-          <p className="text-[13.5px] text-[var(--ink-muted)]">Analyzing price history…</p>
-        </div>
+  let body: ReactNode;
+  if (!enabled) {
+    body = (
+      <>
+        <p className="rv-eyebrow mb-2">Buy or wait?</p>
+        <p className="text-[13px] text-[var(--ink-muted)]">
+          Sign in to see the AI analysis of this product's price statistics.
+        </p>
+      </>
+    );
+  } else if (!hasScore) {
+    body = (
+      <>
+        <p className="rv-eyebrow mb-2">Buy or wait?</p>
+        <p className="text-[13px] text-[var(--ink-muted)]">
+          Not enough price history yet — check back once this product has been tracked for a couple of weeks.
+        </p>
+      </>
+    );
+  } else if (verdictQuery.isLoading || data?.state === "pending") {
+    body = (
+      <div className="flex items-center gap-3">
+        <Spinner size={16} />
+        <p className="text-[13.5px] text-[var(--ink-muted)]">Analyzing price history…</p>
       </div>
     );
-  }
-
-  if (!data || data.state === "unavailable" || !data.verdict) {
-    return (
-      <div className="rv-bezel rv-verdict-card">
-        <div className="rv-bezel-core p-5">
-          <p className="rv-eyebrow mb-2">Buy or wait?</p>
-          <p className="text-[13px] text-[var(--ink-muted)]">AI analysis isn't available right now.</p>
-        </div>
-      </div>
+  } else if (!data || data.state === "unavailable" || !data.verdict) {
+    body = (
+      <>
+        <p className="rv-eyebrow mb-2">Buy or wait?</p>
+        <p className="text-[13px] text-[var(--ink-muted)]">AI analysis isn't available right now.</p>
+      </>
     );
-  }
-
-  const tone = data.verdict === "buy" ? "best" : data.verdict === "wait" ? "thin" : "rec";
-
-  return (
-    <div className="rv-bezel rv-verdict-card">
-      <div className="rv-bezel-core p-5">
+  } else {
+    const tone = data.verdict === "buy" ? "best" : data.verdict === "wait" ? "thin" : "rec";
+    body = (
+      <>
         <div className="flex items-center justify-between gap-3 mb-2">
           <p className="rv-eyebrow">AI analysis of the statistics above</p>
           <span className={`rv-badge rv-badge--${tone}`}>{data.verdict.toUpperCase()}</span>
@@ -352,8 +334,14 @@ function VerdictCard({
         {data.computed_at && (
           <p className="rv-tag mt-3">Analyzed {new Date(data.computed_at).toLocaleDateString()}</p>
         )}
-      </div>
-    </div>
+      </>
+    );
+  }
+
+  return (
+    <RetroWindow title="verdict.exe" className="rv-verdict-card" bodyClassName="p-5">
+      {body}
+    </RetroWindow>
   );
 }
 
@@ -375,15 +363,13 @@ const DETAIL_STYLES = `
     transition: color .15s ease;
   }
   .rv-detail-back:hover { color: var(--ink); }
-  .rv-detail-brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 800; font-size: 17px; letter-spacing: -0.02em; }
-  .rv-detail-logo { width: 24px; height: 24px; object-fit: contain; }
 
   .rv-detail-main { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
   .rv-detail-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 12px; padding: 80px 0; color: var(--ink-muted); text-align: center;
   }
-  .rv-detail-state-title { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; color: var(--ink); }
+  .rv-detail-state-title { font-family: var(--font-display); font-weight: 400; font-size: 1.7rem; color: var(--ink); }
   .rv-detail-state-sub { font-size: 14px; }
 
   .rv-detail-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: start; }
@@ -392,7 +378,7 @@ const DETAIL_STYLES = `
   .rv-detail-hero { width: 100%; border-radius: 14px; box-shadow: var(--shadow-md); }
   .rv-detail-status-note { margin-top: 12px; font-size: 13px; color: var(--amber-deep); background: var(--amber-tint); padding: 10px 14px; border-radius: 10px; }
 
-  .rv-detail-title { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.08; letter-spacing: -0.03em; }
+  .rv-detail-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 3.4vw, 2.5rem); line-height: 1.1; letter-spacing: 0.01em; }
 
   .rv-detail-pricebox { margin: 20px 0; }
   .rv-detail-pricebox-core { padding: 18px 20px; }

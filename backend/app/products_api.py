@@ -60,6 +60,7 @@ class ProductOut(BaseModel):
     is_lowest_ever: bool
     deal_score: Optional[Decimal] = None
     stats: Optional[dict[str, Any]] = None
+    last_checked_at: Optional[datetime] = None
     created_at: datetime
 
 

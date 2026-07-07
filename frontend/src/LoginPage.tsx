@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
-import { Arrow } from "./primitives";
+import { Arrow, RetroButton, RetroWindow, Taskbar } from "./primitives";
 import PasswordStrength from "./PasswordStrength";
 import { MIN_STRENGTH_SCORE, passwordScore } from "./passwordRules";
 
@@ -27,6 +27,7 @@ const formItem: Variants = {
 };
 
 export default function LoginPage({ onLogin, onGuest }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,8 +104,14 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const initial = prefersReduced ? "show" : "hidden";
 
   return (
-    <div className="rv-login min-h-screen flex">
+    <div className="rv-login rv-page min-h-screen flex">
       <style>{STYLES}</style>
+      <Taskbar
+        links={[{ href: "#", label: "Home" }]}
+        activeHref="#"
+        menuOpen={menuOpen}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+      />
 
       {/* ── LEFT — brand panel ──────────────────────────────── */}
       <aside className="rv-login-side">
@@ -177,6 +184,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
             <span>or use email</span>
           </motion.div>
 
+          <RetroWindow title={isRegister ? "register.exe" : "sign_in.exe"} className="rv-login-form-win">
           <form onSubmit={handleSubmit} noValidate className="rv-login-form">
             <motion.div variants={formItem}>
               <Field label="Email" error={errors.email}>
@@ -236,7 +244,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
             </motion.div>
 
             <motion.div variants={formItem}>
-              <button type="submit" disabled={loading} className="rv-btn rv-btn-primary rv-login-submit">
+              <RetroButton type="submit" variant="primary" disabled={loading} className="rv-login-submit">
                 {loading ? (
                   <>
                     <Spinner size={15} className="text-current" />
@@ -245,10 +253,10 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
                 ) : (
                   <>
                     <span>{isRegister ? "Create account" : "Sign in"}</span>
-                    <span className="rv-btn-icon"><Arrow size={14} /></span>
+                    <Arrow size={14} />
                   </>
                 )}
-              </button>
+              </RetroButton>
             </motion.div>
 
             {formError && (
@@ -262,13 +270,14 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
               </motion.p>
             )}
           </form>
+          </RetroWindow>
 
           <motion.div className="rv-login-guest" variants={formItem}>
             <span className="rv-login-guest-rule" />
-            <button type="button" onClick={onGuest} className="rv-btn rv-btn-outline">
+            <RetroButton as="button" type="button" onClick={onGuest} variant="outline">
               <span>Continue as guest</span>
-              <span className="rv-btn-icon"><Arrow size={14} /></span>
-            </button>
+              <Arrow size={14} />
+            </RetroButton>
             <span className="rv-login-guest-hint">Just looking? Browse today's deals — no account needed.</span>
           </motion.div>
 
@@ -389,12 +398,12 @@ const STYLES = `
     font-family: 'Manrope', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  .rv-login .display { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.03em; line-height: 1.06; text-wrap: balance; }
+  .rv-login .display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; line-height: 1.06; text-wrap: balance; }
   .rv-login .rv-emph { color: var(--primary); }
 
   .rv-login .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
   .rv-login .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
-  .rv-login .rv-wordmark-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+  .rv-login .rv-wordmark-name { font-family: var(--font-display); font-size: 24px; letter-spacing: 0.01em; }
 
   /* Left brand panel — full-bleed photography with overlaid copy. */
   .rv-login .rv-login-side {
@@ -409,9 +418,8 @@ const STYLES = `
   @media (min-width: 1024px) { .rv-login .rv-login-side { display: flex; } }
   .rv-login .rv-login-side-media {
     position: absolute; inset: 0; z-index: -1;
-    background:
-      radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--primary) 55%, transparent), transparent 60%),
-      linear-gradient(165deg, var(--ink) 0%, #10182a 60%, var(--ink) 100%);
+    background: var(--desktop);
+    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 22px);
   }
   .rv-login .rv-login-side-z { position: relative; z-index: 1; }
   .rv-login .rv-login-side .rv-wordmark-name { color: #fff; }
@@ -438,16 +446,7 @@ const STYLES = `
   .rv-login .rv-login-or { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--ink-fade); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
   .rv-login .rv-login-or::before, .rv-login .rv-login-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
 
-  /* A very subtle "not sitting flatly on the canvas" treatment — hairline ring
-     + soft inset highlight only, deliberately lighter than the app's standard
-     double-bezel so the split-screen keeps its airy, open-canvas feel. */
-  .rv-login .rv-login-form {
-    display: flex; flex-direction: column; gap: 16px;
-    padding: 22px 22px 24px;
-    border-radius: var(--r-xl);
-    background: var(--bezel-shell-bg);
-    box-shadow: inset 0 0 0 1px var(--rule), inset 0 1px 0 rgba(255,255,255,.55);
-  }
+  .rv-login .rv-login-form { display: flex; flex-direction: column; gap: 16px; }
   .rv-login .rv-field { display: flex; flex-direction: column; gap: 6px; }
   .rv-login .rv-field-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); }
   .rv-login .rv-input { width: 100%; background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 15px; color: var(--ink); padding: 11px 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease; }

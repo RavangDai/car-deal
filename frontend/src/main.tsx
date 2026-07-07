@@ -12,7 +12,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />
-      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      {import.meta.env.DEV && (
+        // Default bottom-right toggle collides with the app's own fixed
+        // bottom taskbar — moved to top-right, the one corner nothing else uses.
+        <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
+      )}
     </QueryClientProvider>
   </React.StrictMode>
 );
