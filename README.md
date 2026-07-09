@@ -1,19 +1,19 @@
-# 💸 WasItCheaper
+# WasItCheaper
 
 **"Was it cheaper? Now you'll know."** Paste any product URL. WasItCheaper tracks its real price every day, builds a genuine price history, and scores every "deal" against 90 days of that history — so a store raising a price for three weeks and "dropping" it back to baseline gets caught, not celebrated.
 
-- 🔗 **Track any product URL** — an extraction agent reads structured page data first (JSON-LD, Open Graph, microdata), falling back to a Claude API reader only when a site publishes none
-- ⏰ **Daily scheduled rechecks** — Celery beat fans out a jittered daily recheck per product, appending to an append-only price history — never overwritten, never guessed
-- 🧮 **Real deal math** — a deterministic, unit-tested statistics module scores discount depth vs. the 90-day median, historical rarity, pre-drop stability, and drop freshness
-- 🤖 **Two AI features, one clean boundary** — the extraction fallback reads pages; a separate "Buy or Wait" feature narrates the *already-computed* statistics — the LLM never invents the numbers, only explains them
-- 🔔 **Real alerts** — set an alert rule (any drop / percent drop / target price) and get emailed via Resend the moment the price genuinely changes
-- 📈 **Honest charts** — hand-rolled, dependency-free SVG price-history charts using a step-after line, because prices are step functions and a smooth curve would fabricate prices that were never observed
+- **Track any product URL** — an extraction agent reads structured page data first (JSON-LD, Open Graph, microdata), falling back to a Claude API reader only when a site publishes none
+- **Daily scheduled rechecks** — Celery beat fans out a jittered daily recheck per product, appending to an append-only price history — never overwritten, never guessed
+- **Real deal math** — a deterministic, unit-tested statistics module scores discount depth vs. the 90-day median, historical rarity, pre-drop stability, and drop freshness
+- **Two AI features, one clean boundary** — the extraction fallback reads pages; a separate "Buy or Wait" feature narrates the *already-computed* statistics — the LLM never invents the numbers, only explains them
+- **Real alerts** — set an alert rule (any drop / percent drop / target price) and get emailed via Resend the moment the price genuinely changes
+- **Honest charts** — hand-rolled, dependency-free SVG price-history charts using a step-after line, because prices are step functions and a smooth curve would fabricate prices that were never observed
 
 This is a pivot of an earlier car-deal-finder project. The auth stack, Celery/Redis plumbing, and TanStack Query frontend layer carried over; the domain and the core math did not — the old app's "deal score" was a flat `price × 1.15` heuristic with no real statistics behind it.
 
 ---
 
-## 🧮 The deal math (why this isn't just another discount badge)
+## The deal math (why this isn't just another discount badge)
 
 Every tracked product gets a `deal_score` (0–100) computed purely from its own price history — no external comps, no vendor-supplied "was" price:
 
@@ -28,7 +28,7 @@ The statistics module (`backend/app/dealmath.py`) is pure — no database, no ne
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
                     ┌─────────────┐        ┌──────────────┐
@@ -59,7 +59,7 @@ Frontend: React 19 + Vite + TanStack Query, hash-routed (`#/product/:id`, `#/ale
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 car-deal-finder/
@@ -88,7 +88,7 @@ car-deal-finder/
 
 ---
 
-## 🚀 Run locally
+## Run locally
 
 ```bash
 docker compose up --build
@@ -122,7 +122,7 @@ RESEND_API_KEY=re_...
 
 ---
 
-## 🔐 Authentication & OAuth setup
+## Authentication & OAuth setup
 
 Auth supports **email/password** *and* **Google / GitHub social login**. The session JWT is stored in a **Secure, httpOnly cookie** (not `localStorage`), with CSRF double-submit protection. Social login stays dormant until you add provider credentials.
 
@@ -159,7 +159,7 @@ pytest   # 177 tests, no network/DB required
 
 ---
 
-## 📘 Tech Stack
+## Tech Stack
 
 **Backend:** FastAPI, SQLAlchemy (async + sync), Alembic, Celery + Redis, BeautifulSoup4, Anthropic SDK
 **Frontend:** React 19, Vite, TypeScript, TanStack Query
@@ -170,4 +170,110 @@ pytest   # 177 tests, no network/DB required
 
 ---
 
-Made with ❤️ by Bibek Pathak
+## Live snapshot
+
+<!-- SYNC:note:start -->
+_Live snapshot of the codebase — auto-generated, do not hand-edit the `SYNC` regions. Last commit `0d881fa` (2026-07-07)._
+<!-- SYNC:note:end -->
+
+### Stack
+
+<!-- SYNC:stack:start -->
+**Frontend**
+
+| Package | Version |
+| --- | --- |
+| @tanstack/react-query | ^5.62.0 |
+| framer-motion | ^12.39.0 |
+| html2canvas | ^1.4.1 |
+| lucide-react | ^1.23.0 |
+| react | ^19.2.0 |
+| react-dom | ^19.2.0 |
+
+_Build tooling: vite ^7.2.4 · typescript ~5.9.3 · tailwindcss ^3.4.18 · eslint ^9.39.1_
+
+**Backend**
+
+| Package | Version |
+| --- | --- |
+| fastapi | 0.122.0 |
+| uvicorn[standard] | 0.38.0 |
+| sqlalchemy | 2.0.44 |
+| asyncpg | 0.30.0 |
+| psycopg2-binary | 2.9.10 |
+| alembic | 1.14.0 |
+| pydantic[email] | 2.12.5 |
+| pydantic-settings | 2.7.0 |
+| python-dotenv | 1.2.1 |
+| beautifulsoup4 | 4.14.2 |
+| httpx | 0.28.1 |
+| slowapi | 0.1.9 |
+| python-jose[cryptography] | 3.5.0 |
+| pwdlib[argon2,bcrypt] | 0.3.0 |
+| redis | 5.2.1 |
+| celery[redis] | 5.4.0 |
+| stripe | 11.4.1 |
+| authlib | 1.6.5 |
+| itsdangerous | 2.2.0 |
+| anthropic | 0.116.0 |
+<!-- SYNC:stack:end -->
+
+### API surface
+
+<!-- SYNC:api:start -->
+| Method | Path | Module |
+| --- | --- | --- |
+| GET | `/alerts` | `watches_api.py` |
+| POST | `/auth/login` | `auth.py` |
+| POST | `/auth/logout` | `auth.py` |
+| GET | `/auth/me` | `auth.py` |
+| GET | `/auth/oauth/{provider}/callback` | `oauth.py` |
+| GET | `/auth/oauth/{provider}/login` | `oauth.py` |
+| POST | `/auth/register` | `auth.py` |
+| POST | `/donate` | `donations.py` |
+| GET | `/health` | `main.py` |
+| GET | `/products` | `products_api.py` |
+| GET | `/products/{product_id}` | `products_api.py` |
+| GET | `/products/{product_id}/history` | `products_api.py` |
+| GET | `/products/{product_id}/verdict` | `products_api.py` |
+| POST | `/products/track` | `products_api.py` |
+| GET | `/products/track/{job_id}` | `products_api.py` |
+| GET | `/watches` | `watches_api.py` |
+| POST | `/watches` | `watches_api.py` |
+| DELETE | `/watches/{watch_id}` | `watches_api.py` |
+| PATCH | `/watches/{watch_id}` | `watches_api.py` |
+<!-- SYNC:api:end -->
+
+### Data model
+
+<!-- SYNC:data:start -->
+| Model | Table |
+| --- | --- |
+| `Product` | `products` |
+| `PricePoint` | `price_points` |
+| `Watch` | `watches` |
+| `AlertEvent` | `alert_events` |
+| `ProductVerdict` | `product_verdicts` |
+| `User` | `users` |
+
+Migrations: **5** · head `005_wasitcheaper_pivot.py`
+<!-- SYNC:data:end -->
+
+### Demo catalog
+
+<!-- SYNC:seed:start -->
+**100** demo products across electronics, kitchen, gaming, home (`backend/scripts/seed_products.py`).
+<!-- SYNC:seed:end -->
+
+### Current state
+
+<!-- SYNC:state:start -->
+- **App:** WasItCheaper — Track any price, see its past
+- **API:** WasItCheaper API v1.0.0
+- **Branch:** main
+- **Last commit:** `0d881fa` (2026-07-07) — Refactor code structure for improved readability and maintainability
+<!-- SYNC:state:end -->
+
+---
+
+Made by Bibek Pathak

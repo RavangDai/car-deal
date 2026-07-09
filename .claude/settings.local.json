@@ -63,5 +63,19 @@
       "Bash(node *)",
       "PowerShell(npx skills add Leonxlnx/taste-skill)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:/Users/bibek/Personal Projects/car catch ai/car-deal-finder/scripts/sync-docs.mjs\" --memory-dir \"C:/Users/bibek/.claude/projects/C--Users-bibek-Personal-Projects-car-catch-ai-car-deal-finder/memory\"",
+            "timeout": 30,
+            "statusMessage": "Syncing docs from project state"
+          }
+        ]
+      }
+    ]
   }
 }
