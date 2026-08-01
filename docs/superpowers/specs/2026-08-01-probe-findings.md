@@ -60,6 +60,6 @@ Allbirds' full page contains only `CollectionPage` and `FAQPage` JSON-LD — no 
 
 1. **Get real URLs first.** Everything else is speculation until the parser sees one real product page.
 2. **Raise the probe's timeout** above the production 15s so timeouts stop being inconclusive.
-3. **Strengthen the challenge-title fallback** — add `robot or human`, and raise or drop the size gate that Walmart's page already exceeded.
+3. ~~**Strengthen the challenge-title fallback**~~ — **DONE 2026-08-01.** Size gate raised 15,000 → 100,000 bytes; title patterns extended from 4 to 9 with phrases observed in the wild (`robot or human`, `just a moment`, `checking your browser`, `verifying you are human`, `pardon our interruption`). Both captured interstitials are now detected by the title rule *independently* of their vendor marker, so a vendor shipping an unfamiliar marker no longer slips through. Generic wording (`security check`, `verification`) was deliberately excluded — it appears on legitimate checkout and account pages.
 4. **Do not buy a scraping API yet.** Blocking is confirmed for three retailers, but with the parser still unproven, spending money would fix the second problem while the first is unmeasured.
 5. **Treat client-side rendering as its own decision.** If the stores that matter render prices in JS, the choice is headless-browser rendering or narrowing the supported-retailer claim — and the LLM fallback does not help either way. This should be settled before the Gemini migration, since it may change what that migration is worth.

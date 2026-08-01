@@ -82,6 +82,63 @@ def test_recheck_of_challenge_page_reports_blocked_with_reason(served):
     assert outcome.failed is True
 
 
+# --- The challenge-title fallback, calibrated against real pages --------
+#
+# Sizes here are not arbitrary: the real Walmart interstitial captured by the
+# probe is 15,562 bytes with the title "Robot or human?". Under the original
+# 15,000-byte gate and title list it matched neither rule, and was caught only
+# because it happened to carry a `px-captcha` marker. A vendor that ships a
+# challenge page without a marker we know would sail straight through.
+
+
+def _challenge_page(title: str, size_bytes: int) -> str:
+    """A challenge interstitial with NO vendor marker, padded to a size."""
+    head = f"<!DOCTYPE html><html><head><title>{title}</title></head><body>"
+    tail = "</body></html>"
+    filler = "<p>Please enable JavaScript and cookies to continue.</p>"
+    repeats = max(1, (size_bytes - len(head) - len(tail)) // len(filler))
+    return head + filler * repeats + tail
+
+
+def test_challenge_title_is_caught_above_the_old_fifteen_kb_gate():
+    """The exact shape that slipped past: Walmart's title, Walmart's size."""
+    page = _challenge_page("Robot or human?", 20_000)
+
+    assert len(page) > 15_000
+    assert pipeline._looks_bot_walled(page) is True
+
+
+def test_modern_cloudflare_interstitial_title_is_recognised():
+    assert pipeline._looks_bot_walled(_challenge_page("Just a moment...", 20_000)) is True
+
+
+def test_imperva_interstitial_title_is_recognised():
+    assert (
+        pipeline._looks_bot_walled(_challenge_page("Pardon Our Interruption", 20_000))
+        is True
+    )
+
+
+def test_large_page_with_a_challenge_like_title_is_not_flagged():
+    """The size gate still earns its place: a full-weight page whose title
+    merely reads like a challenge (a product *about* robots, say) is not a
+    block. Interstitials are small; real pages are not."""
+    page = _challenge_page("Robot or human?", 400_000)
+
+    assert pipeline._looks_bot_walled(page) is False
+
+
+def test_real_captured_walmart_interstitial_is_detected():
+    """Regression against the actual bytes the probe pulled from Walmart."""
+    captured = FIXTURES / "live" / "walmart.com-80cfe514.html"
+    if not captured.exists():
+        pytest.skip("live fixture not captured")
+
+    assert pipeline._looks_bot_walled(
+        captured.read_text(encoding="utf-8", errors="replace")
+    ) is True
+
+
 # --- The no-product path stays distinguishable from a block -------------
 
 

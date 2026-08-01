@@ -41,13 +41,34 @@ _CHALLENGE_MARKERS = (
 
 # Weaker signal: a page that announces a block in its <title>. Only trusted on
 # a page too small to be a real product page.
+#
+# Each phrase below is one a bot-defense vendor actually ships, and is chosen
+# to be distinctive enough that a real product page is unlikely to carry it.
+# Generic wording ("security check", "verification") is deliberately excluded —
+# it appears on legitimate checkout and account pages.
 _CHALLENGE_TITLE_PATTERNS = (
-    "attention required",
+    "attention required",      # Cloudflare, classic
+    "just a moment",           # Cloudflare, current
+    "checking your browser",   # Cloudflare, I'm-Under-Attack
+    "verifying you are human", # Cloudflare Turnstile
     "access denied",
-    "robot check",
-    "are you a human",
+    "robot check",             # Amazon
+    "are you a human",         # Newegg — observed 2026-08-01
+    "robot or human",          # Walmart / PerimeterX — observed 2026-08-01
+    "pardon our interruption", # Imperva / Distil
 )
-_CHALLENGE_MAX_BYTES = 15_000
+
+# Interstitials are small — they are a stub plus a JS widget. The real Walmart
+# challenge page measured 15,562 bytes and the Newegg one 14,619, while real
+# product pages run from hundreds of KB into the megabytes (Allbirds: ~1.99 MB).
+# 100 KB sits ~6x above the observed interstitials and roughly an order of
+# magnitude below a real product page, so the gate still rejects a genuine page
+# whose title merely reads like a challenge.
+#
+# This was 15_000 and let Walmart's page through — the title rule never fired,
+# and only a `px-captcha` marker caught it. A vendor without a marker we know
+# would have gone undetected.
+_CHALLENGE_MAX_BYTES = 100_000
 
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
