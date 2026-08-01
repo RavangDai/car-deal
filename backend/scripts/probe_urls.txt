@@ -1,0 +1,31 @@
+# URLs for the extraction probe. One per line; blank lines and # comments ignored.
+#
+#   .venv/Scripts/python.exe -m scripts.probe_urls
+#
+# Product URLs rot. Before a probe run, open a few in a browser and swap out
+# any that 404 — a dead link reports as http_error and tells you nothing about
+# the extractor. Replace this list with products you actually want tracked;
+# the two groups below exist to answer two different questions.
+
+# --- Group A: scraper-friendly -----------------------------------------
+# Retailers that publish clean structured data and don't fight crawlers.
+# These should extract via json_ld / og_meta with no LLM involved. Anything
+# failing here is a parser bug worth fixing.
+
+https://www.rei.com/product/224644/rei-co-op-trailmade-rain-jacket-mens
+https://www.bhphotovideo.com/c/product/1736239-REG/sony_ilce7m4_b_alpha_a7_iv_mirrorless.html
+https://www.newegg.com/p/N82E16819113877
+
+# --- Group B: big-box --------------------------------------------------
+# Where people actually shop, and where bot defenses live. Expect bot_wall or
+# http_error from a residential IP, and worse from a datacenter IP after
+# deploy. Failures here are a FINDING, not a defect — they size the argument
+# for whether a paid scraping API is worth buying.
+
+https://www.amazon.com/dp/B0CHX1W1XY
+https://www.bestbuy.com/site/6418599.p
+https://www.walmart.com/ip/5689919121
+
+# --- Group C: your own -------------------------------------------------
+# Add the products you'd genuinely want WasItCheaper to track. These matter
+# more than anything above — they're the real workload.

@@ -1,0 +1,10 @@
+{
+  "url": "https://www.newegg.com/p/N82E16819113877",
+  "expected_outcome": "bot_wall",
+  "expected_strategy": null,
+  "expected_title": null,
+  "expected_price": null,
+  "expected_currency": null,
+  "reviewed": true,
+  "review_note": "Verified by reading the captured page: genuine challenge interstitial, no product markup."
+}

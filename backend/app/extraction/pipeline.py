@@ -12,6 +12,7 @@ day a site adds JSON-LD.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Callable
@@ -27,14 +28,28 @@ KNOWN_CURRENCIES = {
     "SEK", "NOK", "DKK", "NZD", "CNY", "KRW", "SGD", "HKD", "ZAR", "PLN",
 }
 
-_BOT_WALL_MARKERS = (
-    "cloudflare",
-    "captcha",
-    "access denied",
-    "are you a robot",
-    "perimeterx",
-    "attention required",
+# Vendor-specific challenge markers. Each of these appears only on an actual
+# interstitial — never in an asset URL on a page that serves fine.
+_CHALLENGE_MARKERS = (
+    "/cdn-cgi/challenge-platform",
+    "cf-browser-verification",
+    "cf_chl_opt",
+    "_incapsula_resource",
+    "px-captcha",
+    "distil_r_captcha",
 )
+
+# Weaker signal: a page that announces a block in its <title>. Only trusted on
+# a page too small to be a real product page.
+_CHALLENGE_TITLE_PATTERNS = (
+    "attention required",
+    "access denied",
+    "robot check",
+    "are you a human",
+)
+_CHALLENGE_MAX_BYTES = 15_000
+
+_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
 class ExtractionFailedError(RuntimeError):
@@ -51,9 +66,26 @@ def _validate(product: ExtractedProduct) -> None:
         raise ValueError(f"unrecognized currency: {product.currency}")
 
 
+def _title_of(html: str) -> str:
+    match = _TITLE_RE.search(html)
+    return match.group(1).strip().lower() if match else ""
+
+
 def _looks_bot_walled(html: str) -> bool:
-    lowered = html[:5000].lower()
-    return any(marker in lowered for marker in _BOT_WALL_MARKERS)
+    """True only for pages carrying a vendor-specific challenge marker, or
+    announcing a block in their <title> on a page too small to hold a product.
+
+    Deliberately does *not* match a bare "cloudflare" substring. A large share
+    of the legitimate web loads assets from cdnjs.cloudflare.com, which put
+    that string in the <head> of pages that block nothing — and the old check
+    rejected them before parsing was ever attempted.
+    """
+    lowered = html.lower()
+    if any(marker in lowered for marker in _CHALLENGE_MARKERS):
+        return True
+    return len(html) < _CHALLENGE_MAX_BYTES and any(
+        pattern in _title_of(html) for pattern in _CHALLENGE_TITLE_PATTERNS
+    )
 
 
 def extract_product(
@@ -68,9 +100,6 @@ def extract_product(
         on_stage("fetching")
     fetch_result = safe_fetch(url)
 
-    if _looks_bot_walled(fetch_result.html):
-        raise ExtractionFailedError(f"{url} appears to block automated checks")
-
     if on_stage:
         on_stage("parsing")
     structured = extract_structured(fetch_result.html)
@@ -80,6 +109,13 @@ def extract_product(
         return ExtractionResult(
             product=product, strategy=strategy, meta={"final_url": fetch_result.final_url}
         )
+
+    # Only now ask whether the page was a wall. Judging before parsing meant a
+    # page we could read fine was rejected on a substring; judging after means
+    # a successful parse settles it. Still ahead of the LLM, so we never pay to
+    # send a challenge page to the model.
+    if _looks_bot_walled(fetch_result.html):
+        raise ExtractionFailedError(f"{url} appears to block automated checks")
 
     if on_stage:
         on_stage("llm_fallback")
@@ -126,11 +162,6 @@ def recheck_product(url: str) -> RecheckOutcome:
             product=None, strategy=None, blocked=False, blocked_reason=None, failed=True
         )
 
-    if _looks_bot_walled(fetch_result.html):
-        return RecheckOutcome(
-            product=None, strategy=None, blocked=True, blocked_reason="bot_wall", failed=True
-        )
-
     structured = extract_structured(fetch_result.html)
     if structured is not None:
         product, strategy = structured
@@ -142,6 +173,12 @@ def recheck_product(url: str) -> RecheckOutcome:
             return RecheckOutcome(
                 product=product, strategy=strategy, blocked=False, blocked_reason=None, failed=False
             )
+
+    # Structured-first, same as extract_product — see the note there.
+    if _looks_bot_walled(fetch_result.html):
+        return RecheckOutcome(
+            product=None, strategy=None, blocked=True, blocked_reason="bot_wall", failed=True
+        )
 
     product = llm_extract(fetch_result.html, fetch_result.final_url)
     if product is not None:
