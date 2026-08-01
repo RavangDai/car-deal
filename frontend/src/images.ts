@@ -1,4 +1,4 @@
-// frontent/src/images.ts
+// src/images.ts
 // Product imagery is real, per-product data (Product.image_url from the API —
 // either a hotlinked source photo or a seeded LoremFlickr URL), never curated
 // stock photography. This module only holds the shared image type and the
@@ -24,7 +24,7 @@ export const placeholderImage: ImageAsset = {
   alt: "No photo available for this product",
 };
 
-// Real listing photo, or the neutral placeholder when a product has none.
+// Real product photo, or the neutral placeholder when a product has none.
 export function productImage(src: string | null | undefined, alt: string): ImageAsset {
   return src ? { src, alt } : placeholderImage;
 }

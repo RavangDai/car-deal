@@ -164,7 +164,7 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
 
               <div className="rv-detail-actions-row">
                 <RetroButton as="a" href={product.url} target="_blank" rel="noreferrer" variant="primary" size="lg">
-                  <span>View original listing</span>
+                  <span>View original page</span>
                   <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
                 </RetroButton>
               </div>

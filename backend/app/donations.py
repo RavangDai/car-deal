@@ -1,6 +1,6 @@
 """Optional donations via Stripe Checkout.
 
-Revveal is free for buyers — this endpoint just lets fans chip in. It is public
+WasItCheaper is free for buyers — this endpoint just lets fans chip in. It is public
 (no auth) so anyone, including guests, can support the project. The handler is a
 plain ``def`` on purpose: the Stripe SDK is synchronous, so FastAPI runs it in a
 threadpool instead of blocking the event loop.
@@ -44,7 +44,7 @@ def create_donation_checkout(request: Request, response: Response, payload: Dona
                 {
                     "price_data": {
                         "currency": "usd",
-                        "product_data": {"name": "Revveal donation"},
+                        "product_data": {"name": "WasItCheaper donation"},
                         "unit_amount": payload.amount_cents,
                     },
                     "quantity": 1,

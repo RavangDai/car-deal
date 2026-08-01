@@ -173,7 +173,7 @@ pytest   # 177 tests, no network/DB required
 ## Live snapshot
 
 <!-- SYNC:note:start -->
-_Live snapshot of the codebase — auto-generated, do not hand-edit the `SYNC` regions. Last commit `0d881fa` (2026-07-07)._
+_Live snapshot of the codebase — auto-generated, do not hand-edit the `SYNC` regions. Last commit `b52a613` (2026-07-09)._
 <!-- SYNC:note:end -->
 
 ### Stack
@@ -271,7 +271,7 @@ Migrations: **5** · head `005_wasitcheaper_pivot.py`
 - **App:** WasItCheaper — Track any price, see its past
 - **API:** WasItCheaper API v1.0.0
 - **Branch:** main
-- **Last commit:** `0d881fa` (2026-07-07) — Refactor code structure for improved readability and maintainability
+- **Last commit:** `b52a613` (2026-07-09) — Add v-home-hero.png image for homepage hero section
 <!-- SYNC:state:end -->
 
 ---

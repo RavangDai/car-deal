@@ -1,5 +1,5 @@
 // A minimal, reduced-motion-aware loading spinner. Inherits text color via
-// `currentColor`. Replaces the old skeuomorphic car-wheel glyph.
+// `currentColor`.
 import { motion, useReducedMotion } from "framer-motion";
 
 export function Spinner({

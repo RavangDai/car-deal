@@ -1,4 +1,4 @@
-    """URL normalization for product identity.
+"""URL normalization for product identity.
 
 Two different URLs (with different tracking params, casing, or trailing
 slashes) that point at the same product must resolve to the same
