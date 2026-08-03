@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { useAlerts, useProduct } from "./hooks";
 import { formatMoney } from "./format";
 import { Spinner } from "./Spinner";
-import { RetroWindow, Taskbar } from "./primitives";
+import { Button, Delta, Panel, Stamp, TopBar } from "./primitives";
 import type { AlertEvent } from "./api";
 
 const RULE_LABEL: Record<string, string> = {
@@ -28,55 +28,58 @@ function timeLabel(iso: string): string {
 export default function AlertsPage({ onBack }: { onBack: () => void }) {
   const { data: alerts, isLoading } = useAlerts();
   const [menuOpen, setMenuOpen] = useState(false);
+  const rows = alerts ?? [];
 
   return (
     <div className="rv-alerts rv-page min-h-screen">
       <style>{ALERTS_STYLES}</style>
 
-      <header className="rv-alerts-nav">
-        <div className="rv-alerts-nav-inner">
-          <button onClick={onBack} className="rv-alerts-back">
-            <ArrowLeft size={15} />
-            <span>Back</span>
-          </button>
-        </div>
-      </header>
-
-      <Taskbar
-        links={[{ href: "#", label: "Home" }, { href: "#/alerts", label: "Alerts" }]}
+      <TopBar
+        links={[{ href: "#", label: "Today's deals" }, { href: "#/alerts", label: "Alerts" }]}
         activeHref="#/alerts"
+        status={rows.length > 0 ? `${rows.length} sent` : undefined}
         menuOpen={menuOpen}
         onToggleMenu={() => setMenuOpen((v) => !v)}
       />
 
       <main className="rv-alerts-main">
+        <button onClick={onBack} className="rv-alerts-back">
+          <ArrowLeft size={15} />
+          <span>Back</span>
+        </button>
+
         <h1 className="rv-alerts-title">Alert history</h1>
-        <p className="rv-alerts-sub">Every price-drop email we've sent you, most recent first.</p>
+        <p className="rv-alerts-sub">
+          Every price-drop email we&rsquo;ve sent you, most recent first. An alert is only recorded
+          here when the rule you set actually fired.
+        </p>
 
         {isLoading && (
           <div className="rv-alerts-state">
             <Spinner size={18} />
-            <p>Loading alerts…</p>
+            <p>Loading alerts&hellip;</p>
           </div>
         )}
 
-        {!isLoading && (alerts ?? []).length === 0 && (
-          <RetroWindow title="alerts.log" bodyClassName="rv-alerts-empty">
-            <p className="rv-alerts-empty-title">No alerts yet.</p>
+        {!isLoading && rows.length === 0 && (
+          <Panel label="Alerts">
+            <p className="rv-alerts-empty-title">No alerts have fired yet.</p>
             <p className="rv-alerts-empty-sub">
-              Track a product and set an alert rule — we'll email you the moment the price genuinely drops.
+              Open any tracked product and set a rule &mdash; any drop, a percentage, or a price you
+              name. We check daily and email you the moment it fires.
             </p>
-          </RetroWindow>
+            <Button as="a" href="#" variant="primary" size="sm">Go to your products</Button>
+          </Panel>
         )}
 
-        {!isLoading && (alerts ?? []).length > 0 && (
-          <RetroWindow title="alerts.log" bodyClassName="p-0">
+        {!isLoading && rows.length > 0 && (
+          <Panel label="Alerts" aside={`${rows.length} total`}>
             <ul className="rv-alerts-list">
-              {(alerts ?? []).map((a) => (
+              {rows.map((a) => (
                 <AlertRow key={a.id} alert={a} />
               ))}
             </ul>
-          </RetroWindow>
+          </Panel>
         )}
       </main>
     </div>
@@ -87,77 +90,90 @@ function AlertRow({ alert }: { alert: AlertEvent }) {
   const { data: product } = useProduct(alert.product_id);
   const currency = product?.currency ?? "USD";
 
+  // The drop this alert actually reported, computed from the two prices the
+  // event recorded — not re-derived from the product's current state.
+  const dropPct =
+    alert.previous_price != null && Number(alert.previous_price) > 0
+      ? ((Number(alert.previous_price) - Number(alert.new_price)) / Number(alert.previous_price)) * 100
+      : null;
+
+  const tone = alert.status === "sent" ? "signal" : alert.status === "pending" ? "caution" : "quiet";
+
   return (
     <li className="rv-alert-row">
-      <div className="min-w-0">
+      <div className="rv-alert-id">
         <a href={`#/product/${alert.product_id}`} className="rv-alert-product">
           {product?.title ?? product?.domain ?? "Product"}
         </a>
-        <p className="rv-alert-meta">
-          {RULE_LABEL[alert.rule_type] ?? alert.rule_type} · {timeLabel(alert.created_at)}
+        <p className="rv-alert-meta rv-num">
+          {RULE_LABEL[alert.rule_type] ?? alert.rule_type} &middot; {timeLabel(alert.created_at)}
         </p>
       </div>
+
       <div className="rv-alert-price">
         {alert.previous_price != null && (
-          <span className="rv-alert-price-old">{formatMoney(alert.previous_price, currency)}</span>
+          <s className="rv-alert-price-old rv-num">{formatMoney(alert.previous_price, currency)}</s>
         )}
-        <span className="rv-alert-price-new">{formatMoney(alert.new_price, currency)}</span>
+        <span className="rv-alert-price-new rv-num">{formatMoney(alert.new_price, currency)}</span>
       </div>
-      <span className={`rv-alert-status rv-alert-status-${alert.status}`}>{alert.status}</span>
+
+      <div className="rv-alert-delta">
+        <Delta pct={dropPct} size="md" />
+      </div>
+
+      <Stamp tone={tone}>{alert.status}</Stamp>
     </li>
   );
 }
 
 const ALERTS_STYLES = `
-  .rv-alerts {
-    background: var(--paper);
-    color: var(--ink);
-    font-family: 'Manrope', sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .rv-alerts-nav { border-bottom: 1px solid var(--rule); background: var(--paper-pale); }
-  .rv-alerts-nav-inner {
-    max-width: 780px; margin: 0 auto; padding: 14px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
+  .rv-alerts { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-alerts-main { max-width: 860px; margin: 0 auto; padding: 26px 24px 72px; }
+
   .rv-alerts-back {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 14px; font-weight: 600; color: var(--ink-muted);
-    transition: color .15s ease;
+    display: inline-flex; align-items: center; gap: 8px; background: none; cursor: pointer;
+    font-size: 13.5px; font-weight: 500; color: var(--ink-muted); padding: 4px 0; margin-bottom: 28px;
+    transition: color var(--dur-fast) ease;
   }
   .rv-alerts-back:hover { color: var(--ink); }
 
-  .rv-alerts-main { max-width: 780px; margin: 0 auto; padding: 40px 24px 64px; }
-  .rv-alerts-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 3.2vw, 2.4rem); letter-spacing: 0.01em; }
-  .rv-alerts-sub { margin-top: 8px; font-size: 14.5px; color: var(--ink-muted); margin-bottom: 32px; }
+  .rv-alerts-title { margin: 0; font-size: clamp(28px, 3.6vw, 38px); font-weight: 700; letter-spacing: -0.03em; }
+  .rv-alerts-sub { margin: 12px 0 36px; font-size: 15px; line-height: 1.6; color: var(--ink-muted); max-width: 58ch; }
 
-  .rv-alerts-state { display: flex; align-items: center; gap: 10px; padding: 40px 0; color: var(--ink-muted); }
+  .rv-alerts-state { display: flex; align-items: center; gap: 12px; padding: 40px 0; color: var(--ink-muted); }
 
-  .rv-alerts-empty { text-align: center; padding: 60px 20px; }
-  .rv-alerts-empty-title { font-family: var(--font-display); font-weight: 400; font-size: 1.5rem; margin-bottom: 8px; }
-  .rv-alerts-empty-sub { font-size: 14px; color: var(--ink-muted); max-width: 42ch; margin: 0 auto; line-height: 1.5; }
+  .rv-alerts-empty-title { margin: 0 0 8px; font-size: 17px; font-weight: 600; }
+  .rv-alerts-empty-sub { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: var(--ink-muted); max-width: 52ch; }
 
   .rv-alerts-list { list-style: none; margin: 0; padding: 0; }
   .rv-alert-row {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center; gap: 16px;
-    padding: 16px 18px; border-top: 1px solid var(--rule);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto 96px 76px;
+    align-items: center; gap: 18px; padding: 15px 0; border-bottom: 1px solid var(--rule);
   }
-  .rv-alerts-list > .rv-alert-row:first-child { border-top: none; }
-  .rv-alert-product { font-size: 14.5px; font-weight: 700; color: var(--ink); display: block; }
-  .rv-alert-product:hover { color: var(--primary); }
-  .rv-alert-meta { font-size: 12.5px; color: var(--ink-muted); margin-top: 2px; }
-  .rv-alert-price { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .rv-alert-price-old { font-size: 12.5px; color: var(--ink-fade); text-decoration: line-through; }
-  .rv-alert-price-new { font-size: 14.5px; font-weight: 800; color: var(--green); }
-  .rv-alert-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
-  .rv-alert-status-sent { background: var(--green-tint); color: var(--green-deep); }
-  .rv-alert-status-pending { background: var(--amber-tint); color: var(--amber-deep); }
-  .rv-alert-status-failed { background: color-mix(in srgb, var(--err) 15%, transparent); color: var(--err); }
+  .rv-alert-row:last-child { border-bottom: 0; }
+  .rv-alert-id { min-width: 0; }
+  .rv-alert-product {
+    font-size: 14.5px; font-weight: 600; color: var(--ink); display: block; text-decoration: none;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rv-alert-product:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .rv-alert-meta { font-size: 11.5px; color: var(--ink-muted); margin: 4px 0 0; }
 
-  @media (max-width: 560px) {
-    .rv-alert-row { grid-template-columns: 1fr; gap: 6px; }
-    .rv-alert-price { order: 3; }
-    .rv-alert-status { order: 2; justify-self: start; }
+  .rv-alert-price { display: flex; align-items: baseline; gap: 9px; white-space: nowrap; }
+  .rv-alert-price-old { font-size: 12.5px; color: var(--ink-fade); }
+  .rv-alert-price-new { font-size: 15.5px; font-weight: 600; color: var(--ink); }
+  .rv-alert-delta { display: flex; justify-content: flex-end; }
+
+  @media (max-width: 640px) {
+    .rv-alerts-main { padding: 20px 18px 56px; }
+    .rv-alert-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas: "id id" "price delta" "status status";
+      gap: 10px 14px; padding: 18px 0;
+    }
+    .rv-alert-id { grid-area: id; }
+    .rv-alert-price { grid-area: price; }
+    .rv-alert-delta { grid-area: delta; justify-content: flex-start; }
+    .rv-alert-row > .rv-stamp { grid-area: status; justify-self: start; }
   }
 `;

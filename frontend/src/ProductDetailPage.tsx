@@ -2,6 +2,9 @@
 // + /history, shows the real price chart, the deal-score breakdown, watch
 // controls, and the cached "Buy or Wait" AI verdict. Publicly readable;
 // tracking/alerts and the verdict require sign-in.
+//
+// The chart is the page. Everything else — the score breakdown, the watch
+// rule, the AI narration — is an annotation on it, so it comes after.
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import {
@@ -19,8 +22,9 @@ import { ProductImage } from "./ProductImage";
 import { productImage } from "./images";
 import { formatMoney, formatCheckedAgo } from "./format";
 import { PriceHistoryChart } from "./charts";
+import { ScoreBar } from "./ScoreBar";
 import { Spinner } from "./Spinner";
-import { RetroButton, RetroWindow, Reveal, Taskbar } from "./primitives";
+import { Button, Delta, Panel, Reveal, Stamp, TopBar } from "./primitives";
 
 export default function ProductDetailPage({ id, onBack }: { id: string; onBack: () => void }) {
   const { data: product, isLoading, isError } = useProduct(id);
@@ -30,23 +34,19 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
   const historyQuery = usePriceHistory(id, windowSize);
 
   const currency = product?.currency ?? "USD";
+  const delta = product?.stats?.discount_vs_median_pct ?? null;
+  const saving =
+    product?.median_90d != null && product?.latest_price != null
+      ? Number(product.median_90d) - Number(product.latest_price)
+      : null;
 
   return (
     <div className="rv-detail rv-page min-h-screen">
       <style>{DETAIL_STYLES}</style>
 
-      <header className="rv-detail-nav">
-        <div className="rv-detail-nav-inner">
-          <button onClick={onBack} className="rv-detail-back">
-            <ArrowLeft size={15} />
-            <span>Back</span>
-          </button>
-        </div>
-      </header>
-
-      <Taskbar
+      <TopBar
         links={[
-          { href: "#", label: "Home" },
+          { href: "#", label: "Today's deals" },
           ...(me.data ? [{ href: "#/alerts", label: "Alerts" }] : []),
         ]}
         status={product ? formatCheckedAgo(product.last_checked_at) : undefined}
@@ -55,125 +55,146 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
       />
 
       <main className="rv-detail-main">
+        <button onClick={onBack} className="rv-detail-back">
+          <ArrowLeft size={15} />
+          <span>Back to deals</span>
+        </button>
+
         {isLoading && (
           <div className="rv-detail-state">
             <Spinner size={20} />
-            <p>Loading product…</p>
+            <p>Loading price history&hellip;</p>
           </div>
         )}
 
         {(isError || (!isLoading && !product)) && (
           <div className="rv-detail-state">
-            <p className="rv-detail-state-title">Product not found</p>
-            <p className="rv-detail-state-sub">It may have been removed or the link is out of date.</p>
-            <RetroButton onClick={onBack} variant="primary">Back</RetroButton>
+            <p className="rv-detail-state-title">We don&rsquo;t have this product</p>
+            <p className="rv-detail-state-sub">It may have been removed, or the link is out of date.</p>
+            <Button onClick={onBack} variant="primary">Back to deals</Button>
           </div>
         )}
 
         {product && (
-          <article className="rv-detail-grid">
-            <div className="rv-detail-gallery">
+          <article>
+            {/* ── Identity ─────────────────────────────────── */}
+            <Reveal className="rv-detail-head">
               <ProductImage
                 image={productImage(product.image_url, product.title ?? product.domain)}
-                ratio="4 / 3"
-                className="rv-detail-hero"
+                ratio="1 / 1"
+                className="rv-detail-thumb"
                 position="center"
               />
-              {(product.status === "blocked" || product.status === "unavailable") && (
-                <p className="rv-detail-status-note">
-                  {product.status === "blocked"
-                    ? "This store blocks automated price checks — we'll keep the history we already have."
-                    : "We couldn't reach this page recently — price history may be stale."}
+              <div className="rv-detail-id">
+                <p className="rv-eyebrow rv-num">
+                  {product.domain} &middot; tracking since{" "}
+                  {new Date(product.created_at).toLocaleDateString()}
                 </p>
-              )}
-            </div>
-
-            <Reveal className="rv-detail-info">
-              <p className="rv-eyebrow mb-2.5">
-                {product.domain} · tracking since {new Date(product.created_at).toLocaleDateString()}
-              </p>
-              <h1 className="rv-detail-title">{product.title ?? product.domain}</h1>
-
-              <RetroWindow title="price.exe" className="rv-detail-pricebox" bodyClassName="rv-detail-pricebox-core">
-                <div className="rv-detail-priceline">
-                  <span className="rv-detail-asking">
-                    {product.latest_price != null ? formatMoney(product.latest_price, currency) : "—"}
-                  </span>
-                  {product.median_90d != null && (
-                    <span className="rv-detail-fair">90d median {formatMoney(product.median_90d, currency)}</span>
+                <h1 className="rv-detail-title">{product.title ?? product.domain}</h1>
+                <div className="rv-detail-stamps">
+                  {product.is_lowest_ever && <Stamp tone="signal">Lowest ever recorded</Stamp>}
+                  {(product.status === "blocked" || product.status === "unavailable") && (
+                    <Stamp tone="caution">
+                      {product.status === "blocked" ? "Store blocks price checks" : "Page unreachable recently"}
+                    </Stamp>
                   )}
                 </div>
-                {product.deal_score != null ? (
-                  <div className="rv-detail-savings">
-                    Deal score {Math.round(product.deal_score)}/100
-                    {product.is_lowest_ever && <span className="rv-detail-pct"> · lowest ever</span>}
-                  </div>
-                ) : (
-                  <div className="rv-detail-savings rv-detail-savings-muted">
-                    Score unlocks after 2 weeks of tracking
-                  </div>
-                )}
-              </RetroWindow>
+              </div>
+              <Button
+                as="a" href={product.url} target="_blank" rel="noreferrer"
+                variant="ghost" className="rv-detail-visit"
+              >
+                <span>Open on {product.domain}</span>
+                <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
+              </Button>
+            </Reveal>
 
-              <div className="rv-detail-chart-head">
-                <span className="rv-eyebrow">Price history</span>
-                <div className="rv-window-toggle">
+            {/* ── The headline figures ─────────────────────── */}
+            <div className="rv-detail-figures">
+              <div className="rv-detail-fig">
+                <span className="rv-eyebrow">Price now</span>
+                <span className="rv-detail-now rv-num">
+                  {product.latest_price != null ? formatMoney(product.latest_price, currency) : "—"}
+                </span>
+              </div>
+              <div className="rv-detail-fig">
+                <span className="rv-eyebrow">Its usual price</span>
+                <span className="rv-detail-usual rv-num">
+                  {product.median_90d != null ? formatMoney(product.median_90d, currency) : "—"}
+                </span>
+              </div>
+              <div className="rv-detail-fig">
+                <span className="rv-eyebrow">Below its median</span>
+                <Delta pct={delta} size="lg" />
+                {saving != null && saving > 0 && (
+                  <span className="rv-detail-saving rv-num">
+                    You save {formatMoney(saving, currency)}
+                  </span>
+                )}
+              </div>
+              <div className="rv-detail-fig rv-detail-fig-score">
+                <span className="rv-eyebrow">Deal score</span>
+                {product.deal_score != null ? (
+                  <span className="rv-detail-score rv-num">
+                    {Math.round(product.deal_score)}<span className="rv-detail-score-of">/100</span>
+                  </span>
+                ) : (
+                  <span className="rv-detail-score-locked">Not yet</span>
+                )}
+              </div>
+            </div>
+
+            {/* ── The chart: the page's primary object ─────── */}
+            <Panel
+              label="Price history"
+              aside={
+                <span className="rv-window-toggle">
                   {(["90", "180", "all"] as const).map((w) => (
                     <button
                       key={w}
                       onClick={() => setWindowSize(w)}
                       className={`rv-window-btn${windowSize === w ? " is-active" : ""}`}
+                      aria-pressed={windowSize === w}
                     >
                       {w === "all" ? "All" : `${w}d`}
                     </button>
                   ))}
-                </div>
-              </div>
-              <RetroWindow title="price_history.log" className="rv-detail-chart-box" bodyClassName="p-5">
-                <PriceHistoryChart
-                  points={historyQuery.data?.points ?? []}
-                  median90d={historyQuery.data?.median_90d ?? product.median_90d}
-                  minEver={historyQuery.data?.min_ever ?? product.min_ever}
-                  currency={currency}
-                />
-              </RetroWindow>
+                </span>
+              }
+              className="rv-detail-chart"
+              gridded
+            >
+              <PriceHistoryChart
+                points={historyQuery.data?.points ?? []}
+                median90d={historyQuery.data?.median_90d ?? product.median_90d}
+                minEver={historyQuery.data?.min_ever ?? product.min_ever}
+                currency={currency}
+              />
+              <p className="rv-detail-chart-note">
+                Every point this line passes through is a real price check. The curve between two checks
+                is a connection, not a reading &mdash; real prices hold flat and then jump, and the line
+                never dips below a price that was actually recorded. Hatched bands are periods the
+                product was out of stock.
+              </p>
+            </Panel>
 
-              {product.stats && (
-                <div className="rv-detail-stats-panel">
-                  <div className="rv-eyebrow mb-2">Why this score</div>
-                  <dl className="rv-detail-specs">
-                    <div>
-                      <dt>Below 90d median</dt>
-                      <dd>{product.stats.discount_vs_median_pct != null ? `${product.stats.discount_vs_median_pct.toFixed(1)}%` : "—"}</dd>
-                    </div>
-                    <div>
-                      <dt>Historical rarity</dt>
-                      <dd>{product.stats.rarity != null ? `${Math.round(product.stats.rarity * 100)}%` : "—"}</dd>
-                    </div>
-                    <div>
-                      <dt>Pre-drop stability</dt>
-                      <dd>{product.stats.stability != null ? `${Math.round(product.stats.stability * 100)}%` : "—"}</dd>
-                    </div>
-                    <div>
-                      <dt>Tracked</dt>
-                      <dd>{product.stats.coverage_days} days · {product.stats.n_points} checks</dd>
-                    </div>
-                  </dl>
-                </div>
-              )}
+            {/* ── Why it scored what it scored ─────────────── */}
+            <Panel
+              label="Why this score"
+              aside={
+                product.stats
+                  ? `${product.stats.coverage_days} days · ${product.stats.n_points} checks`
+                  : undefined
+              }
+              className="rv-detail-why"
+            >
+              <ScoreBar score={product.deal_score} stats={product.stats} />
+            </Panel>
 
-              <div className="rv-detail-actions-row">
-                <RetroButton as="a" href={product.url} target="_blank" rel="noreferrer" variant="primary" size="lg">
-                  <span>View original page</span>
-                  <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
-                </RetroButton>
-              </div>
-
-              <div className="rv-detail-panels">
-                <WatchPanel productId={id} signedIn={!!me.data} />
-                <VerdictCard productId={id} enabled={!!me.data} hasScore={product.deal_score != null} />
-              </div>
-            </Reveal>
+            <div className="rv-detail-panels">
+              <WatchPanel productId={id} signedIn={!!me.data} />
+              <VerdictCard productId={id} enabled={!!me.data} hasScore={product.deal_score != null} />
+            </div>
           </article>
         )}
       </main>
@@ -211,37 +232,37 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
   const pending = createWatch.isPending || updateWatch.isPending;
 
   return (
-    <RetroWindow title="watch.exe" className="rv-watch-panel" bodyClassName="p-5">
+    <Panel label={myWatch ? "Your alert" : "Set an alert"}>
       {!signedIn ? (
         <>
-          <p className="text-[14px] font-semibold mb-2">Get alerted on real price drops</p>
-          <p className="text-[13px] text-[var(--ink-muted)] mb-4">
-            Sign in to track this product and set an alert rule.
+          <p className="rv-panel-lead">Get told the moment this price genuinely drops.</p>
+          <p className="rv-panel-body-text">
+            Sign in to set a rule. We check daily and email you only when the rule actually fires.
           </p>
-          <RetroButton as="a" href="#" variant="primary" size="sm">Sign in to track</RetroButton>
+          <Button as="a" href="#" variant="primary" size="sm">Sign in to set an alert</Button>
         </>
       ) : (
         <>
-          <p className="text-[14px] font-semibold mb-4">
-            {myWatch ? "You're tracking this product" : "Track this product"}
+          <p className="rv-panel-lead">
+            {myWatch ? "You're watching this product." : "Tell us what counts as a drop."}
           </p>
 
           <div className="rv-watch-form">
             <label className="rv-watch-field">
-              <span className="rv-eyebrow mb-1">Alert me when</span>
+              <span className="rv-eyebrow">Alert me when</span>
               <select
                 value={ruleType}
                 onChange={(e) => setRuleType(e.target.value as RuleType)}
                 className="rv-filter-input"
               >
-                <option value="any_drop">Price drops at all</option>
-                <option value="percent_drop">Drops by at least %</option>
-                <option value="target_price">Hits a target price</option>
+                <option value="any_drop">The price drops at all</option>
+                <option value="percent_drop">It drops by at least a percentage</option>
+                <option value="target_price">It reaches a price I name</option>
               </select>
             </label>
             {ruleType !== "any_drop" && (
               <label className="rv-watch-field">
-                <span className="rv-eyebrow mb-1">
+                <span className="rv-eyebrow">
                   {ruleType === "percent_drop" ? "Percent (1–90)" : "Target price"}
                 </span>
                 <input
@@ -255,25 +276,24 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
             )}
           </div>
 
-          <div className="mt-4 flex items-center gap-3 flex-wrap">
-            <RetroButton onClick={save} disabled={pending} variant="primary" size="sm">
-              {myWatch ? "Update alert" : "Track & alert me"}
-            </RetroButton>
+          <div className="rv-watch-actions">
+            <Button onClick={save} disabled={pending} variant="primary" size="sm">
+              {myWatch ? "Update alert" : "Alert me"}
+            </Button>
             {myWatch && (
-              <RetroButton
-                as="button"
+              <Button
                 onClick={() => deleteWatch.mutate(myWatch.id)}
                 disabled={deleteWatch.isPending}
-                variant="outline"
+                variant="ghost"
                 size="sm"
               >
-                Unwatch
-              </RetroButton>
+                Stop watching
+              </Button>
             )}
           </div>
         </>
       )}
-    </RetroWindow>
+    </Panel>
   );
 }
 
@@ -289,122 +309,133 @@ function VerdictCard({
   const verdictQuery = useVerdict(productId, enabled);
   const data = verdictQuery.data;
 
+  let aside: ReactNode = undefined;
   let body: ReactNode;
+
   if (!enabled) {
-    body = (
-      <>
-        <p className="rv-eyebrow mb-2">Buy or wait?</p>
-        <p className="text-[13px] text-[var(--ink-muted)]">
-          Sign in to see the AI analysis of this product's price statistics.
-        </p>
-      </>
-    );
+    body = <p className="rv-panel-body-text">Sign in to read the analysis of this product&rsquo;s statistics.</p>;
   } else if (!hasScore) {
     body = (
-      <>
-        <p className="rv-eyebrow mb-2">Buy or wait?</p>
-        <p className="text-[13px] text-[var(--ink-muted)]">
-          Not enough price history yet — check back once this product has been tracked for a couple of weeks.
-        </p>
-      </>
+      <p className="rv-panel-body-text">
+        There isn&rsquo;t enough history to judge yet. Come back once this product has been tracked for a
+        couple of weeks.
+      </p>
     );
   } else if (verdictQuery.isLoading || data?.state === "pending") {
     body = (
-      <div className="flex items-center gap-3">
+      <div className="rv-verdict-loading">
         <Spinner size={16} />
-        <p className="text-[13.5px] text-[var(--ink-muted)]">Analyzing price history…</p>
+        <p className="rv-panel-body-text">Reading the statistics&hellip;</p>
       </div>
     );
   } else if (!data || data.state === "unavailable" || !data.verdict) {
-    body = (
-      <>
-        <p className="rv-eyebrow mb-2">Buy or wait?</p>
-        <p className="text-[13px] text-[var(--ink-muted)]">AI analysis isn't available right now.</p>
-      </>
-    );
+    body = <p className="rv-panel-body-text">The analysis isn&rsquo;t available right now.</p>;
   } else {
-    const tone = data.verdict === "buy" ? "best" : data.verdict === "wait" ? "thin" : "rec";
+    const tone = data.verdict === "buy" ? "signal" : data.verdict === "wait" ? "caution" : "quiet";
+    aside = data.computed_at ? `analysed ${new Date(data.computed_at).toLocaleDateString()}` : undefined;
     body = (
       <>
-        <div className="flex items-center justify-between gap-3 mb-2">
-          <p className="rv-eyebrow">AI analysis of the statistics above</p>
-          <span className={`rv-badge rv-badge--${tone}`}>{data.verdict.toUpperCase()}</span>
+        <div className="rv-verdict-head">
+          <Stamp tone={tone}>{data.verdict === "buy" ? "Buy now" : data.verdict === "wait" ? "Wait" : "Your call"}</Stamp>
         </div>
-        <p className="text-[14px] leading-relaxed">{data.rationale}</p>
-        {data.computed_at && (
-          <p className="rv-tag mt-3">Analyzed {new Date(data.computed_at).toLocaleDateString()}</p>
-        )}
+        <p className="rv-verdict-text">{data.rationale}</p>
+        <p className="rv-panel-foot">
+          Written from the computed statistics above &mdash; never from the raw price history.
+        </p>
       </>
     );
   }
 
-  return (
-    <RetroWindow title="verdict.exe" className="rv-verdict-card" bodyClassName="p-5">
-      {body}
-    </RetroWindow>
-  );
+  return <Panel label="Buy or wait" aside={aside}>{body}</Panel>;
 }
 
 const DETAIL_STYLES = `
-  .rv-detail {
-    background: var(--paper);
-    color: var(--ink);
-    font-family: 'Manrope', sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  .rv-detail-nav { border-bottom: 1px solid var(--rule); background: var(--paper-pale); }
-  .rv-detail-nav-inner {
-    max-width: 1080px; margin: 0 auto; padding: 14px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
+  .rv-detail { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-detail-main { max-width: 1080px; margin: 0 auto; padding: 26px 24px 88px; }
+
   .rv-detail-back {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 14px; font-weight: 600; color: var(--ink-muted);
-    transition: color .15s ease;
+    display: inline-flex; align-items: center; gap: 8px; background: none; cursor: pointer;
+    font-size: 13.5px; font-weight: 500; color: var(--ink-muted); padding: 4px 0; margin-bottom: 28px;
+    transition: color var(--dur-fast) ease;
   }
   .rv-detail-back:hover { color: var(--ink); }
 
-  .rv-detail-main { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
   .rv-detail-state {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 12px; padding: 80px 0; color: var(--ink-muted); text-align: center;
+    gap: 14px; padding: 96px 0; color: var(--ink-muted); text-align: center;
   }
-  .rv-detail-state-title { font-family: var(--font-display); font-weight: 400; font-size: 1.7rem; color: var(--ink); }
+  .rv-detail-state-title { font-size: 22px; font-weight: 600; color: var(--ink); }
   .rv-detail-state-sub { font-size: 14px; }
 
-  .rv-detail-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; align-items: start; }
-  @media (max-width: 860px) { .rv-detail-grid { grid-template-columns: 1fr; gap: 28px; } }
+  /* ── Identity ── */
+  .rv-detail-head {
+    display: flex; align-items: flex-start; gap: 20px;
+    padding-bottom: 26px; border-bottom: 1px solid var(--rule-strong);
+  }
+  .rv-detail-thumb { width: 84px; height: 84px; flex: none; border-radius: var(--img-radius); box-shadow: var(--img-ring); }
+  .rv-detail-id { flex: 1; min-width: 0; }
+  .rv-detail-title {
+    margin: 8px 0 0; font-size: clamp(24px, 3.2vw, 34px); font-weight: 700;
+    letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .rv-detail-stamps { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .rv-detail-visit { flex: none; }
 
-  .rv-detail-hero { width: 100%; border-radius: 14px; box-shadow: var(--shadow-md); }
-  .rv-detail-status-note { margin-top: 12px; font-size: 13px; color: var(--amber-deep); background: var(--amber-tint); padding: 10px 14px; border-radius: 10px; }
+  /* ── Headline figures ── */
+  .rv-detail-figures {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+    background: var(--rule); border-bottom: 1px solid var(--rule-strong);
+  }
+  .rv-detail-fig {
+    background: var(--paper); padding: 22px 20px 24px;
+    display: flex; flex-direction: column; gap: 10px; align-items: flex-start;
+  }
+  .rv-detail-now { font-size: clamp(26px, 3.4vw, 38px); font-weight: 600; letter-spacing: -0.03em; }
+  .rv-detail-usual { font-size: clamp(22px, 2.8vw, 30px); font-weight: 500; letter-spacing: -0.03em; color: var(--ink-muted); }
+  .rv-detail-saving { font-size: 12.5px; color: var(--green-deep); font-weight: 500; }
+  .rv-detail-score { font-size: clamp(26px, 3.4vw, 38px); font-weight: 600; letter-spacing: -0.03em; }
+  .rv-detail-score-of { font-size: 15px; color: var(--ink-fade); font-weight: 500; }
+  .rv-detail-score-locked { font-size: 20px; font-weight: 500; color: var(--ink-fade); }
 
-  .rv-detail-title { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.9rem, 3.4vw, 2.5rem); line-height: 1.1; letter-spacing: 0.01em; }
+  /* ── Panels ── */
+  .rv-detail-chart, .rv-detail-why { margin-top: 44px; }
+  .rv-detail-chart-note {
+    margin: 18px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-muted); max-width: 76ch;
+  }
 
-  .rv-detail-pricebox { margin: 20px 0; }
-  .rv-detail-pricebox-core { padding: 18px 20px; }
-  .rv-detail-priceline { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .rv-detail-asking { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .rv-detail-fair { font-size: 13.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-  .rv-detail-savings { margin-top: 8px; font-size: 15px; font-weight: 800; color: var(--green); font-variant-numeric: tabular-nums; }
-  .rv-detail-savings-muted { color: var(--ink-muted); font-weight: 600; font-size: 13.5px; }
-  .rv-detail-pct { font-size: 13px; font-weight: 700; }
+  .rv-window-toggle { display: inline-flex; gap: 2px; }
+  .rv-window-btn {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    padding: 5px 10px; cursor: pointer; color: var(--ink-muted); background: none;
+    border: 1px solid var(--rule-strong);
+    transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  }
+  .rv-window-btn:hover { color: var(--ink); }
+  .rv-window-btn.is-active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
-  .rv-detail-chart-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  .rv-window-toggle { display: flex; gap: 4px; background: var(--paper-soft); border: 1px solid var(--rule); border-radius: 999px; padding: 3px; }
-  .rv-window-btn { font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px; color: var(--ink-muted); transition: background-color .15s ease, color .15s ease; }
-  .rv-window-btn.is-active { background: var(--primary); color: #fff; }
-  .rv-detail-chart-box { margin-bottom: 20px; }
+  .rv-detail-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 44px; }
+  .rv-panel-lead { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+  .rv-panel-body-text { margin: 0 0 16px; font-size: 14px; line-height: 1.6; color: var(--ink-muted); max-width: 52ch; }
+  .rv-panel-foot { margin: 14px 0 0; font-size: 12px; color: var(--ink-fade); }
 
-  .rv-detail-stats-panel { margin-bottom: 22px; }
-  .rv-detail-specs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; margin: 0; }
-  .rv-detail-specs > div { background: var(--paper-pale); padding: 11px 14px; }
-  .rv-detail-specs dt { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
-  .rv-detail-specs dd { margin: 3px 0 0; font-size: 14.5px; font-weight: 600; }
+  .rv-watch-form { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
+  .rv-watch-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; min-width: 0; }
+  .rv-watch-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 
-  .rv-detail-actions-row { margin-bottom: 24px; }
+  .rv-verdict-head { margin-bottom: 12px; }
+  .rv-verdict-text { margin: 0; font-size: 15px; line-height: 1.65; }
+  .rv-verdict-loading { display: flex; align-items: center; gap: 12px; }
+  .rv-verdict-loading .rv-panel-body-text { margin: 0; }
 
-  .rv-detail-panels { display: flex; flex-direction: column; gap: 16px; }
-  .rv-watch-form { display: flex; gap: 14px; flex-wrap: wrap; }
-  .rv-watch-field { display: flex; flex-direction: column; gap: 2px; flex: 1 1 160px; min-width: 0; }
-  .rv-verdict-card { margin: 0; }
+  @media (max-width: 900px) {
+    .rv-detail-figures { grid-template-columns: repeat(2, 1fr); }
+    .rv-detail-panels { grid-template-columns: 1fr; gap: 36px; }
+  }
+  @media (max-width: 640px) {
+    .rv-detail-main { padding: 20px 18px 64px; }
+    .rv-detail-head { flex-wrap: wrap; gap: 16px; }
+    .rv-detail-thumb { width: 60px; height: 60px; }
+    .rv-detail-visit { width: 100%; }
+    .rv-detail-fig { padding: 18px 16px; }
+  }
 `;

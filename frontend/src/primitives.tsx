@@ -1,9 +1,14 @@
 // frontend/src/primitives.tsx
 // Shared UI primitives, injected once at the app-shell level (App.tsx) so
-// every page composes the same eyebrow/button/window/taskbar classes
-// instead of redeclaring near-duplicate rule sets per page. Page-specific
-// layout CSS (hero grid, deals table, login split-screen, legal typography)
-// stays in each page's own file and references these classes directly.
+// every page composes the same nav/button/panel/stamp classes instead of
+// redeclaring near-duplicate rule sets per page. Page-specific layout CSS
+// (hero grid, index table, login split, legal typography) stays in each
+// page's own file and references these classes directly.
+//
+// Direction: "instrument". The chrome is deliberately quiet — hairline
+// rules, no cards, no shadows on content — so that the DEAL FACTS can be
+// loud. Delta, Score and Stamp are the loud primitives; everything else
+// gets out of their way. That contrast is the whole mechanic.
 import { type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
@@ -13,6 +18,9 @@ export function Arrow({ size = 14 }: { size?: number }) {
   return <ArrowRight size={size} strokeWidth={2.4} className="rv-btn-arrow" />;
 }
 
+// On-mount fade-up. Deliberately NOT whileInView: a scroll-gated reveal
+// ships blank in headless / non-scrolled renders, which is why the
+// screenshot harness had to scroll the whole page before capturing.
 export function Reveal({
   children,
   className,
@@ -26,58 +34,75 @@ export function Reveal({
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 44, filter: "blur(6px)" }}
-      whileInView={reduce ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
-      viewport={{ once: true, margin: "0px 0px -12% 0px" }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay }}
+      initial={reduce ? false : { opacity: 0, y: 14 }}
+      animate={reduce ? undefined : { opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay }}
     >
       {children}
     </motion.div>
   );
 }
 
-// A beveled window: gradient titlebar (icon + title + decorative _/▢/✕
-// controls) over a plain paper body. The controls are decorative on every
-// surface — there is no real window management, mobile included — so they
-// are aria-hidden and non-interactive by design, not a stripped-down
-// feature.
-export function RetroWindow({
-  title,
-  icon,
-  controls = true,
-  className,
-  bodyClassName,
-  children,
-}: {
-  title: string;
-  icon?: ReactNode;
-  controls?: boolean;
-  className?: string;
-  bodyClassName?: string;
-  children: ReactNode;
-}) {
+// ── Wordmark — the step-line mark plus the name. The mark is the product:
+// a price line stepping down onto the green datum.
+export function Wordmark({ size = 20 }: { size?: number }) {
   return (
-    <div className={`rv-win${className ? ` ${className}` : ""}`}>
-      <div className="rv-titlebar">
-        {icon ? <span className="rv-titlebar-icon">{icon}</span> : null}
-        <span className="rv-titlebar-title">{title}</span>
-        {controls ? (
-          <span className="rv-titlebar-controls" aria-hidden="true">
-            <span className="rv-tb-btn">_</span>
-            <span className="rv-tb-btn">▢</span>
-            <span className="rv-tb-btn rv-tb-close">✕</span>
-          </span>
-        ) : null}
-      </div>
-      <div className={`rv-win-body${bodyClassName ? ` ${bodyClassName}` : ""}`}>{children}</div>
-    </div>
+    <span className="rv-wordmark" style={{ fontSize: `${size * 0.78}px` }}>
+      <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true" className="rv-wordmark-mark">
+        <rect width="48" height="48" fill="var(--ink)" />
+        <path
+          d="M6 15 H16 V22 H24 V19 H32 V31 H42"
+          stroke="var(--paper)" strokeWidth="3.4" strokeLinecap="square" fill="none"
+        />
+        <path d="M32 31 H42" stroke="var(--green)" strokeWidth="3.4" strokeLinecap="square" fill="none" />
+        <circle cx="42" cy="31" r="4" fill="var(--green)" />
+      </svg>
+      <span className="rv-wordmark-text">WasItCheaper</span>
+    </span>
   );
 }
 
-// Beveled button — outset by default, presses to inset on :active. Replaces
-// both the old GlassButton and the plain .rv-btn-primary shadow treatment
-// with one real border-based bevel mechanic.
-export function RetroButton({
+// ── Delta — the loudest thing on any surface. A price's distance from its
+// own 90-day median, in the mono figure face. Green ONLY when the deal
+// math verified a real discount; amber when the price is above its median.
+// Never rendered from a guess: callers pass a computed value or nothing.
+export function Delta({
+  pct,
+  size = "md",
+  showLabel = false,
+}: {
+  pct: number | null | undefined;
+  size?: "sm" | "md" | "lg" | "xl";
+  showLabel?: boolean;
+}) {
+  if (pct == null) return <span className={`rv-delta rv-delta-${size} rv-delta-none`}>—</span>;
+  const below = pct > 0;
+  const tone = below ? "down" : "up";
+  return (
+    <span className={`rv-delta rv-delta-${size} rv-delta-${tone}`}>
+      <span className="rv-delta-glyph" aria-hidden="true">{below ? "▼" : "▲"}</span>
+      <span className="rv-num">{below ? "−" : "+"}{Math.abs(pct).toFixed(0)}%</span>
+      {showLabel && <span className="rv-delta-label">vs 90d median</span>}
+    </span>
+  );
+}
+
+// ── Stamp — a verified claim, never decoration. Every stamp corresponds to
+// something dealmath.py actually computed (lowest-ever needs ≥5 price
+// points; a score needs ≥14 days of coverage).
+export function Stamp({
+  tone = "signal",
+  children,
+}: {
+  tone?: "signal" | "caution" | "quiet";
+  children: ReactNode;
+}) {
+  return <span className={`rv-stamp rv-stamp-${tone}`}>{children}</span>;
+}
+
+// ── Button — ink fill for primary. Achromatic on purpose: a colored CTA
+// would compete with green, and green has to mean "genuine drop".
+export function Button({
   as = "button",
   variant = "primary",
   size,
@@ -91,7 +116,7 @@ export function RetroButton({
   children,
 }: {
   as?: "button" | "a";
-  variant?: "primary" | "ghost" | "ghost-light" | "outline";
+  variant?: "primary" | "ghost" | "quiet" | "ghost-light";
   size?: "sm" | "lg" | "xl";
   href?: string;
   target?: string;
@@ -117,11 +142,46 @@ export function RetroButton({
   );
 }
 
-// Fixed bottom taskbar — the site's primary nav on every page. On narrow
-// viewports the inline links hide and Start becomes the only way to reach
-// them, via a small popup menu positioned just above the bar (an actual
-// Start-menu behavior, not a stripped-down mobile nav).
-export function Taskbar({
+// ── Panel — a hairline-ruled region whose label sits in the top rule, the
+// way a real instrument panel is labelled. This replaces the retro pass's
+// RetroWindow: same grouping affordance, but the label says what the
+// region IS instead of faking a titlebar with dead window controls.
+export function Panel({
+  label,
+  aside,
+  className,
+  bodyClassName,
+  gridded = false,
+  children,
+}: {
+  label?: string;
+  /** Right-aligned readout in the top rule — a value, not an action. */
+  aside?: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  /** Measured grid substrate — for regions that hold data, not prose. */
+  gridded?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`rv-panel${className ? ` ${className}` : ""}`}>
+      {(label || aside) && (
+        <div className="rv-panel-rule">
+          {label && <span className="rv-panel-label">{label}</span>}
+          {aside && <span className="rv-panel-aside">{aside}</span>}
+        </div>
+      )}
+      <div className={`rv-panel-body${gridded ? " rv-gridded" : ""}${bodyClassName ? ` ${bodyClassName}` : ""}`}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+// ── TopBar — primary nav on every page. A 56px rule-bar: wordmark, links,
+// one ink CTA, and a live mono readout. Replaces the fixed bottom taskbar,
+// which hid page content and left "Start" as the only mobile nav.
+export function TopBar({
   links,
   activeHref,
   status,
@@ -131,183 +191,241 @@ export function Taskbar({
 }: {
   links: { href: string; label: string }[];
   activeHref?: string;
+  /** Live readout — e.g. "412 tracked". Data, not decoration. */
   status?: string;
-  /** Auth-conditional buttons (Sign out, Exit, Create account) that don't
-      fit the plain-link nav model. Rendered between the links and the
-      status readout. */
   actions?: ReactNode;
   menuOpen: boolean;
   onToggleMenu: () => void;
 }) {
   return (
-    <div className="rv-taskbar">
-      <button
-        type="button"
-        className="rv-taskbar-start"
-        onClick={onToggleMenu}
-        aria-expanded={menuOpen}
-        aria-haspopup="true"
-      >
-        <svg className="rv-taskbar-start-icon" viewBox="0 0 16 16" aria-hidden="true">
-          <rect x="1" y="1" width="6" height="6" fill="currentColor" />
-          <rect x="9" y="1" width="6" height="6" fill="currentColor" />
-          <rect x="1" y="9" width="6" height="6" fill="currentColor" />
-          <rect x="9" y="9" width="6" height="6" fill="currentColor" />
-        </svg>
-        Start
-      </button>
-      <nav className="rv-taskbar-links" aria-label="Primary">
-        {links.map((l) => (
-          <a
-            key={l.href}
-            href={l.href}
-            className={`rv-taskbar-link${activeHref === l.href ? " rv-taskbar-link-active" : ""}`}
-          >
-            {l.label}
-          </a>
-        ))}
-      </nav>
-      <div className="rv-taskbar-spacer" />
-      {actions ? <div className="rv-taskbar-actions">{actions}</div> : null}
-      {status ? <div className="rv-taskbar-status">{status}</div> : null}
-      {menuOpen ? (
-        <div className="rv-taskbar-menu" role="menu">
+    <header className="rv-topbar">
+      <div className="rv-topbar-inner">
+        <a href="#" className="rv-topbar-brand" aria-label="WasItCheaper home">
+          <Wordmark size={22} />
+        </a>
+
+        <nav className="rv-topbar-links" aria-label="Primary">
           {links.map((l) => (
-            <a key={l.href} href={l.href} role="menuitem" onClick={onToggleMenu}>
+            <a
+              key={l.href}
+              href={l.href}
+              className={`rv-topbar-link${activeHref === l.href ? " is-active" : ""}`}
+            >
+              {l.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="rv-topbar-end">
+          {status && <span className="rv-topbar-status rv-num">{status}</span>}
+          {actions}
+          <button
+            type="button"
+            className="rv-topbar-menu-btn"
+            onClick={onToggleMenu}
+            aria-expanded={menuOpen}
+            aria-controls="rv-topbar-sheet"
+          >
+            {menuOpen ? "Close" : "Menu"}
+          </button>
+        </div>
+      </div>
+
+      {menuOpen && (
+        <div className="rv-topbar-sheet" id="rv-topbar-sheet">
+          {links.map((l) => (
+            <a key={l.href} href={l.href} onClick={onToggleMenu} className="rv-topbar-sheet-link">
               {l.label}
             </a>
           ))}
         </div>
-      ) : null}
-    </div>
+      )}
+    </header>
   );
 }
 
 export const PRIMITIVE_STYLES = `
-  /* ── Eyebrow — small uppercase label, shared by every page. ── */
+  /* ── Eyebrow — a small mono label. Mono because it sits next to figures
+     and has to share their rhythm. ── */
   .rv-eyebrow {
     display: inline-flex; align-items: center; gap: 7px;
-    font-size: 11.5px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--ink-muted);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-muted);
   }
-  .rv-eyebrow-accent { color: var(--primary); }
+  .rv-eyebrow-accent { color: var(--green-deep); }
 
-  /* ── Window — beveled titlebar + paper body. ── */
-  .rv-win {
-    background: var(--paper);
-    border-top: var(--bevel-width) solid var(--bevel-hi);
-    border-left: var(--bevel-width) solid var(--bevel-hi);
-    border-right: var(--bevel-width) solid var(--bevel-lo);
-    border-bottom: var(--bevel-width) solid var(--bevel-lo);
-    box-shadow: var(--shadow-md);
+  /* ── Wordmark ── */
+  .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
+  .rv-wordmark-mark { flex: none; display: block; }
+  .rv-wordmark-text {
+    font-family: var(--font-sans); font-stretch: 112%; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--ink); white-space: nowrap;
   }
-  .rv-titlebar {
-    display: flex; align-items: center; gap: 8px;
-    background: linear-gradient(180deg, var(--primary), var(--primary-deep));
-    color: #f2f5ff; padding: 6px 8px 6px 10px;
-    font-family: var(--font-display); font-size: 16px; letter-spacing: .02em; line-height: 1;
-  }
-  .rv-titlebar-icon { display: flex; flex: none; width: 15px; height: 15px; }
-  .rv-titlebar-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rv-titlebar-controls { display: flex; gap: 3px; flex: none; }
-  .rv-tb-btn {
-    width: 17px; height: 16px; display: grid; place-items: center;
-    background: var(--paper); color: var(--ink); font-size: 10px; line-height: 1;
-    border-top: 1px solid var(--bevel-hi); border-left: 1px solid var(--bevel-hi);
-    border-right: 1px solid var(--bevel-lo); border-bottom: 1px solid var(--bevel-lo);
-  }
-  .rv-tb-close:hover { background: var(--red); color: #fff; }
-  .rv-win-body { padding: 20px; }
 
-  /* ── Buttons — real outset bevel, presses to inset on :active. ── */
+  /* ── Delta — the loud figure. ── */
+  .rv-delta {
+    display: inline-flex; align-items: baseline; gap: .28em;
+    font-family: var(--font-mono); font-weight: 600; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .rv-delta-glyph { font-size: .62em; transform: translateY(-.08em); }
+  .rv-delta-label {
+    font-size: .34em; font-weight: 500; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-muted); margin-left: .5em;
+  }
+  /* --green is a large-text-only value (4.1:1). sm/md sizes step down to
+     --green-deep (6.4:1) so small deltas still clear 4.5:1. */
+  .rv-delta-down { color: var(--green); }
+  .rv-delta-up   { color: var(--amber); }
+  .rv-delta-none { color: var(--ink-fade); }
+  .rv-delta-sm { font-size: 13px; }
+  .rv-delta-md { font-size: 17px; }
+  .rv-delta-lg { font-size: 30px; }
+  .rv-delta-xl { font-size: clamp(46px, 7vw, 86px); }
+  .rv-delta-sm.rv-delta-down, .rv-delta-md.rv-delta-down { color: var(--green-deep); }
+  .rv-delta-sm.rv-delta-up,   .rv-delta-md.rv-delta-up   { color: var(--amber-deep); }
+
+  /* ── Stamp — a verified claim. ── */
+  .rv-stamp {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.11em;
+    padding: 4px 8px; border-radius: var(--r-sm); white-space: nowrap;
+  }
+  .rv-stamp-signal  { background: var(--green-tint); color: var(--green-deep); box-shadow: inset 0 0 0 1px rgba(10,138,79,.28); }
+  .rv-stamp-caution { background: var(--amber-tint); color: var(--amber-deep); box-shadow: inset 0 0 0 1px rgba(138,100,16,.28); }
+  .rv-stamp-quiet   { background: var(--paper-deep); color: var(--ink-muted); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+
+  /* ── Buttons ── */
   .rv-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: var(--font-sans); font-weight: 700; font-size: 14px;
-    border-radius: var(--r-md); padding: 9px 16px; cursor: pointer;
-    background: var(--paper); color: var(--ink);
-    border-top: var(--bevel-width) solid var(--bevel-hi);
-    border-left: var(--bevel-width) solid var(--bevel-hi);
-    border-right: var(--bevel-width) solid var(--bevel-lo);
-    border-bottom: var(--bevel-width) solid var(--bevel-lo);
-    transition: transform .12s var(--ease-out-expo), background-color .18s ease, color .18s ease;
-    white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: var(--font-sans); font-weight: 600; font-size: 14px;
+    letter-spacing: -0.01em; border-radius: var(--r-md);
+    padding: 10px 18px; cursor: pointer; white-space: nowrap;
+    border: 1px solid transparent;
+    transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease,
+                border-color var(--dur-fast) ease;
   }
-  .rv-btn:active:not(:disabled) {
-    border-top-color: var(--bevel-lo); border-left-color: var(--bevel-lo);
-    border-right-color: var(--bevel-hi); border-bottom-color: var(--bevel-hi);
-    transform: translate(1px, 1px);
-  }
-  .rv-btn-primary { background: var(--primary); color: #fff; }
-  .rv-btn-primary:hover:not(:disabled) { background: var(--primary-deep); }
-  .rv-btn-primary:disabled { opacity: .6; cursor: wait; }
-  .rv-btn-ghost { background: transparent; color: var(--ink); }
-  .rv-btn-ghost:hover { background: rgba(32,31,26,.06); }
+  .rv-btn-primary { background: var(--ink); color: var(--paper); }
+  .rv-btn-primary:hover:not(:disabled) { background: #000; }
+  .rv-btn-primary:disabled { opacity: .5; cursor: wait; }
+  .rv-btn-ghost { background: transparent; color: var(--ink); border-color: var(--rule-strong); }
+  .rv-btn-ghost:hover:not(:disabled) { background: var(--paper-deep); border-color: var(--ink); }
+  .rv-btn-ghost:disabled { opacity: .5; cursor: wait; }
+  .rv-btn-quiet { background: transparent; color: var(--ink-muted); padding-left: 8px; padding-right: 8px; }
+  .rv-btn-quiet:hover:not(:disabled) { color: var(--ink); }
   .rv-btn-ghost-light {
-    background: transparent; color: #fff;
-    border-top-color: rgba(255,255,255,.7); border-left-color: rgba(255,255,255,.7);
-    border-right-color: rgba(0,0,0,.35); border-bottom-color: rgba(0,0,0,.35);
+    background: transparent; color: var(--paper); border-color: rgba(244,243,239,.42);
   }
-  .rv-btn-ghost-light:hover { background: rgba(255,255,255,.14); }
-  .rv-btn-outline { background: var(--paper-pale); color: var(--ink); }
-  .rv-btn-outline:hover { background: var(--paper-deep); }
-  .rv-btn-lg { padding: 12px 22px; font-size: 15px; }
-  .rv-btn-xl { padding: 14px 26px; font-size: 16px; }
+  .rv-btn-ghost-light:hover:not(:disabled) { background: rgba(244,243,239,.12); border-color: var(--paper); }
   .rv-btn-sm { padding: 7px 12px; font-size: 13px; }
-  .rv-btn-arrow { transition: transform .3s var(--ease-out-expo); }
+  .rv-btn-lg { padding: 13px 22px; font-size: 15px; }
+  .rv-btn-xl { padding: 16px 28px; font-size: 16px; }
+  .rv-btn-arrow { transition: transform var(--dur-mid) var(--ease-out-expo); flex: none; }
   .rv-btn:hover .rv-btn-arrow { transform: translateX(3px); }
 
-  /* ── Taskbar — fixed bottom nav on every page. ── */
-  .rv-taskbar {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-fixed-nav);
-    display: flex; align-items: center; gap: 6px; padding: 8px 14px;
-    background: linear-gradient(180deg, #dfe6ee, #c4ccd6);
-    border-top: var(--bevel-width) solid var(--bevel-hi);
-    box-shadow: 0 -2px 0 rgba(32,31,26,.12);
+  /* ── Panel — label sits IN the top rule. ── */
+  .rv-panel { --panel-bg: var(--paper); }
+  .rv-panel-rule {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding-bottom: 7px; border-bottom: 1px solid var(--rule-strong);
   }
-  .rv-taskbar-start {
-    font-family: var(--font-display); font-size: 16px; letter-spacing: .02em;
-    display: flex; align-items: center; gap: 7px; padding: 6px 14px;
-    background: var(--primary); color: #fff; cursor: pointer; border-radius: var(--r-sm);
-    border-top: 2px solid #7fa4f7; border-left: 2px solid #7fa4f7;
-    border-right: 2px solid var(--primary-deep); border-bottom: 2px solid var(--primary-deep);
+  .rv-panel-label {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.13em; color: var(--ink);
   }
-  .rv-taskbar-start:active {
-    border-top-color: var(--primary-deep); border-left-color: var(--primary-deep);
-    border-right-color: #7fa4f7; border-bottom-color: #7fa4f7;
+  .rv-panel-aside {
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-muted);
+    font-variant-numeric: tabular-nums; text-align: right;
   }
-  .rv-taskbar-start-icon { width: 13px; height: 13px; flex: none; color: #fff; }
-  .rv-taskbar-links { display: flex; align-items: center; gap: 2px; }
-  .rv-taskbar-link {
-    font-family: var(--font-sans); font-size: 13px; font-weight: 600;
-    color: var(--ink); padding: 7px 11px; text-decoration: none; border-radius: var(--r-sm);
-  }
-  .rv-taskbar-link:hover { background: rgba(255,255,255,.5); }
-  .rv-taskbar-link-active { background: rgba(32,31,26,.12); }
-  .rv-taskbar-spacer { flex: 1; }
-  .rv-taskbar-actions { display: flex; align-items: center; gap: 6px; }
-  .rv-taskbar-status {
-    font-family: var(--font-display); font-size: 15px; padding: 5px 10px;
-    background: #eef1f5; color: var(--ink-muted);
-    border-top: 1px solid var(--bevel-lo); border-left: 1px solid var(--bevel-lo);
-  }
-  .rv-taskbar-menu {
-    position: absolute; left: 8px; bottom: 100%; margin-bottom: 4px;
-    min-width: 190px; background: var(--paper); padding: 4px;
-    border-top: var(--bevel-width) solid var(--bevel-hi); border-left: var(--bevel-width) solid var(--bevel-hi);
-    border-right: var(--bevel-width) solid var(--bevel-lo); border-bottom: var(--bevel-width) solid var(--bevel-lo);
-    box-shadow: var(--shadow-md);
-  }
-  .rv-taskbar-menu a {
-    display: block; padding: 9px 12px; font-family: var(--font-sans);
-    font-weight: 600; font-size: 14px; color: var(--ink); text-decoration: none;
-  }
-  .rv-taskbar-menu a:hover { background: var(--primary); color: #fff; }
-  @media (min-width: 641px) { .rv-taskbar-menu { display: none; } }
-  @media (max-width: 640px) { .rv-taskbar-links { display: none; } }
+  .rv-panel-body { padding-top: 16px; }
 
-  /* Every page needs room at the bottom so content isn't hidden behind the
-     fixed taskbar. */
-  .rv-page { padding-bottom: 60px; }
+  /* ── Inline text link — underlined ink, no second hue. ── */
+  .rv-link, .rv-ilink {
+    color: var(--link); text-decoration: underline;
+    text-decoration-thickness: 1px; text-underline-offset: 3px;
+    text-decoration-color: var(--rule-strong);
+    transition: text-decoration-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  }
+  .rv-link:hover, .rv-ilink:hover { color: var(--link-hover); text-decoration-color: currentColor; }
+  .rv-ilink-on-dark { color: var(--paper); text-decoration-color: rgba(244,243,239,.45); }
+  .rv-ilink-on-dark:hover { color: #fff; text-decoration-color: currentColor; }
+
+  /* ── Tag — a quiet mono micro-label. ── */
+  .rv-tag {
+    display: inline-block; font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .06em; color: var(--ink-muted);
+  }
+
+  /* ── Inputs ── */
+  .rv-input, .rv-filter-input {
+    font-family: var(--font-sans); font-size: 14.5px; color: var(--ink);
+    background: var(--paper-pale); border: 1px solid var(--rule-strong);
+    border-radius: var(--r-md); padding: 11px 13px; width: 100%;
+    transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+  }
+  .rv-input:focus, .rv-filter-input:focus {
+    outline: none; border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink);
+  }
+  .rv-input::placeholder { color: var(--ink-fade); }
+
+  /* ── TopBar ── */
+  .rv-topbar {
+    position: sticky; top: 0; z-index: var(--z-sticky-nav);
+    background: var(--paper); border-bottom: 1px solid var(--rule-strong);
+  }
+  .rv-topbar-inner {
+    max-width: 1180px; margin: 0 auto; height: 56px; padding: 0 24px;
+    display: flex; align-items: center; gap: 28px; min-width: 0;
+  }
+  .rv-topbar-brand { flex: none; text-decoration: none; display: flex; align-items: center; }
+  .rv-topbar-links { display: flex; align-items: center; gap: 22px; flex: 1; }
+  .rv-topbar-link {
+    font-size: 13.5px; font-weight: 500; color: var(--ink-muted);
+    text-decoration: none; padding: 4px 0; position: relative;
+    transition: color var(--dur-fast) ease;
+  }
+  .rv-topbar-link:hover { color: var(--ink); }
+  .rv-topbar-link.is-active { color: var(--ink); font-weight: 600; }
+  .rv-topbar-link.is-active::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -19px;
+    height: 2px; background: var(--ink);
+  }
+  .rv-topbar-end { display: flex; align-items: center; gap: 12px; margin-left: auto; min-width: 0; }
+  .rv-topbar-status {
+    font-size: 11.5px; color: var(--ink-muted); letter-spacing: .04em;
+    padding-right: 4px; white-space: nowrap;
+  }
+  .rv-topbar-menu-btn {
+    display: none; font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--ink);
+    padding: 8px 4px; cursor: pointer; background: none;
+  }
+  .rv-topbar-sheet { display: none; }
+
+  @media (max-width: 760px) {
+    .rv-topbar-inner { gap: 10px; padding: 0 18px; }
+    .rv-topbar-links { display: none; }
+    .rv-topbar-status { display: none; }
+    .rv-topbar-menu-btn { display: block; flex: none; }
+    /* Mark only. A page can carry two auth actions plus Menu in this bar
+       (the guest dashboard does), and the wordmark is what has to give. */
+    .rv-topbar-brand .rv-wordmark-text { display: none; }
+    .rv-topbar-end { gap: 8px; }
+    .rv-topbar-end .rv-btn { padding-left: 11px; padding-right: 11px; font-size: 12.5px; }
+    .rv-topbar-sheet {
+      display: flex; flex-direction: column;
+      border-top: 1px solid var(--rule); background: var(--paper);
+    }
+    .rv-topbar-sheet-link {
+      padding: 15px 18px; font-size: 15px; font-weight: 600; color: var(--ink);
+      text-decoration: none; border-bottom: 1px solid var(--rule);
+    }
+  }
+
+  /* The taskbar used to eat the bottom of every page; it no longer exists,
+     so .rv-page only carries the shared page background. */
+  .rv-page { background: var(--paper); }
 
   @media (prefers-reduced-motion: reduce) {
     .rv-btn, .rv-btn-arrow { transition: none !important; }

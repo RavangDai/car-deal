@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { createDonationCheckout } from "./api";
-import { Reveal } from "./primitives";
+import { Reveal, Wordmark } from "./primitives";
 
 const DONATE_PRESETS = [3, 5, 10] as const;
 
@@ -15,15 +15,13 @@ export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
   return (
     <footer className="rv-footer">
       <style>{FOOTER_STYLES}</style>
-      <div className="rv-footer-wash" aria-hidden />
       <div className="rv-section-inner rv-footer-inner">
         <div className="rv-footer-grid">
           <Reveal className="rv-footer-col rv-footer-brand">
-            <a href="#" className="rv-wordmark">
-              <img src="/wic-logo.svg" alt="" aria-hidden className="rv-wordmark-img" />
-              <span className="rv-wordmark-name">WasItCheaper</span>
-            </a>
-            <p className="rv-footer-tagline">Real price history for anything you shop for. No fake discounts.</p>
+            <a href="#" className="rv-footer-mark"><Wordmark size={22} /></a>
+            <p className="rv-footer-tagline">
+              Real price history for anything you shop for. Every price we show was recorded, not claimed.
+            </p>
           </Reveal>
 
           <Reveal className="rv-footer-col" delay={0.06}>
@@ -125,14 +123,9 @@ function DonatePill() {
 }
 
 const FOOTER_STYLES = `
-  .rv-footer { position: relative; background: var(--paper-pale); border-top: 1px solid var(--rule); padding: 56px 0 32px; overflow: hidden; }
-  .rv-footer-wash {
-    position: absolute; top: 0; left: 0; right: 0; height: 160px;
-    background: linear-gradient(180deg, var(--paper-soft) 0%, var(--paper-soft) 55%, transparent 100%);
-    border-radius: 0 0 60% 0;
-    pointer-events: none;
-  }
+  .rv-footer { background: var(--paper-pale); border-top: 1px solid var(--rule-strong); padding: 56px 0 32px; }
   .rv-footer-inner { position: relative; }
+  .rv-footer-mark { text-decoration: none; display: inline-flex; }
   .rv-footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.6fr; gap: 32px; padding-bottom: 32px; }
   @media (max-width: 760px) {
     .rv-footer-grid { grid-template-columns: 1fr 1fr; }
@@ -140,39 +133,48 @@ const FOOTER_STYLES = `
   }
   .rv-footer-col { display: flex; flex-direction: column; gap: 10px; }
   .rv-footer-tagline { font-size: 13.5px; color: var(--ink-muted); max-width: 32ch; line-height: 1.5; margin-top: 4px; }
-  .rv-footer-heading { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-fade); margin: 0 0 2px; }
+  .rv-footer-heading {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--ink-muted); margin: 0 0 4px;
+  }
   .rv-footer-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
   .rv-footer-links a, .rv-footer-links button {
-    font-size: 14px; font-weight: 600; color: var(--ink-muted); text-align: left;
-    transition: color .15s ease;
+    font-size: 14px; font-weight: 500; color: var(--ink-muted); text-align: left;
+    background: none; cursor: pointer; text-decoration: none;
+    transition: color var(--dur-fast) ease;
   }
-  .rv-footer-links a:hover, .rv-footer-links button:hover { color: var(--primary); }
-  .rv-footer-donate-copy { font-size: 13px; color: var(--ink-muted); margin: 0; }
+  .rv-footer-links a:hover, .rv-footer-links button:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .rv-footer-donate-copy { font-size: 13px; color: var(--ink-muted); margin: 0; line-height: 1.5; }
 
   .rv-donate-pill-wrap { display: flex; flex-direction: column; gap: 10px; }
   .rv-donate-presets { display: flex; gap: 6px; }
-  .rv-donate-chip { padding: 6px 11px; border-radius: 999px; border: 1px solid var(--rule-strong); font-size: 12.5px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; transition: border-color .15s ease, background-color .15s ease, color .15s ease; }
-  .rv-donate-chip:hover { border-color: var(--ink-muted); }
-  .rv-donate-chip-on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .rv-donate-chip {
+    padding: 7px 12px; border-radius: var(--r-md); border: 1px solid var(--rule-strong);
+    font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink);
+    background: var(--paper-pale); cursor: pointer; font-variant-numeric: tabular-nums;
+    transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  }
+  .rv-donate-chip:hover { border-color: var(--ink); }
+  .rv-donate-chip-on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
   .rv-donate-pill {
     display: flex; align-items: center;
-    border: 1px solid var(--rule-strong); border-radius: 999px;
+    border: 1px solid var(--rule-strong); border-radius: var(--r-md);
     background: var(--paper-pale); overflow: hidden;
   }
-  .rv-donate-pill-sign { padding-left: 14px; font-size: 13px; color: var(--ink-muted); }
+  .rv-donate-pill-sign { padding-left: 12px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-muted); }
   .rv-donate-pill-input {
     flex: 1; min-width: 0; border: none; outline: none; background: transparent;
-    font-family: 'Manrope', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--ink);
+    font-family: var(--font-mono); font-size: 13.5px; font-weight: 500; color: var(--ink);
     padding: 10px 8px;
   }
   .rv-donate-pill-input::-webkit-outer-spin-button, .rv-donate-pill-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .rv-donate-pill-btn {
-    width: 34px; height: 34px; margin: 3px; flex-shrink: 0;
+    width: 32px; height: 32px; margin: 3px; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 999px; background: var(--primary); color: #fff;
-    transition: background-color .18s ease, transform .2s var(--ease-out-expo);
+    border-radius: var(--r-sm); background: var(--ink); color: var(--paper); cursor: pointer;
+    transition: background-color var(--dur-fast) ease;
   }
-  .rv-donate-pill-btn:hover:not(:disabled) { background: var(--primary-deep); }
+  .rv-donate-pill-btn:hover:not(:disabled) { background: #000; }
   .rv-donate-pill-btn:disabled { opacity: .6; cursor: wait; }
   .rv-donate-error { font-size: 12.5px; color: var(--err); margin: 4px 0 0; }
 

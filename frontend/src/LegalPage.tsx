@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { RetroWindow, Taskbar } from "./primitives";
+import { TopBar } from "./primitives";
 
 export type LegalKind = "terms" | "privacy";
 
@@ -26,23 +26,23 @@ export default function LegalPage({ kind, onBack }: Props) {
     <div className="rv-legal rv-page min-h-screen">
       <style>{STYLES}</style>
 
-      <nav className="rv-legal-nav">
-        <div className="rv-legal-nav-inner">
-          <button onClick={onBack} className="rv-legal-back">
-            <ArrowLeft size={13} />
-            <span>Back to home</span>
-          </button>
-        </div>
-      </nav>
-
-      <Taskbar
-        links={[{ href: "#", label: "Home" }]}
+      <TopBar
+        links={[
+          { href: "#", label: "Today's deals" },
+          { href: "#/terms", label: "Terms" },
+          { href: "#/privacy", label: "Privacy" },
+        ]}
+        activeHref={`#/${kind}`}
         menuOpen={menuOpen}
         onToggleMenu={() => setMenuOpen((v) => !v)}
       />
 
       <main className="rv-legal-main">
-        <RetroWindow title={kind === "terms" ? "terms_of_service.txt" : "privacy_policy.txt"}>
+        <button onClick={onBack} className="rv-legal-back">
+          <ArrowLeft size={13} />
+          <span>Back to home</span>
+        </button>
+
           <header className="rv-legal-head">
             <span className="rv-eyebrow rv-eyebrow-accent mb-3.5">Legal</span>
             <h1 className="rv-display rv-legal-title">{doc.title}</h1>
@@ -82,7 +82,6 @@ export default function LegalPage({ kind, onBack }: Props) {
               <button onClick={onBack} className="rv-legal-foot-link rv-legal-foot-link-btn">Back to home</button>
             </div>
           </footer>
-        </RetroWindow>
       </main>
     </div>
   );
@@ -289,45 +288,38 @@ const STYLES = `
   .rv-legal {
     background: var(--paper);
     color: var(--ink);
-    font-family: 'Manrope', sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  .rv-legal .rv-display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; text-wrap: balance; }
+  .rv-legal .rv-display {
+    font-family: var(--font-sans); font-stretch: 118%; font-weight: 700;
+    letter-spacing: -0.03em; text-wrap: balance;
+  }
 
-  /* Nav */
-  .rv-legal .rv-legal-nav {
-    background: var(--paper-pale);
-    border-bottom: 1px solid var(--rule);
-  }
-  .rv-legal .rv-legal-nav-inner {
-    max-width: 760px; margin: 0 auto;
-    padding: 14px 24px;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px;
-  }
   .rv-legal .rv-legal-back {
     display: inline-flex; align-items: center; gap: 7px;
     background: transparent; border: none; cursor: pointer;
-    font-size: 13px; font-weight: 600; color: var(--ink-muted);
-    transition: color 0.15s ease;
+    font-size: 13.5px; font-weight: 500; color: var(--ink-muted);
+    padding: 4px 0; margin-bottom: 32px;
+    transition: color var(--dur-fast) ease;
   }
   .rv-legal .rv-legal-back:hover { color: var(--ink); }
-  .rv-legal .rv-legal-back svg { transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); }
+  .rv-legal .rv-legal-back svg { transition: transform var(--dur-mid) var(--ease-out-expo); }
   .rv-legal .rv-legal-back:hover svg { transform: translateX(-3px); }
 
   /* Main column */
   .rv-legal .rv-legal-main {
     max-width: 720px; margin: 0 auto;
-    padding: 56px 24px 96px;
+    padding: 26px 24px 96px;
   }
 
   .rv-legal .rv-legal-head { margin-bottom: 40px; }
   .rv-legal .rv-legal-title {
-    font-size: clamp(2.2rem, 5vw, 3rem);
-    line-height: 1.04;
-    margin: 0 0 12px;
+    font-size: clamp(32px, 5vw, 46px);
+    line-height: 1.02;
+    margin: 14px 0 12px;
   }
   .rv-legal .rv-legal-meta {
     font-size: 12.5px; letter-spacing: 0.04em;
@@ -350,8 +342,8 @@ const STYLES = `
     margin: 0 0 12px;
   }
   .rv-legal .rv-legal-h2-num {
-    font-size: 13px; font-weight: 800;
-    color: var(--primary);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    color: var(--ink-fade);
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
@@ -376,9 +368,9 @@ const STYLES = `
     margin-bottom: 8px;
   }
   .rv-legal .rv-legal-list li::before {
-    content: "—";
-    position: absolute; left: 0;
-    color: var(--primary);
+    content: "";
+    position: absolute; left: 0; top: 12px;
+    width: 10px; height: 1px; background: var(--rule-strong);
   }
 
   .rv-legal .rv-legal-foot {

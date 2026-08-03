@@ -3,11 +3,21 @@
 @tailwind utilities;
 
 html {
-  background: #faf8f4;
+  background: #f4f3ef;
 }
 body {
   margin: 0;
-  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-  background: #faf8f4;
-  color: #1c1815;
+  font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+  background: #f4f3ef;
+  color: #1b1a16;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Keyboard focus is visible everywhere, in ink, on the 2px radius the
+   rest of the system uses. Never removed, never a soft glow. */
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 2px;
 }

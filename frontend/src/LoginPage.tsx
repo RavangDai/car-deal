@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { oauthLogin } from "./api";
 import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
-import { Arrow, RetroButton, RetroWindow, Taskbar } from "./primitives";
+import { Arrow, Button, TopBar, Wordmark } from "./primitives";
 import PasswordStrength from "./PasswordStrength";
 import { MIN_STRENGTH_SCORE, passwordScore } from "./passwordRules";
 
@@ -63,13 +63,13 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
 
   function validate() {
     const e: { email?: string; password?: string } = {};
-    if (!email) e.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Enter a valid email";
-    if (!password) e.password = "Password is required";
+    if (!email) e.email = "Enter your email address";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "That doesn't look like an email address";
+    if (!password) e.password = "Enter your password";
     else if (password.length < (isRegister ? 8 : 6))
-      e.password = `Minimum ${isRegister ? 8 : 6} characters`;
+      e.password = `Use at least ${isRegister ? 8 : 6} characters`;
     else if (isRegister && passwordScore(password) < MIN_STRENGTH_SCORE)
-      e.password = "Choose a stronger password (mix case, numbers, symbols)";
+      e.password = "Add a mix of cases, numbers or symbols";
     return e;
   }
 
@@ -104,200 +104,212 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   const initial = prefersReduced ? "show" : "hidden";
 
   return (
-    <div className="rv-login rv-page min-h-screen flex">
+    <div className="rv-login rv-page min-h-screen">
       <style>{STYLES}</style>
-      <Taskbar
-        links={[{ href: "#", label: "Home" }]}
+      <TopBar
+        links={[{ href: "#", label: "Today's deals" }]}
         activeHref="#"
         menuOpen={menuOpen}
         onToggleMenu={() => setMenuOpen((v) => !v)}
       />
 
-      {/* ── LEFT — brand panel ──────────────────────────────── */}
-      <aside className="rv-login-side">
-        <div className="rv-login-side-media" aria-hidden />
+      <div className="rv-login-split">
+        {/* ── LEFT — the argument, made with the product's own mark ── */}
+        <aside className="rv-login-side">
+          <PriceLineBackdrop />
 
-        <header className="rv-login-side-z">
-          <Wordmark />
-        </header>
+          <div className="rv-login-side-body">
+            <p className="rv-eyebrow rv-login-side-eyebrow">Real price history, for everything</p>
+            <h2 className="rv-display rv-login-side-title">
+              {isRegister ? "Never overpay on a fake discount again." : "Your alerts are still watching."}
+            </h2>
+            <p className="rv-login-side-sub">
+              {isRegister
+                ? "Paste any product link. We record its price every day and score every drop against its own history."
+                : "Pick up where you left off — tracked products, alert rules, and today's real deals."}
+            </p>
+          </div>
 
-        <div className="rv-login-side-body rv-login-side-z">
-          <p className="rv-eyebrow">Real price history, for everything</p>
-          <h2 className="display rv-login-side-title">
-            {isRegister ? (
-              <>Never <em className="rv-emph">overpay</em> for anything again.</>
-            ) : (
-              <>Welcome <em className="rv-emph">back</em>. Your alerts are waiting.</>
-            )}
-          </h2>
-          <p className="rv-login-side-sub">
-            {isRegister
-              ? "Paste any product link. We track the price daily and score every drop against real history."
-              : "Pick up where you left off — tracked products, alert rules, and today's real deals."}
-          </p>
-        </div>
-
-        <div className="rv-login-side-foot rv-login-side-z">
-          <p className="rv-eyebrow mb-3">What you get</p>
-          <ul className="rv-login-side-deals">
+          <ul className="rv-login-side-list">
             {WHY_SIGN_UP.map((t) => (
-              <li key={t} className="rv-login-side-deal">
-                <span className="rv-login-side-deal-title">{t}</span>
-              </li>
+              <li key={t}>{t}</li>
             ))}
           </ul>
-        </div>
-      </aside>
+        </aside>
 
-      {/* ── RIGHT — form ─────────────────────────────────────── */}
-      <main className="rv-login-main">
-        <motion.div
-          className="rv-login-main-inner"
-          variants={formContainer}
-          initial={initial}
-          animate="show"
-        >
-          <motion.a href="/" className="rv-login-back" variants={formItem}>
-            <ArrowLeft size={14} />
-            <span>Back to home</span>
-          </motion.a>
+        {/* ── RIGHT — form ─────────────────────────────────────── */}
+        <main className="rv-login-main">
+          <motion.div
+            className="rv-login-main-inner"
+            variants={formContainer}
+            initial={initial}
+            animate="show"
+          >
+            <motion.a href="/" className="rv-login-back" variants={formItem}>
+              <ArrowLeft size={14} />
+              <span>Back to home</span>
+            </motion.a>
 
-          <motion.div className="lg:hidden mb-7" variants={formItem}>
-            <Wordmark />
-          </motion.div>
-
-          <motion.h1 className="display rv-login-title" variants={formItem}>
-            {isRegister ? "Create your account." : "Sign in."}
-          </motion.h1>
-          <motion.p className="rv-login-sub" variants={formItem}>
-            {isRegister
-              ? "Takes under a minute. Free to track."
-              : "Continue to your tracked products and alerts."}
-          </motion.p>
-
-          <motion.div className="rv-login-social" variants={formItem}>
-            <SocialBtn icon={<GoogleIcon />} label="Continue with Google" onClick={() => oauthLogin("google")} />
-            <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" onClick={() => oauthLogin("github")} />
-          </motion.div>
-
-          <motion.div className="rv-login-or" variants={formItem}>
-            <span>or use email</span>
-          </motion.div>
-
-          <RetroWindow title={isRegister ? "register.exe" : "sign_in.exe"} className="rv-login-form-win">
-          <form onSubmit={handleSubmit} noValidate className="rv-login-form">
-            <motion.div variants={formItem}>
-              <Field label="Email" error={errors.email}>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); clearErr("email"); }}
-                  placeholder="you@example.com"
-                  className={`rv-input ${errors.email ? "rv-input-err" : ""}`}
-                  autoComplete="email"
-                />
-              </Field>
+            <motion.div className="rv-login-mobile-mark" variants={formItem}>
+              <Wordmark size={22} />
             </motion.div>
 
-            <motion.div variants={formItem}>
-              <Field label="Password" error={errors.password}>
-                <div className="rv-password-wrap">
+            <motion.h1 className="rv-login-title" variants={formItem}>
+              {isRegister ? "Create your account" : "Sign in"}
+            </motion.h1>
+            <motion.p className="rv-login-sub" variants={formItem}>
+              {isRegister
+                ? "Takes under a minute, and it's free to track."
+                : "Continue to your tracked products and alerts."}
+            </motion.p>
+
+            <motion.div className="rv-login-social" variants={formItem}>
+              <SocialBtn icon={<GoogleIcon />} label="Continue with Google" onClick={() => oauthLogin("google")} />
+              <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" onClick={() => oauthLogin("github")} />
+            </motion.div>
+
+            <motion.div className="rv-login-or" variants={formItem}>
+              <span>or use email</span>
+            </motion.div>
+
+            <form onSubmit={handleSubmit} noValidate className="rv-login-form">
+              <motion.div variants={formItem}>
+                <Field label="Email" error={errors.email}>
                   <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); clearErr("password"); }}
-                    placeholder={isRegister ? "At least 8 characters" : "Your password"}
-                    className={`rv-input rv-input-pw ${errors.password ? "rv-input-err" : ""}`}
-                    autoComplete={isRegister ? "new-password" : "current-password"}
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); clearErr("email"); }}
+                    placeholder="you@example.com"
+                    className={`rv-input ${errors.email ? "rv-input-err" : ""}`}
+                    autoComplete="email"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    tabIndex={-1}
-                    className="rv-password-eye"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                {isRegister && <PasswordStrength password={password} />}
-              </Field>
-            </motion.div>
+                </Field>
+              </motion.div>
 
-            <motion.div className="rv-login-row" variants={formItem}>
-              <label
-                className="rv-checkbox"
-                onClick={(e) => { e.preventDefault(); setRememberMe((v) => !v); }}
-              >
-                <span className={`rv-checkbox-box ${rememberMe ? "rv-checkbox-box-on" : ""}`}>
-                  {rememberMe && (
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </span>
-                <span>Remember me</span>
-              </label>
-              {!isRegister && (
-                <button type="button" className="rv-login-forgot">Forgot password?</button>
-              )}
-            </motion.div>
+              <motion.div variants={formItem}>
+                <Field label="Password" error={errors.password}>
+                  <div className="rv-password-wrap">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); clearErr("password"); }}
+                      placeholder={isRegister ? "At least 8 characters" : "Your password"}
+                      className={`rv-input rv-input-pw ${errors.password ? "rv-input-err" : ""}`}
+                      autoComplete={isRegister ? "new-password" : "current-password"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      tabIndex={-1}
+                      className="rv-password-eye"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  {isRegister && <PasswordStrength password={password} />}
+                </Field>
+              </motion.div>
 
-            <motion.div variants={formItem}>
-              <RetroButton type="submit" variant="primary" disabled={loading} className="rv-login-submit">
-                {loading ? (
-                  <>
-                    <Spinner size={15} className="text-current" />
-                    <span>{isRegister ? "Creating account" : "Signing in"}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{isRegister ? "Create account" : "Sign in"}</span>
-                    <Arrow size={14} />
-                  </>
+              <motion.div className="rv-login-row" variants={formItem}>
+                <label
+                  className="rv-checkbox"
+                  onClick={(e) => { e.preventDefault(); setRememberMe((v) => !v); }}
+                >
+                  <span className={`rv-checkbox-box ${rememberMe ? "rv-checkbox-box-on" : ""}`}>
+                    {rememberMe && (
+                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                  <span>Remember me</span>
+                </label>
+                {!isRegister && (
+                  <button type="button" className="rv-login-forgot">Forgot password?</button>
                 )}
-              </RetroButton>
+              </motion.div>
+
+              <motion.div variants={formItem}>
+                <Button type="submit" variant="primary" size="lg" disabled={loading} className="rv-login-submit">
+                  {loading ? (
+                    <>
+                      <Spinner size={15} className="text-current" />
+                      <span>{isRegister ? "Creating account" : "Signing in"}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{isRegister ? "Create account" : "Sign in"}</span>
+                      <Arrow size={14} />
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+
+              {formError && (
+                <motion.p
+                  className={`rv-login-form-err${formError.tone === "notice" ? " rv-login-form-err--notice" : ""}`}
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  role="alert"
+                >
+                  {formError.text}
+                </motion.p>
+              )}
+            </form>
+
+            <motion.div className="rv-login-guest" variants={formItem}>
+              <Button type="button" onClick={onGuest} variant="ghost">
+                <span>Browse without an account</span>
+                <Arrow size={14} />
+              </Button>
+              <span className="rv-login-guest-hint">Just looking? Today&rsquo;s deals are open to everyone.</span>
             </motion.div>
 
-            {formError && (
-              <motion.p
-                className={`rv-login-form-err${formError.tone === "notice" ? " rv-login-form-err--notice" : ""}`}
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <span className="rv-login-form-err-mark">!</span>
-                {formError.text}
-              </motion.p>
-            )}
-          </form>
-          </RetroWindow>
+            <motion.p className="rv-login-toggle" variants={formItem}>
+              {isRegister ? "Already a member? " : "New here? "}
+              <button type="button" onClick={toggleMode} className="rv-login-toggle-btn">
+                {isRegister ? "Sign in instead" : "Create an account"}
+              </button>
+            </motion.p>
 
-          <motion.div className="rv-login-guest" variants={formItem}>
-            <span className="rv-login-guest-rule" />
-            <RetroButton as="button" type="button" onClick={onGuest} variant="outline">
-              <span>Continue as guest</span>
-              <Arrow size={14} />
-            </RetroButton>
-            <span className="rv-login-guest-hint">Just looking? Browse today's deals — no account needed.</span>
+            <motion.p className="rv-login-fine" variants={formItem}>
+              By {isRegister ? "creating an account" : "signing in"} you agree to our{" "}
+              <a href="#/terms" className="rv-link">Terms</a> and{" "}
+              <a href="#/privacy" className="rv-link">Privacy Policy</a>.
+            </motion.p>
           </motion.div>
-
-          <motion.p className="rv-login-toggle" variants={formItem}>
-            {isRegister ? "Already a member? " : "New here? "}
-            <button type="button" onClick={toggleMode} className="rv-login-toggle-btn">
-              {isRegister ? "Sign in instead" : "Create an account"}
-            </button>
-          </motion.p>
-
-          <motion.p className="rv-login-fine" variants={formItem}>
-            By {isRegister ? "creating an account" : "signing in"} you agree to our <a href="#/terms">Terms</a> and <a href="#/privacy">Privacy Policy</a>.
-          </motion.p>
-        </motion.div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
 
 /* ── HELPERS ──────────────────────────────────────────────── */
+
+// The brand panel's backdrop is the product's own subject: a step-after
+// price line falling across the panel, drawn once on mount. Not a texture
+// or a stock photograph — the same geometry every chart in the app uses.
+function PriceLineBackdrop() {
+  return (
+    <svg
+      className="rv-login-backdrop"
+      viewBox="0 0 600 900"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M-20 210 H80 V300 H150 V265 H240 V420 H310 V395 H400 V560 H480 V530 H620"
+        fill="none" stroke="rgba(244,243,239,.16)" strokeWidth="2"
+      />
+      <path
+        d="M-20 350 H60 V430 H170 V400 H250 V590 H340 V560 H430 V700 H520 V680 H620"
+        fill="none" stroke="rgba(244,243,239,.10)" strokeWidth="2"
+      />
+      <line x1="-20" y1="530" x2="620" y2="530" stroke="rgba(10,138,79,.55)" strokeWidth="1.5" strokeDasharray="7 6" />
+    </svg>
+  );
+}
 
 function parseOAuthError(code: string): { text: string; tone: "err" | "notice" } {
   // "notice" = guidance the user can act on (amber); "err" = a real failure (red).
@@ -322,26 +334,12 @@ function parseAuthError(raw: string): string {
   return raw.length > 120 ? "Something went wrong." : raw;
 }
 
-function Wordmark() {
-  return (
-    <a href="/" className="rv-wordmark">
-      <img src="/wic-logo.svg" alt="" aria-hidden className="rv-wordmark-img" />
-      <span className="rv-wordmark-name">WasItCheaper</span>
-    </a>
-  );
-}
-
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="rv-field">
-      <label className="rv-field-label">{label}</label>
+      <label className="rv-field-label rv-eyebrow">{label}</label>
       {children}
-      {error && (
-        <p className="rv-field-err">
-          <span className="rv-field-err-mark">!</span>
-          {error}
-        </p>
-      )}
+      {error && <p className="rv-field-err">{error}</p>}
     </div>
   );
 }
@@ -384,102 +382,133 @@ function GitHubIcon() {
 /* ── DATA ─────────────────────────────────────────────────── */
 
 const WHY_SIGN_UP = [
-  "Daily price rechecks, automatically",
-  "Real 90-day price history, charted",
-  "Alerts the moment it's genuinely cheaper",
+  "Prices rechecked every day, automatically",
+  "Ninety days of real history, charted",
+  "An email the moment it's genuinely cheaper",
 ];
 
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  .rv-login {
-    background: var(--paper);
-    color: var(--ink);
-    font-family: 'Manrope', sans-serif;
-    -webkit-font-smoothing: antialiased;
+  .rv-login { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-login-split {
+    display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    min-height: calc(100vh - 56px);
   }
-  .rv-login .display { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.01em; line-height: 1.06; text-wrap: balance; }
-  .rv-login .rv-emph { color: var(--primary); }
 
-  .rv-login .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
-  .rv-login .rv-wordmark-img { width: 28px; height: 28px; object-fit: contain; }
-  .rv-login .rv-wordmark-name { font-family: var(--font-display); font-size: 24px; letter-spacing: 0.01em; }
-
-  /* Left brand panel — full-bleed photography with overlaid copy. */
-  .rv-login .rv-login-side {
-    display: none;
-    position: relative; isolation: isolate; overflow: hidden;
-    width: 44%; max-width: 560px;
-    padding: 44px;
-    flex-direction: column; justify-content: space-between; gap: 40px;
-    background: var(--ink);
-    color: #fff;
+  /* ── Brand panel ── */
+  .rv-login-side {
+    position: relative; overflow: hidden; background: var(--ink); color: var(--paper);
+    padding: 56px 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 48px;
   }
-  @media (min-width: 1024px) { .rv-login .rv-login-side { display: flex; } }
-  .rv-login .rv-login-side-media {
-    position: absolute; inset: 0; z-index: -1;
-    background: var(--desktop);
-    background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 22px);
+  .rv-login-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rv-login-side-body, .rv-login-side-list { position: relative; z-index: 1; }
+  .rv-login-side-eyebrow { color: rgba(244,243,239,.62); }
+  .rv-login-side-title {
+    margin: 22px 0 0; font-size: clamp(30px, 3.6vw, 46px); color: var(--paper); max-width: 16ch;
   }
-  .rv-login .rv-login-side-z { position: relative; z-index: 1; }
-  .rv-login .rv-login-side .rv-wordmark-name { color: #fff; }
-  .rv-login .rv-login-side .rv-eyebrow { color: rgba(255,255,255,.72); }
-  .rv-login .rv-login-side .rv-emph { color: #60a5fa; }
-  .rv-login .rv-login-side-title { font-size: clamp(2rem, 3vw, 2.8rem); line-height: 1.05; margin-top: 18px; color: #fff; text-shadow: 0 1px 18px rgba(0,0,0,.28); }
-  .rv-login .rv-login-side-sub { margin-top: 18px; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.82); max-width: 40ch; }
-  .rv-login .rv-login-side-deals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .rv-login .rv-login-side-deal { padding: 11px 0; border-top: 1px solid rgba(255,255,255,.16); font-size: 13.5px; }
-  .rv-login .rv-login-side-deal-title { font-weight: 600; color: rgba(255,255,255,.95); }
+  .rv-login-side-sub {
+    margin: 20px 0 0; font-size: 15.5px; line-height: 1.6; color: rgba(244,243,239,.72); max-width: 40ch;
+  }
+  .rv-login-side-list { list-style: none; margin: 0; padding: 0; }
+  .rv-login-side-list li {
+    padding: 14px 0 14px 24px; border-top: 1px solid rgba(244,243,239,.16);
+    font-size: 14.5px; color: rgba(244,243,239,.86); position: relative;
+  }
+  .rv-login-side-list li::before {
+    content: ""; position: absolute; left: 0; top: 22px; width: 12px; height: 2px; background: var(--green);
+  }
 
-  /* Right form */
-  .rv-login .rv-login-main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
-  .rv-login .rv-login-main-inner { width: 100%; max-width: 400px; }
-  .rv-login .rv-login-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-muted); margin-bottom: 28px; transition: color .15s ease; }
-  .rv-login .rv-login-back:hover { color: var(--ink); }
-  .rv-login .rv-login-title { font-size: clamp(1.8rem, 4vw, 2.3rem); line-height: 1.05; }
-  .rv-login .rv-login-sub { margin-top: 8px; font-size: 15px; color: var(--ink-muted); }
+  /* ── Form side ── */
+  .rv-login-main { display: flex; align-items: center; justify-content: center; padding: 48px 24px 72px; }
+  .rv-login-main-inner { width: 100%; max-width: 420px; }
+  .rv-login-back {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500;
+    color: var(--ink-muted); text-decoration: none; margin-bottom: 28px;
+    transition: color var(--dur-fast) ease;
+  }
+  .rv-login-back:hover { color: var(--ink); }
+  .rv-login-mobile-mark { display: none; margin-bottom: 26px; }
 
-  .rv-login .rv-login-social { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
-  .rv-login .rv-social-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 11px 16px; border: 1px solid var(--rule-strong); border-radius: 10px; background: var(--paper-pale); font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 600; color: var(--ink); transition: border-color .15s ease, background-color .15s ease; }
-  .rv-login .rv-social-btn:hover { border-color: var(--ink); background: var(--paper-soft); }
+  .rv-login-title { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.03em; }
+  .rv-login-sub { margin: 10px 0 0; font-size: 14.5px; color: var(--ink-muted); }
 
-  .rv-login .rv-login-or { display: flex; align-items: center; gap: 14px; margin: 22px 0; color: var(--ink-fade); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-  .rv-login .rv-login-or::before, .rv-login .rv-login-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+  .rv-login-social { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
+  .rv-social-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+    padding: 12px 16px; font-family: var(--font-sans); font-size: 14.5px; font-weight: 600;
+    color: var(--ink); background: var(--paper-pale); border: 1px solid var(--rule-strong);
+    border-radius: var(--r-md); cursor: pointer;
+    transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+  }
+  .rv-social-btn:hover { border-color: var(--ink); background: var(--paper-deep); }
 
-  .rv-login .rv-login-form { display: flex; flex-direction: column; gap: 16px; }
-  .rv-login .rv-field { display: flex; flex-direction: column; gap: 6px; }
-  .rv-login .rv-field-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-muted); }
-  .rv-login .rv-input { width: 100%; background: var(--paper-pale); border: 1px solid var(--rule-strong); border-radius: 10px; font-family: 'Manrope', sans-serif; font-size: 15px; color: var(--ink); padding: 11px 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease; }
-  .rv-login .rv-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); }
-  .rv-login .rv-input::placeholder { color: var(--ink-fade); }
-  .rv-login .rv-input-err { border-color: var(--red); }
-  .rv-login .rv-password-wrap { position: relative; }
-  .rv-login .rv-input-pw { padding-right: 44px; }
-  .rv-login .rv-password-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 6px; color: var(--ink-fade); border-radius: 6px; transition: color .15s ease; }
-  .rv-login .rv-password-eye:hover { color: var(--ink); }
-  .rv-login .rv-field-err { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--err); }
-  .rv-login .rv-field-err-mark, .rv-login .rv-login-form-err-mark { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--red); color: #fff; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .rv-login-or {
+    display: flex; align-items: center; gap: 14px; margin: 26px 0;
+    font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .14em; color: var(--ink-fade);
+  }
+  .rv-login-or::before, .rv-login-or::after {
+    content: ""; flex: 1; height: 1px; background: var(--rule-strong);
+  }
 
-  .rv-login .rv-login-row { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
-  .rv-login .rv-checkbox { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-muted); cursor: pointer; }
-  .rv-login .rv-checkbox-box { width: 17px; height: 17px; border: 1px solid var(--rule-strong); border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #fff; transition: background-color .15s ease, border-color .15s ease; }
-  .rv-login .rv-checkbox-box-on { background: var(--primary); border-color: var(--primary); }
-  .rv-login .rv-login-forgot { font-size: 13.5px; font-weight: 600; color: var(--link); transition: color .15s ease; }
-  .rv-login .rv-login-forgot:hover { color: var(--link-hover); }
+  .rv-login-form { display: flex; flex-direction: column; gap: 18px; }
+  .rv-field { display: flex; flex-direction: column; gap: 7px; }
+  .rv-field-label { color: var(--ink); }
+  .rv-field-err { margin: 0; font-size: 12.5px; color: var(--red-deep); }
+  .rv-input-err { border-color: var(--red); }
+  .rv-input-err:focus { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
 
-  .rv-login .rv-login-submit { width: 100%; justify-content: center; font-size: 15px; padding: 12px 18px; margin-top: 4px; }
+  .rv-password-wrap { position: relative; }
+  .rv-input-pw { padding-right: 44px; }
+  .rv-password-eye {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--ink-fade); background: none; cursor: pointer; padding: 4px;
+    transition: color var(--dur-fast) ease;
+  }
+  .rv-password-eye:hover { color: var(--ink); }
 
-  .rv-login .rv-login-form-err { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--err); }
-  .rv-login .rv-login-form-err--notice { color: var(--amber-deep); }
-  .rv-login .rv-login-form-err--notice .rv-login-form-err-mark { background: var(--amber); }
+  .rv-login-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .rv-checkbox { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; cursor: pointer; user-select: none; }
+  .rv-checkbox-box {
+    display: grid; place-items: center; width: 17px; height: 17px; flex: none;
+    border: 1px solid var(--rule-strong); background: var(--paper-pale); border-radius: var(--r-sm);
+    color: var(--paper); transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .rv-checkbox-box-on { background: var(--ink); border-color: var(--ink); }
+  .rv-login-forgot {
+    font-size: 13px; font-weight: 500; color: var(--ink-muted); background: none; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--rule-strong);
+  }
+  .rv-login-forgot:hover { color: var(--ink); }
 
-  .rv-login .rv-login-guest { margin-top: 22px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .rv-login .rv-login-guest-rule { width: 100%; height: 1px; background: var(--rule); }
-  .rv-login .rv-login-guest-hint { font-size: 12.5px; color: var(--ink-fade); text-align: center; }
+  .rv-login-submit { width: 100%; margin-top: 4px; }
 
-  .rv-login .rv-login-toggle { margin-top: 24px; text-align: center; font-size: 14px; color: var(--ink-muted); }
-  .rv-login .rv-login-toggle-btn { font-weight: 700; color: var(--link); transition: color .15s ease; }
-  .rv-login .rv-login-toggle-btn:hover { color: var(--link-hover); }
-  .rv-login .rv-login-fine { margin-top: 18px; text-align: center; font-size: 12px; color: var(--ink-fade); line-height: 1.5; }
-  .rv-login .rv-login-fine a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+  .rv-login-form-err {
+    margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--red-deep);
+    background: var(--red-tint); padding: 11px 13px; border-left: 2px solid var(--red);
+  }
+  .rv-login-form-err--notice {
+    color: var(--amber-deep); background: var(--amber-tint); border-left-color: var(--amber);
+  }
+
+  .rv-login-guest {
+    display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+    margin-top: 26px; padding-top: 26px; border-top: 1px solid var(--rule);
+  }
+  .rv-login-guest-hint { font-size: 12.5px; color: var(--ink-muted); text-align: center; }
+
+  .rv-login-toggle { margin: 24px 0 0; font-size: 14px; color: var(--ink-muted); text-align: center; }
+  .rv-login-toggle-btn {
+    font-size: 14px; font-weight: 600; color: var(--ink); background: none; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .rv-login-fine { margin: 20px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink-fade); text-align: center; }
+
+  @media (max-width: 960px) {
+    .rv-login-split { grid-template-columns: 1fr; min-height: 0; }
+    .rv-login-side { display: none; }
+    .rv-login-mobile-mark { display: block; }
+    .rv-login-main { padding: 36px 20px 64px; align-items: flex-start; }
+  }
 `;

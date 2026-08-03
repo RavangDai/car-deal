@@ -8,7 +8,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Manrope", "system-ui", "sans-serif"],
+        // Archivo carries every word; IBM Plex Mono carries every figure.
+        sans: ["Archivo", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "ui-monospace", "Consolas", "monospace"],
       },
     },
   },

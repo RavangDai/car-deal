@@ -2,126 +2,182 @@
    Single source of truth for typography + design tokens — loaded once,
    globally, via main.tsx (:root), inherited by every page's own wrapper.
 
-   Direction: retro desktop OS ("pseudo-retro" — Windows-95-style window
-   chrome: beveled panels, gradient titlebars, a taskbar) wrapped around
-   modern, highly legible typography. The bevel is real border technique
-   (light top/left, dark bottom/right), not a filter; shadows are hard
-   0-blur offsets, not soft glow. Every token NAME below is unchanged from
-   the prior "cool SaaS" pass — only values repoint — so call sites across
-   every page keep working untouched.
+   Direction: "instrument". WasItCheaper's only real material is a price
+   series over time plus a deterministic score, so the design is derived
+   from that rather than applied to it. Chrome is quiet — hairline rules,
+   no cards, no bevels, no shadows on content. The LOUD things are the
+   deal facts themselves: the delta, the score, the lowest-ever stamp.
+   That contrast is what makes a deal pop; uniform noise would not.
 
-   Semantic mapping (unchanged from the prior system):
-     primary → brand / CTA / interactive — ALSO the titlebar gradient's
-               light stop, so retro chrome and the CTA color are one blue,
-               not two systems. primary-deep is the titlebar's dark stop.
-     link    → quiet inline text links only (a second, calmer blue — never CTA)
-     green   → good deal / confidence / savings / a real price drop
-     amber   → caution / thin margin / a real price rise (never red)
-     red     → error / danger ONLY (weak password, form validation, a
-               failed request) — never repurposed for "price went up"
-     ink     → near-black warm text; paper → window/panel canvas;
-               desktop  → the outer wallpaper behind every window
+   Every token NAME below is unchanged from the prior retro pass (the
+   established convention across every redesign here — a rename touches
+   dozens of call sites for nothing). Only values repoint. Tokens with no
+   consumer after the retro chrome was removed (--desktop*, --bevel-*)
+   are deleted outright rather than left dangling.
+
+   Semantic mapping:
+     ink     → near-black text ramp; paper → canvas + data surfaces
+     green   → A GENUINE DROP. The one loud color. Deltas below median,
+               lowest-ever stamps, strong scores. Never decorative — if
+               it is green, the deal math verified something.
+     amber   → caution: a price rise, thin margin, low coverage
+     red     → error / danger ONLY (form validation, failed request) —
+               never repurposed for "price went up", that is amber
+     primary → interactive/CTA. Ink-filled, NOT a brand hue: keeping the
+               CTA achromatic is what leaves green free to mean "deal".
 */
 
 :root {
-  /* ── Typography — pixel/terminal face for titlebars + big display text
-     only (that's exactly what --font-display already gates); Manrope
-     carries every price, sentence, and button label via --font-sans. */
-  --font-display: 'VT323', 'Consolas', ui-monospace, monospace;
-  --font-sans: 'Manrope', system-ui, -apple-system, sans-serif;
+  /* ── Typography ──────────────────────────────────────────────────────
+     Two faces, one rule. Archivo (variable, with a real width axis)
+     carries every word; its Expanded width at 700 is the display voice.
+     IBM Plex Mono carries every FIGURE — price, delta, score, date, axis
+     label. That split is not stylistic: prices have to align in columns
+     and on chart axes, and one numeric face across table + chart + hero
+     is what makes them read as the same instrument. */
+  --font-sans:    'Archivo', system-ui, -apple-system, sans-serif;
+  --font-display: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'Consolas', monospace;
 
-  /* ── Desktop — the outer wallpaper behind every window. New token: the
-     prior system had no concept of a canvas behind the page background. */
-  --desktop:      #0e7e81;
-  --desktop-deep: #0a5f61;
+  /* Display is Archivo at its widest + heaviest, set tight. */
+  --display-stretch: 125%;
+  --display-weight:  700;
+  --display-track:  -0.035em;
 
-  /* ── Canvas — window/panel surface. Warm off-white, not cool slate. */
-  --paper:        #f3f1ea;
-  --paper-deep:   #e6e2d4;
-  --paper-soft:   #ece7da;
+  /* ── Canvas — low-chroma warm neutral. Deliberately NOT a cream: the
+     reference here is plotter/graph paper, which is why data regions get
+     a faint measured grid (--grid) rather than a texture overlay. */
+  --paper:        #f4f3ef;
+  --paper-soft:   #ebeae4;
+  --paper-deep:   #e2e0d8;
   --paper-pale:   #ffffff;
   --bone:         #ffffff;
 
-  /* ── Ink — warm near-black ramp (was cool slate). Muted/fade kept dark
-     enough to clear 4.5:1 against --paper. */
-  --ink:          #201f1a;
-  --ink-soft:     #3a382f;
-  --ink-muted:    #57544a;
-  --ink-fade:     #7a7566;
+  /* ── Ink — warm near-black ramp. Measured against --paper:
+     --ink 15.7:1, --ink-soft 10.1:1, --ink-muted 4.98:1, --ink-fade 3.05:1.
+     --ink-muted is the FLOOR for body text; --ink-fade clears 3:1 only, so
+     it is for axis labels and decoration, never a sentence. */
+  --ink:          #1b1a16;
+  --ink-soft:     #3c3b34;
+  --ink-muted:    #6a695f;
+  --ink-fade:     #8d8c82;
 
-  /* ── Red — error/danger ONLY. Never used for "price went up" — that's
-     amber. A real price rise is a caution, not an error. */
-  --red:          #a92318;
-  --red-deep:     #7c1912;
-  --red-tint:     #f8ddd9;
-  --red-wash:     rgba(169,35,24,.08);
+  /* ── Green — "a genuine drop". The only loud color in the system.
+     --green measures 3.97:1 on --paper, so it is for LARGE figures ONLY
+     (≥24px bold, where the 3:1 large-text rule applies). Anything smaller
+     must use --green-deep (6.37:1 on paper, 5.86:1 on --green-tint).
+     Enforced at the call site: .rv-delta-sm/-md step down to --green-deep. */
+  --green:        #0a8a4f;
+  --green-deep:   #07663a;
+  --green-tint:   #d9efe2;
+  --green-wash:   rgba(10,138,79,.09);
 
-  /* ── Green — good deal / confidence / savings / a real price drop. */
-  --green:        #1a6b45;
-  --green-deep:   #123f29;
-  --green-tint:   #dcefe3;
+  /* ── Amber — caution: a real price rise, thin margin, low coverage. */
+  --amber:        #8a6410;
+  --amber-deep:   #66490b;
+  --amber-tint:   #f4e9cd;
 
-  /* ── Amber — caution / thin margin / a real price rise. */
-  --amber:        #8a5e09;
-  --amber-deep:   #664508;
-  --amber-tint:   #f6ecd2;
+  /* ── Red — error/danger ONLY. A price rise is amber, not an error. */
+  --red:          #a3231a;
+  --red-deep:     #7a1a13;
+  --red-tint:     #f6dcd9;
+  --red-wash:     rgba(163,35,26,.08);
 
-  /* ── Primary — brand/CTA blue. Unchanged value on purpose: this is the
-     titlebar gradient's light stop, bridging the retro chrome and the
-     existing CTA color into one system. */
-  --primary:      #2563eb;
-  --primary-deep: #0e2258;
-  --primary-tint: #dbeafe;
-  --primary-wash: rgba(37,99,235,.08);
+  /* ── Primary — interactive/CTA. Achromatic on purpose (see header). */
+  --primary:      #1b1a16;
+  --primary-deep: #000000;
+  --primary-tint: #e2e0d8;
+  --primary-wash: rgba(27,26,22,.06);
 
-  /* ── Link — a second, quieter blue: inline text links only, never CTA.
-     Unchanged — orthogonal to the retro chrome shift. */
-  --blue:         #136f96;
-  --blue-bright:  #0081c0;
-  --blue-deep:    #0d5c7e;
-  --blue-tint:    #e2eef4;
-  --link:         #136f96;
-  --link-hover:   #0d5c7e;
+  /* ── Link — inline text links. Underlined ink, not a blue: a second hue
+     would compete with green for attention and dilute what green means. */
+  --blue:         #3c3b34;
+  --blue-bright:  #1b1a16;
+  --blue-deep:    #1b1a16;
+  --blue-tint:    #e2e0d8;
+  --link:         #1b1a16;
+  --link-hover:   #0a8a4f;
 
-  /* ── Hairlines — warm, for internal row dividers inside a window (the
-     bevel border technique below carries most surface separation now). */
-  --rule:         #ded7c4;
-  --rule-strong:  #c3b99f;
+  /* ── Hairlines — all structure comes from these, not from cards. */
+  --rule:         #dcdad1;
+  --rule-strong:  #c2bfb2;
   --border:       var(--rule);
   --border-strong: var(--rule-strong);
   --err:          var(--red);
 
-  /* ── Bevel — real outset/inset border technique (light top/left, dark
-     bottom/right), the actual retro chrome mechanic. New tokens: the prior
-     double-bezel system used shadow+radius, not borders, for card depth. */
-  --bevel-hi:    #ffffff;
-  --bevel-lo:    #8a8778;
-  --bevel-width: 2px;
+  /* ── Grid — the measured substrate behind DATA regions only (hero
+     chart, index table, detail chart). Aligned to the 8px rhythm so it
+     is structure, not texture; it is what says "this was measured". */
+  --grid:         rgba(27,26,22,.055);
+  --grid-size:    8px;
 
-  /* ── Elevation — hard 0-blur offset shadows (retro, not soft glow). */
-  --shadow-sm: 3px 3px 0 rgba(32,31,26,.22);
-  --shadow-md: 5px 5px 0 rgba(32,31,26,.28);
-  --shadow-lg: 8px 8px 0 rgba(32,31,26,.34);
-  --shadow-xl: 10px 10px 0 rgba(32,31,26,.4);
+  /* ── Data-visualisation palette ──────────────────────────────────────
+     The ONE place in this system where saturated colour is allowed. The
+     site chrome stays achromatic precisely so these marks can carry it.
 
-  /* ── Radius scale — Windows-95 chrome is square-cornered. */
-  --r-sm:   0px;
-  --r-md:   0px;
-  --r-lg:   0px;
+     Every value below was validated with the dataviz skill's
+     validate_palette.js against THIS surface (--paper #f4f3ef) — not
+     picked by eye, and not against the skill's lighter default surface
+     (the ordinal ramp fails the light-end floor there; see below).
+
+     CATEGORICAL — series identity. Assigned to the four deal-score
+     components in a FIXED order; never cycled, never reassigned by rank.
+     A hue here is an identity, not a decoration.
+       worst adjacent CVD ΔE 24.7 (target ≥8) · normal-vision ΔE 33.6 (≥15)
+     --series-2 (2.88:1) and --series-4 (2.42:1) sit below 3:1 on paper,
+     so every use MUST ship a visible direct label or a table view. That
+     obligation is met by the ScoreBar legend readouts and the
+     composition chart's "Show as table" toggle. Do not use these two
+     slots anywhere that relief is absent. */
+  --series-1: #2a78d6;  /* Discount depth      — 40% of the score */
+  --series-2: #eb6834;  /* Historical rarity   — 30% */
+  --series-3: #4a3aa7;  /* Pre-drop stability  — 20% */
+  --series-4: #e87ba4;  /* Drop freshness      — 10% */
+  --series-empty: #e2e0d8;  /* points a component did NOT earn */
+
+  /* ORDINAL — score bands (0–20 … 80–100) are an ordered scale, so they
+     take one hue stepping light→dark, never categorical hues: the reader
+     should see the order in the colour. Blue steps 300→700. The lighter
+     250→650 ramp FAILS the 2:1 light-end floor on this surface (1.90:1). */
+  --ramp-1: #6da7ec;
+  --ramp-2: #3987e5;
+  --ramp-3: #256abf;
+  --ramp-4: #184f95;
+  --ramp-5: #0d366b;
+
+  /* STATUS is reserved and is NOT part of the palette above: --green
+     still means "the deal math verified this", --amber a price rise,
+     --red an error. A status colour never becomes "series 5", and the
+     four categorical slots deliberately avoid green- and amber-family
+     hues so neither can impersonate the other. */
+
+  /* ── Elevation — content surfaces carry NO shadow. These exist only
+     for genuinely floating UI (the mobile nav sheet, the donate popover). */
+  --shadow-sm: 0 1px 2px rgba(27,26,22,.06);
+  --shadow-md: 0 4px 16px rgba(27,26,22,.10);
+  --shadow-lg: 0 12px 32px rgba(27,26,22,.14);
+  --shadow-xl: 0 20px 48px rgba(27,26,22,.16);
+
+  /* ── Radius — 2px on things you touch, 0 on things you read.
+     Not the 0-everywhere of the retro pass, not rounded-2xl. */
+  --r-sm:   2px;
+  --r-md:   2px;
+  --r-lg:   2px;
   --r-xl:   0px;
   --r-card: 0px;
   --r-pill: 999px;
 
-  /* ── Imagery */
-  --img-radius:  0px;
-  --img-ring:    inset 0 0 0 1px rgba(32,31,26,.14);
+  /* ── Imagery — product photos are supporting evidence, not the subject. */
+  --img-radius:  2px;
+  --img-ring:    inset 0 0 0 1px rgba(27,26,22,.12);
 
-  /* ── Motion — one named easing carries the system. Unchanged — motion
-     feel isn't era-specific. */
+  /* ── Motion — one orchestrated moment per page (the hero line drawing
+     itself), everything else quiet. */
   --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
   --dur-fast:    .15s;
   --dur-mid:     .25s;
   --dur-slow:    .5s;
+  --dur-draw:    1.1s;
 
   /* ── Z-index scale — structural app-chrome layers only. */
   --z-raised:     1;
@@ -129,17 +185,45 @@
   --z-sticky-nav: 40;
   --z-fixed-nav:  50;
   --z-banner:     80;
-  --z-grain:      90;
   --z-modal:      100;
 
-  /* ── Scroll-reveal — heavier fade-up-blur for whileInView entrances.
-     Unchanged. */
-  --reveal-y:        44px;
-  --reveal-blur:     6px;
-  --reveal-duration: .8s;
+  /* ── Reveal — on-mount fade-up. Deliberately small: content must be
+     visible without scrolling (a whileInView gate ships blank in
+     headless/non-scrolled renders, which broke the screenshot harness). */
+  --reveal-y:        14px;
+  --reveal-duration: .5s;
+}
 
-  /* ── Noise/grain overlay — DEFINED BUT UNUSED, kept for easy reversal
-     (same convention as the prior pass). Retro texture instead comes from
-     the desktop's hard-edged diagonal pattern, applied per-page. */
-  --noise-opacity: 0.035;
+/* The measured substrate. Applied to data regions via .rv-gridded. */
+.rv-gridded {
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+}
+
+/* Every figure in the product — price, delta, score, date, axis label —
+   is set in the mono face with lining tabular figures so columns align. */
+.rv-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+/* Display voice: Archivo at full width + weight, set tight. */
+.rv-display {
+  font-family: var(--font-display);
+  font-stretch: var(--display-stretch);
+  font-weight: var(--display-weight);
+  letter-spacing: var(--display-track);
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
 }

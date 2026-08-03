@@ -1,4 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="WasItCheaper">
-  <rect width="48" height="48" rx="12" fill="#2563eb"/>
-  <path d="M24 12 L24 32 M15 23 L24 32 L33 23" stroke="#ffffff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- The mark IS the product: a step-after price line stepping down, with
+       the final step — the genuine drop — landing on the green datum. Step
+       geometry, never a smooth curve: prices hold flat between observations,
+       and a curve would draw prices that were never observed. -->
+  <rect width="48" height="48" fill="#1b1a16"/>
+  <path d="M6 15 H16 V22 H24 V19 H32 V31 H42"
+        stroke="#f4f3ef" stroke-width="3.4" stroke-linecap="square" stroke-linejoin="miter" fill="none"/>
+  <path d="M32 31 H42" stroke="#0a8a4f" stroke-width="3.4" stroke-linecap="square" fill="none"/>
+  <circle cx="42" cy="31" r="4" fill="#0a8a4f"/>
 </svg>
