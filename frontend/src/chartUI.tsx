@@ -2,6 +2,7 @@
 // The shared chart furniture: a legend and a tooltip. Dependency-free,
 // like the charts themselves. The hover behaviour that drives the tooltip
 // lives in chartHooks.ts.
+import type { ReactNode } from "react";
 import type { HoverState } from "./chartHooks";
 
 // ── Legend ────────────────────────────────────────────────────────────────
@@ -51,6 +52,74 @@ export function ChartTooltip({ hover }: { hover: HoverState }) {
   );
 }
 
+// ── View controls ─────────────────────────────────────────────────────────
+
+/** Segmented control — one choice from a short, visible set. */
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div className="rv-seg" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={`rv-seg-btn${value === o.value ? " is-active" : ""}`}
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A toggle for one chart overlay. The swatch shows the colour the overlay
+ * actually draws in, so the control is self-describing without a legend.
+ */
+export function OverlayToggle({
+  checked,
+  onChange,
+  children,
+  swatch,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  children: ReactNode;
+  /** CSS colour of the mark this toggle governs. */
+  swatch?: string;
+}) {
+  return (
+    <label className={`rv-toggle${checked ? " is-on" : ""}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="rv-toggle-input"
+      />
+      <span className="rv-toggle-box" aria-hidden="true">
+        {checked && (
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+      {swatch && <span className="rv-toggle-swatch" style={{ background: swatch }} aria-hidden="true" />}
+      <span className="rv-toggle-label">{children}</span>
+    </label>
+  );
+}
+
 export const CHART_UI_STYLES = `
   /* ── Legend — a dot carries identity, the text stays in ink tokens.
      Never colour the label text itself: the mark beside it does that job. ── */
@@ -91,4 +160,46 @@ export const CHART_UI_STYLES = `
   /* Marks are hit targets — bigger than the drawn mark. */
   .rv-mark-hit { cursor: pointer; }
   .rv-mark-hit:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+  /* ── Segmented control ── */
+  .rv-seg { display: inline-flex; gap: 2px; }
+  .rv-seg-btn {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; padding: 6px 11px; cursor: pointer;
+    color: var(--ink-muted); background: var(--paper-pale);
+    border: 1px solid var(--rule-strong);
+    transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease,
+                border-color var(--dur-fast) ease;
+  }
+  .rv-seg-btn:hover { color: var(--ink); border-color: var(--ink); }
+  .rv-seg-btn.is-active {
+    background: var(--ink); color: var(--paper); border-color: var(--ink);
+  }
+
+  /* ── Overlay toggle ── */
+  .rv-toggle {
+    display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+    user-select: none; padding: 4px 0;
+  }
+  .rv-toggle-input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .rv-toggle-box {
+    display: grid; place-items: center; width: 16px; height: 16px; flex: none;
+    border: 1px solid var(--rule-strong); background: var(--paper-pale);
+    border-radius: var(--r-sm); color: var(--paper);
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .rv-toggle.is-on .rv-toggle-box { background: var(--ink); border-color: var(--ink); }
+  .rv-toggle-input:focus-visible + .rv-toggle-box { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .rv-toggle-swatch { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .rv-toggle-label { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+  .rv-toggle:hover .rv-toggle-label { color: var(--ink); }
+
+  /* ── The strip that holds them ── */
+  .rv-viewbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px 24px; flex-wrap: wrap;
+    padding-bottom: 16px; margin-bottom: 18px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .rv-viewbar-overlays { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 `;

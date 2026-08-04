@@ -25,12 +25,15 @@ import { PriceHistoryChart } from "./charts";
 import { ScoreBar } from "./ScoreBar";
 import { Spinner } from "./Spinner";
 import { Button, Delta, Panel, Reveal, Stamp, TopBar } from "./primitives";
+import { OverlayToggle, SegmentedControl } from "./chartUI";
+import { useChartPrefs } from "./chartView";
 
 export default function ProductDetailPage({ id, onBack }: { id: string; onBack: () => void }) {
   const { data: product, isLoading, isError } = useProduct(id);
   const me = useMe();
   const [windowSize, setWindowSize] = useState<"90" | "180" | "all">("90");
   const [menuOpen, setMenuOpen] = useState(false);
+  const { prefs, update } = useChartPrefs();
   const historyQuery = usePriceHistory(id, windowSize);
 
   const currency = product?.currency ?? "USD";
@@ -164,17 +167,77 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
               className="rv-detail-chart"
               gridded
             >
+              <div className="rv-viewbar">
+                <SegmentedControl
+                  label="Chart view"
+                  value={prefs.view}
+                  onChange={(v) => update({ view: v })}
+                  options={[
+                    { value: "line", label: "Line" },
+                    { value: "bars", label: "Bars" },
+                    { value: "table", label: "Table" },
+                  ]}
+                />
+                {prefs.view === "line" && (
+                  <div className="rv-viewbar-overlays">
+                    <OverlayToggle
+                      checked={prefs.showMedian}
+                      onChange={(v) => update({ showMedian: v })}
+                      swatch="var(--ink-fade)"
+                    >
+                      90-day median
+                    </OverlayToggle>
+                    <OverlayToggle
+                      checked={prefs.showBand}
+                      onChange={(v) => update({ showBand: v })}
+                      swatch="var(--green)"
+                    >
+                      Discount band
+                    </OverlayToggle>
+                    <OverlayToggle
+                      checked={prefs.showLowest}
+                      onChange={(v) => update({ showLowest: v })}
+                      swatch="var(--green-deep)"
+                    >
+                      Lowest ever
+                    </OverlayToggle>
+                  </div>
+                )}
+              </div>
+
               <PriceHistoryChart
                 points={historyQuery.data?.points ?? []}
                 median90d={historyQuery.data?.median_90d ?? product.median_90d}
                 minEver={historyQuery.data?.min_ever ?? product.min_ever}
                 currency={currency}
+                view={prefs.view}
+                showMedian={prefs.showMedian}
+                showBand={prefs.showBand}
+                showLowest={prefs.showLowest}
               />
               <p className="rv-detail-chart-note">
-                Every point this line passes through is a real price check. The curve between two checks
-                is a connection, not a reading &mdash; real prices hold flat and then jump, and the line
-                never dips below a price that was actually recorded. Hatched bands are periods the
-                product was out of stock.
+                {prefs.view === "line" && (
+                  <>
+                    Every point this line passes through is a real price check. The curve between two
+                    checks is a connection, not a reading &mdash; real prices hold flat and then jump,
+                    and the line never dips below a price that was actually recorded. Hatched bands are
+                    periods the product was out of stock.
+                  </>
+                )}
+                {prefs.view === "bars" && (
+                  <>
+                    Each bar is one price check, measured against this product&rsquo;s own 90-day median
+                    rather than against zero. Bars of the price itself would need a cut-off axis, which
+                    exaggerates small differences &mdash; the trick this site exists to catch. Below the
+                    line means cheaper than its usual price.
+                  </>
+                )}
+                {prefs.view === "table" && (
+                  <>
+                    Only the checks where the price actually moved. The price is recorded daily, so the
+                    days in between repeat the value above them.
+                  </>
+                )}
               </p>
             </Panel>
 
@@ -239,7 +302,7 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
           <p className="rv-panel-body-text">
             Sign in to set a rule. We check daily and email you only when the rule actually fires.
           </p>
-          <Button as="a" href="#" variant="primary" size="sm">Sign in to set an alert</Button>
+          <Button as="a" href="#/login" variant="primary" size="sm">Sign in to set an alert</Button>
         </>
       ) : (
         <>

@@ -19,6 +19,8 @@ import { formatMoney } from "./format";
 import { computeStepSegments } from "./priceHistoryGeometry";
 import { ChartTooltip } from "./chartUI";
 import { useMarkHover, usePointerTrack } from "./chartHooks";
+import type { ChartView } from "./chartView";
+import { PriceBarsChart, PriceTable } from "./priceViews";
 
 export type PricePointLike = { t: string; price: number; in_stock?: boolean };
 
@@ -103,14 +105,17 @@ function linePathFor(shape: LineShape, xs: number[], ys: number[]): string {
   return shape === "step" ? stepPath(xs, ys) : smoothPath(xs, ys);
 }
 
-// ── Full price-history chart — the centerpiece of the product ──────────────
-export function PriceHistoryChart({
+// ── Line view — the default, and the centerpiece of the product ────────────
+function PriceLineChart({
   points,
   median90d,
   minEver,
   currency = "USD",
   variant = "detail",
   shape = "smooth",
+  showMedian = true,
+  showBand = true,
+  showLowest = true,
 }: {
   points: PricePointLike[];
   median90d?: number | null;
@@ -120,6 +125,9 @@ export function PriceHistoryChart({
   variant?: "detail" | "hero";
   /** "step" renders the literal step function prices actually follow. */
   shape?: LineShape;
+  showMedian?: boolean;
+  showBand?: boolean;
+  showLowest?: boolean;
 }) {
   const uid = useId().replace(/:/g, "");
   const hero = variant === "hero";
@@ -154,7 +162,7 @@ export function PriceHistoryChart({
   const linePath = linePathFor(shape, xs, ys);
 
   const medianNum = median90d != null ? Number(median90d) : null;
-  const medianY = medianNum != null ? sy(medianNum) : null;
+  const medianY = medianNum != null && showMedian ? sy(medianNum) : null;
 
   // The discount band: the region between the price line and the median,
   // clipped to below the median so only genuine discount is shaded. Its
@@ -276,7 +284,7 @@ export function PriceHistoryChart({
         />
       ))}
 
-      {discountPath && (
+      {discountPath && showBand && (
         <path d={discountPath} fill="var(--green)" opacity="0.13" clipPath={`url(#below-${uid})`} />
       )}
 
@@ -330,7 +338,7 @@ export function PriceHistoryChart({
         />
       )}
 
-      {lowestIdx >= 0 && (
+      {lowestIdx >= 0 && showLowest && (
         <g className="rv-chart-anno">
           <line
             x1={xs[lowestIdx]} y1={ys[lowestIdx]} x2={xs[lowestIdx]} y2={pad.t + plotH}
@@ -378,6 +386,37 @@ export function PriceHistoryChart({
     <ChartTooltip hover={hoverTip} />
     </div>
   );
+}
+
+// ── The dispatcher callers use ────────────────────────────────────────────
+// Each view is its own component so it owns its own hooks; branching inside a
+// single component would mean calling hooks conditionally.
+export function PriceHistoryChart({
+  view = "line",
+  ...props
+}: {
+  points: PricePointLike[];
+  median90d?: number | null;
+  minEver?: number | null;
+  currency?: string;
+  variant?: "detail" | "hero";
+  shape?: LineShape;
+  view?: ChartView;
+  showMedian?: boolean;
+  showBand?: boolean;
+  showLowest?: boolean;
+}) {
+  if (view === "bars") {
+    return (
+      <PriceBarsChart points={props.points} median90d={props.median90d} currency={props.currency} />
+    );
+  }
+  if (view === "table") {
+    return (
+      <PriceTable points={props.points} median90d={props.median90d} currency={props.currency} />
+    );
+  }
+  return <PriceLineChart {...props} />;
 }
 
 // ── Empty axis — the loading/empty state. An instrument with no reading on

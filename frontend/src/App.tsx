@@ -25,6 +25,7 @@ import { Sparkline, ScoreHistogram, EmptyAxis, CHART_STYLES } from "./charts";
 import { SCOREBAR_STYLES } from "./ScoreBar";
 import { SCORE_COMPOSITION_STYLES } from "./ScoreComposition";
 import { CHART_UI_STYLES } from "./chartUI";
+import { PRICE_VIEW_STYLES } from "./priceViews";
 import { Arrow, Button, Delta, Panel, PRIMITIVE_STYLES, Stamp, TopBar, Wordmark } from "./primitives";
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
@@ -61,12 +62,18 @@ function readIsAlertsHash(): boolean {
   return window.location.hash === "#/alerts";
 }
 
+function readIsLoginHash(): boolean {
+  return window.location.hash === "#/login";
+}
+
 export default function App() {
   const me = useMe();
-  // An OAuth failure redirects back to "/?auth_error=..."; land on the login
-  // page so LoginPage can surface the message.
+  // Sign-in is its own route (#/login), not a detached boolean: it gets a URL
+  // you can link to, bookmark and reload, and the browser Back button works
+  // between it and the landing page. An OAuth failure redirects back to
+  // "/?auth_error=..." with no hash, so seed the route from that too.
   const [showLogin, setShowLogin] = useState(
-    () => new URLSearchParams(window.location.search).has("auth_error")
+    () => readIsLoginHash() || new URLSearchParams(window.location.search).has("auth_error")
   );
   const [guest, setGuest] = useState(isGuest);
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
@@ -84,6 +91,7 @@ export default function App() {
       setLegal(readLegalHash());
       setProductId(readProductHash());
       setOnAlerts(readIsAlertsHash());
+      setShowLogin(readIsLoginHash());
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -97,6 +105,14 @@ export default function App() {
     clearHash();
     setLegal(null);
   }
+
+  // Landing on #/login while already signed in is a dead end. The route order
+  // below already renders the dashboard in that case (me.data is checked
+  // first), so this only tidies the URL to match what is on screen — no state
+  // to sync, and therefore no cascading render.
+  useEffect(() => {
+    if (showLogin && me.data) clearHash();
+  }, [showLogin, me.data]);
 
   function closeProduct() {
     clearHash();
@@ -113,6 +129,7 @@ export default function App() {
   function handleLogout() {
     logoutMut.mutate();
     setGuest(false);
+    clearHash();
     setShowLogin(false);
   }
 
@@ -120,6 +137,7 @@ export default function App() {
   function enterGuest() {
     setGuestMode(true);
     setGuest(true);
+    clearHash();
     setShowLogin(false);
   }
 
@@ -127,6 +145,7 @@ export default function App() {
   function goCreateAccount() {
     setGuestMode(false);
     setGuest(false);
+    window.location.hash = "#/login";
     setShowLogin(true);
   }
 
@@ -140,6 +159,7 @@ export default function App() {
   function handleRealLogin() {
     setGuestMode(false);
     setGuest(false);
+    clearHash();
     setShowLogin(false);
   }
 
@@ -147,6 +167,7 @@ export default function App() {
   // visitor already typed into the paste box) always routes to sign-in.
   function goToSignIn(url?: string) {
     if (url) setPendingUrl(url);
+    window.location.hash = "#/login";
     setShowLogin(true);
   }
 
@@ -168,12 +189,15 @@ export default function App() {
   } else if (me.data) {
     routeKey = "dashboard";
     routeEl = <Dashboard onLogout={handleLogout} initialTrackUrl={pendingUrl} />;
+  } else if (showLogin) {
+    // Checked BEFORE guest: an explicit #/login URL is authoritative, so a
+    // guest who navigates there gets the sign-in page rather than being
+    // bounced back to the browse-only dashboard.
+    routeKey = "login";
+    routeEl = <LoginPage onLogin={handleRealLogin} onGuest={enterGuest} />;
   } else if (guest) {
     routeKey = "guest";
     routeEl = <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />;
-  } else if (showLogin) {
-    routeKey = "login";
-    routeEl = <LoginPage onLogin={handleRealLogin} onGuest={enterGuest} />;
   } else {
     routeKey = "home";
     routeEl = <HomePage onGetStarted={goToSignIn} />;
@@ -192,7 +216,8 @@ export default function App() {
   return (
     <>
       <style>
-        {PRIMITIVE_STYLES + CHART_UI_STYLES + CHART_STYLES + SCOREBAR_STYLES + SCORE_COMPOSITION_STYLES}
+        {PRIMITIVE_STYLES + CHART_UI_STYLES + CHART_STYLES + PRICE_VIEW_STYLES +
+          SCOREBAR_STYLES + SCORE_COMPOSITION_STYLES}
       </style>
       <AnimatePresence mode="wait">
         <motion.div key={routeKey} {...fade}>

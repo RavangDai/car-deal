@@ -145,7 +145,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
             initial={initial}
             animate="show"
           >
-            <motion.a href="/" className="rv-login-back" variants={formItem}>
+            <motion.a href="#" className="rv-login-back" variants={formItem}>
               <ArrowLeft size={14} />
               <span>Back to home</span>
             </motion.a>
