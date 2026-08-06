@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     ai_extraction_model: str = "claude-opus-4-8"
     ai_verdict_model: str = "claude-opus-4-8"
+    # Categorisation is a one-token classification over a product title, so
+    # it runs on the small fast model rather than the one that writes prose.
+    ai_category_model: str = "claude-haiku-4-5-20251001"
 
     # Price-drop alert email. "console" (default) logs the rendered email —
     # safe zero-dependency local dev. Set email_backend="resend" + resend_api_key

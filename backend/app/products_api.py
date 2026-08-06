@@ -10,15 +10,17 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .ai import is_enabled as ai_is_enabled
-from .auth import get_current_user
+from .auth import get_current_user, get_current_user_optional
 from .celery_app import celery_app
 from .cookies import require_csrf
 from .dealmath import PricePointData, daily_series
 from .db import get_db
 from .limiter import limiter
 from .models import PricePoint, Product, ProductVerdict, User, Watch
+from .preferences_api import read_onboarding
 from .settings import settings
 from .tasks import compute_verdict_task, track_url_task
+from .taxonomy import normalize as normalize_category
 from .urlnorm import InvalidUrlError, normalize_url
 
 router = APIRouter(tags=["products"])
@@ -52,6 +54,7 @@ class ProductOut(BaseModel):
     title: Optional[str] = None
     image_url: Optional[str] = None
     currency: Optional[str] = None
+    category: Optional[str] = None
     status: str
     latest_price: Optional[Decimal] = None
     latest_price_at: Optional[datetime] = None
@@ -154,16 +157,49 @@ async def list_products(
     sort: str = "deal_score",
     min_score: Optional[float] = None,
     q: Optional[str] = None,
+    category: Optional[str] = None,
+    personalized: bool = False,
     limit: int = 30,
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user_optional),
 ):
+    """Public deals feed.
+
+    Stays the global ranking for everyone by default. When `personalized=1`
+    AND a session resolves to an onboarded user, their stored category
+    interests and sensitivity threshold are applied as filters.
+
+    Personalization is opt-IN per request rather than implicit-on-session so
+    that a shared/cached response and a signed-in one never differ for the
+    same URL, and so the client can show an unfiltered feed on demand.
+    """
     stmt = select(Product).where(Product.status.in_(["active", "demo"]))
+
+    categories: list[str] = []
+    slug = normalize_category(category)
+    if slug:
+        categories = [slug]
+
+    effective_min = min_score
+
+    if personalized and user is not None:
+        prefs = read_onboarding(user)
+        if prefs is not None:
+            # An explicit query param always beats the stored profile: the
+            # user is looking at a specific thing right now.
+            if not categories and prefs.categories:
+                categories = prefs.categories
+            if effective_min is None:
+                effective_min = prefs.min_score
+
+    if categories:
+        stmt = stmt.where(Product.category.in_(categories))
 
     if sort == "deal_score":
         stmt = stmt.where(Product.deal_score.is_not(None))
-        if min_score is not None:
-            stmt = stmt.where(Product.deal_score >= min_score)
+        if effective_min is not None:
+            stmt = stmt.where(Product.deal_score >= effective_min)
         stmt = stmt.order_by(Product.deal_score.desc())
     else:
         stmt = stmt.order_by(Product.created_at.desc())
@@ -174,6 +210,18 @@ async def list_products(
     stmt = stmt.limit(min(max(limit, 1), 100)).offset(max(offset, 0))
 
     result = await db.execute(stmt)
+
+    # NOTE: a personalized query that matches nothing returns nothing.
+    #
+    # An earlier version fell back to the global ranking here so the feed was
+    # never empty. That is the wrong call for this product: the client labels
+    # these results "matched to what you told us you shop for", and silently
+    # substituting unrelated products makes that label a lie. On a service
+    # whose entire pitch is that its claims are checkable, a feed that quietly
+    # ignores your stated filter is the one bug users should never forgive.
+    #
+    # The client renders an explicit "nothing clears your threshold" state
+    # instead, with a way to loosen the filter.
     return result.scalars().all()
 
 

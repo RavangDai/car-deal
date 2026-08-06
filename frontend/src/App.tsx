@@ -7,7 +7,9 @@ import {
   useLogoutMutation,
   useMe,
   usePriceHistory,
+  usePreferences,
   useProducts,
+  useSaveOnboarding,
   useTrackJob,
   useTrackUrl,
   useWatches,
@@ -18,15 +20,29 @@ import LegalPage, { type LegalKind } from "./LegalPage";
 import { Spinner } from "./Spinner";
 import { ProductImage } from "./ProductImage";
 import { productImage } from "./images";
+import { categoryLabel } from "./taxonomy";
 import { formatMoney } from "./format";
 import ProductDetailPage from "./ProductDetailPage";
 import AlertsPage from "./AlertsPage";
+import OnboardingFlow from "./OnboardingFlow";
+import {
+  flushLocalOnboarding,
+  fromPayload,
+  hasSeenOnboarding,
+  markOnboardingSeen,
+  readLocalOnboarding,
+  SENSITIVITY_MIN_SCORE,
+  toPayload,
+  type OnboardingAnswers,
+} from "./onboarding";
 import { Sparkline, ScoreHistogram, EmptyAxis, CHART_STYLES } from "./charts";
 import { SCOREBAR_STYLES } from "./ScoreBar";
 import { SCORE_COMPOSITION_STYLES } from "./ScoreComposition";
 import { CHART_UI_STYLES } from "./chartUI";
 import { PRICE_VIEW_STYLES } from "./priceViews";
 import { Arrow, Button, Delta, Panel, PRIMITIVE_STYLES, Stamp, TopBar, Wordmark } from "./primitives";
+import { PRODUCT_FAN_STYLES } from "./ProductFan";
+import { SCORE_MODEL_STYLES } from "./ScoreExplainer";
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
 
@@ -66,6 +82,10 @@ function readIsLoginHash(): boolean {
   return window.location.hash === "#/login";
 }
 
+function readIsOnboardingHash(): boolean {
+  return window.location.hash === "#/onboarding";
+}
+
 export default function App() {
   const me = useMe();
   // Sign-in is its own route (#/login), not a detached boolean: it gets a URL
@@ -79,9 +99,13 @@ export default function App() {
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
   const [productId, setProductId] = useState<string | null>(readProductHash);
   const [onAlerts, setOnAlerts] = useState<boolean>(readIsAlertsHash);
+  const [onOnboarding, setOnOnboarding] = useState<boolean>(readIsOnboardingHash);
   const [pendingUrl, setPendingUrl] = useState<string | undefined>(undefined);
   const logoutMut = useLogoutMutation();
   const prefersReduced = useReducedMotion();
+  const saveOnboardingMut = useSaveOnboarding();
+  // Shared by key with the Dashboard's call, so this is one request, not two.
+  const appPrefs = usePreferences(!!me.data);
 
   // Hash-based routing for the standalone legal pages (#/terms, #/privacy),
   // the per-product detail page (#/product/:id), and the alerts page
@@ -92,6 +116,7 @@ export default function App() {
       setProductId(readProductHash());
       setOnAlerts(readIsAlertsHash());
       setShowLogin(readIsLoginHash());
+      setOnOnboarding(readIsOnboardingHash());
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -133,12 +158,46 @@ export default function App() {
     setShowLogin(false);
   }
 
-  // Enter the dashboard without an account (browse-only).
+  // Enter the dashboard without an account (browse-only). First-time guests
+  // are routed through onboarding so the browse feed has something to filter
+  // on; returning guests (or anyone who skipped) go straight in.
   function enterGuest() {
     setGuestMode(true);
     setGuest(true);
-    clearHash();
     setShowLogin(false);
+    if (!hasSeenOnboarding()) {
+      window.location.hash = "#/onboarding";
+      setOnOnboarding(true);
+      return;
+    }
+    clearHash();
+  }
+
+  // Finishing onboarding. A signed-in user's answers go to the server; a
+  // guest's stay in localStorage until they create an account, at which point
+  // flushLocalOnboarding() pushes them. Either way the local copy is written
+  // first by the component, so a failed save is never a lost answer.
+  function finishOnboarding(answers: OnboardingAnswers) {
+    markOnboardingSeen();
+    if (me.data) {
+      saveOnboardingMut.mutate(toPayload(answers), {
+        // Settled, not success: a preferences write that fails must not trap
+        // the user on the onboarding screen.
+        onSettled: () => {
+          clearHash();
+          setOnOnboarding(false);
+        },
+      });
+      return;
+    }
+    clearHash();
+    setOnOnboarding(false);
+  }
+
+  function skipOnboarding() {
+    markOnboardingSeen();
+    clearHash();
+    setOnOnboarding(false);
   }
 
   // Leave guest mode to make a real account (kicks the login page into view).
@@ -159,8 +218,20 @@ export default function App() {
   function handleRealLogin() {
     setGuestMode(false);
     setGuest(false);
-    clearHash();
     setShowLogin(false);
+
+    // Push any answers given as a guest onto the account that now exists.
+    // Fire-and-forget: it is silent on failure and keeps the local copy.
+    void flushLocalOnboarding();
+
+    // A brand-new account that never onboarded gets the flow now, so the
+    // dashboard it lands on is already filtered to what they said they want.
+    if (!hasSeenOnboarding()) {
+      window.location.hash = "#/onboarding";
+      setOnOnboarding(true);
+      return;
+    }
+    clearHash();
   }
 
   // From the marketing homepage: "Start tracking" (optionally with a URL the
@@ -183,6 +254,23 @@ export default function App() {
   } else if (onAlerts && me.data) {
     routeKey = "alerts";
     routeEl = <AlertsPage onBack={closeAlerts} />;
+  } else if (onOnboarding) {
+    // Checked before the auth branches so it works identically for a
+    // signed-in user and a guest — it is the same four questions either way.
+    routeKey = "onboarding";
+    routeEl = (
+      <OnboardingFlow
+        onFinish={finishOnboarding}
+        onSkip={skipOnboarding}
+        saving={saveOnboardingMut.isPending}
+        isGuest={!me.data}
+        initial={
+          appPrefs.data?.onboarding
+            ? fromPayload(appPrefs.data.onboarding)
+            : null
+        }
+      />
+    );
   } else if (bootstrapping) {
     routeKey = "boot";
     routeEl = <BootSplash />;
@@ -200,7 +288,7 @@ export default function App() {
     routeEl = <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />;
   } else {
     routeKey = "home";
-    routeEl = <HomePage onGetStarted={goToSignIn} />;
+    routeEl = <HomePage onGetStarted={goToSignIn} onBrowse={enterGuest} />;
   }
 
   // Simple opacity crossfade between routes.
@@ -217,7 +305,8 @@ export default function App() {
     <>
       <style>
         {PRIMITIVE_STYLES + CHART_UI_STYLES + CHART_STYLES + PRICE_VIEW_STYLES +
-          SCOREBAR_STYLES + SCORE_COMPOSITION_STYLES}
+          SCOREBAR_STYLES + SCORE_COMPOSITION_STYLES + PRODUCT_FAN_STYLES +
+          SCORE_MODEL_STYLES}
       </style>
       <AnimatePresence mode="wait">
         <motion.div key={routeKey} {...fade}>
@@ -260,7 +349,41 @@ function Dashboard({
   const trackMutation = useTrackUrl();
   const trackJob = useTrackJob(jobId);
   const watchesQuery = useWatches(!guest);
-  const browseQuery = useProducts(guest ? { sort: "deal_score", limit: 30 } : { limit: 1 });
+
+  // Onboarding answers decide what the browse feed shows. A signed-in user's
+  // profile lives server-side, so the API applies it (personalized=1). A guest
+  // has no server row at all, so their localStorage answers are translated
+  // into the same query params here — same feed either way.
+  const guestPrefs = useMemo(() => (guest ? readLocalOnboarding() : null), [guest]);
+  const browseParams = useMemo(() => {
+    if (!guest) return { limit: 1 };
+    const base = { sort: "deal_score" as const, limit: 30 };
+    if (!guestPrefs || guestPrefs.completed_at === null) return base;
+    return {
+      ...base,
+      minScore: SENSITIVITY_MIN_SCORE[guestPrefs.sensitivity],
+      // The API takes one category per request; a multi-select guest gets
+      // their first pick rather than an unfiltered feed.
+      ...(guestPrefs.categories.length === 1
+        ? { category: guestPrefs.categories[0] }
+        : {}),
+    };
+  }, [guest, guestPrefs]);
+
+  const browseQuery = useProducts(browseParams);
+
+  // Suggestions for a signed-in user, filtered server-side by their stored
+  // onboarding profile. Only fetched once they have actually onboarded —
+  // otherwise it would just be the global feed under a "picked for you"
+  // heading, which is a lie the user can see through immediately.
+  const prefsQuery = usePreferences(!guest);
+  const onboarded = prefsQuery.data?.onboarded === true;
+  const suggestionsQuery = useProducts(
+    { sort: "deal_score", personalized: true, limit: 6 },
+    onboarded,
+  );
+  const suggestions = onboarded ? (suggestionsQuery.data ?? []) : [];
+
   const deleteWatchMutation = useDeleteWatch();
 
   function handleTrack(e: React.FormEvent) {
@@ -432,6 +555,87 @@ function Dashboard({
             </div>
 
             <aside className="rv-dash-aside">
+              {/* Suggestions from the onboarding answers. Only rendered once
+                  there is something to show — an empty "picked for you" is
+                  worse than no panel at all. */}
+              {/* Onboarded, but nothing in their categories clears their
+                  threshold. Said plainly — the server deliberately does not
+                  substitute unrelated products to fill the panel. */}
+              {!guest && onboarded && !suggestionsQuery.isLoading &&
+                suggestions.length === 0 && (
+                  <Panel label="Picked for you">
+                    <p className="rv-dash-note">
+                      Nothing in{" "}
+                      {prefsQuery.data?.onboarding?.categories.length
+                        ? prefsQuery.data.onboarding.categories
+                            .map(categoryLabel)
+                            .join(" or ")
+                        : "your categories"}{" "}
+                      clears your score threshold right now. We would rather
+                      show you nothing than pad this with products you did not
+                      ask for.{" "}
+                      <a href="#/onboarding" className="rv-link">
+                        Loosen your answers
+                      </a>
+                    </p>
+                  </Panel>
+                )}
+
+              {!guest && suggestions.length > 0 && (
+                <Panel
+                  label="Picked for you"
+                  aside={
+                    prefsQuery.data?.onboarding?.categories.length
+                      ? prefsQuery.data.onboarding.categories
+                          .map(categoryLabel)
+                          .join(" · ")
+                      : undefined
+                  }
+                >
+                  <ol className="rv-suggest">
+                    {suggestions.map((p) => (
+                      <li key={p.id}>
+                        <a className="rv-suggest-row" href={`#/product/${p.id}`}>
+                          <ProductImage
+                            image={productImage(p.image_url, p.title ?? "Product")}
+                            ratio="1 / 1"
+                            className="rv-suggest-thumb"
+                          />
+                          <span className="rv-suggest-text">
+                            <span className="rv-suggest-title">
+                              {p.title ?? p.domain}
+                            </span>
+                            <span className="rv-suggest-figures">
+                              <b className="rv-num">
+                                {p.latest_price != null
+                                  ? formatMoney(p.latest_price, p.currency ?? "USD")
+                                  : "—"}
+                              </b>
+                              <Delta
+                                pct={
+                                  p.stats?.discount_vs_median_pct ?? null
+                                }
+                                size="sm"
+                              />
+                            </span>
+                          </span>
+                          {p.deal_score != null && (
+                            <span className="rv-suggest-score rv-num">
+                              {Math.round(p.deal_score)}
+                            </span>
+                          )}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="rv-dash-note">
+                    Matched to what you told us you shop for, then ranked by the
+                    same score as everything else.{" "}
+                    <a href="#/onboarding" className="rv-link">Change your answers</a>
+                  </p>
+                </Panel>
+              )}
+
               {scored.length > 0 && (
                 <Panel label="Score distribution" aside={`${scored.length} scored`}>
                   <ScoreHistogram products={scored.map((r) => ({ deal_score: r.product.deal_score }))} />
@@ -565,6 +769,30 @@ function EmptyResults({ guest }: { guest: boolean }) {
 }
 
 const REPORT_STYLES = `
+  /* ── Picked-for-you suggestions ── */
+  .rv-suggest { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .rv-suggest > li + li { border-top: 1px solid var(--rule); }
+  .rv-suggest-row {
+    display: flex; align-items: center; gap: 11px; padding: 10px 0;
+    text-decoration: none; min-width: 0;
+  }
+  .rv-suggest-thumb {
+    width: 40px; height: 40px; flex: none;
+    border-radius: var(--r-sm); box-shadow: var(--img-ring);
+  }
+  .rv-suggest-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .rv-suggest-title {
+    font-size: 13.5px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rv-suggest-row:hover .rv-suggest-title { text-decoration: underline; text-underline-offset: 3px; }
+  .rv-suggest-figures { display: flex; align-items: baseline; gap: 9px; }
+  .rv-suggest-figures b { font-size: 14px; font-weight: 600; color: var(--ink); }
+  .rv-suggest-score {
+    flex: none; font-size: 13px; font-weight: 600; color: var(--ink-muted);
+    padding: 3px 8px; border-radius: var(--r-pill); background: var(--paper-deep);
+  }
+
   .rv-report { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
 
   /* ── Track ── */

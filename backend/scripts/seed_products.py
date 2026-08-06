@@ -260,8 +260,23 @@ def generate_general(rng: random.Random, base_price: Decimal) -> list[tuple[int,
 
 
 def _image_url(category: str, slug: str, lock: int) -> str:
-    keyword = f"{category},{slug}".lower().replace(" ", "").replace("-", "")
-    return f"https://loremflickr.com/640/480/{keyword}?lock={lock}"
+    """Deterministic demo photo for a seeded product.
+
+    Was loremflickr, whose keyword+lock scheme was meant to give each demo
+    product a category-relevant photo. That service now returns ONE identical
+    fallback image for every request regardless of keyword or lock (verified:
+    same response bytes and md5 across different tags), which made all 100
+    seeded products render the same picture — visible immediately on the
+    landing page's product showcase.
+
+    picsum.photos keys off an arbitrary seed and reliably returns a distinct
+    image per seed. The trade is that the photo is no longer topically related
+    to the product; for demo rows on a .example domain that is the lesser
+    problem. Real tracked products carry their own extracted image_url and
+    never reach this function.
+    """
+    del category, lock  # kept for signature stability; seed is the slug
+    return f"https://picsum.photos/seed/{slug}/640/480"
 
 
 def run() -> None:

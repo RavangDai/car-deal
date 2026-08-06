@@ -38,6 +38,13 @@ class Product(Base):
     image_url = Column(String, nullable=True)
     currency = Column(String(3), nullable=True)
 
+    # Coarse product taxonomy, used to personalize the feed against a user's
+    # stated interests. One of app.taxonomy.CATEGORIES, or NULL when nothing
+    # has classified it yet — NULL is a normal, permanent state for products
+    # tracked while no Anthropic key is configured, so every consumer must
+    # treat "uncategorised" as a real case rather than a backfill gap.
+    category = Column(String(32), nullable=True, index=True)
+
     # Which extraction strategy last succeeded, so daily rechecks can try it
     # first before falling back through the chain (cheap self-healing: a site
     # that adds JSON-LD later gets demoted off the LLM path automatically).
@@ -174,6 +181,13 @@ class User(Base):
     is_email_verified = Column(Boolean, nullable=False, default=False)
     full_name = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+
+    # Onboarding answers and any later feed preferences. JSONB rather than a
+    # column per answer: these are a product surface that will change shape
+    # more often than the auth schema should, and nothing here is ever joined
+    # or filtered on server-side. Shape is validated by app.schemas.Preferences
+    # on the way in, so the looseness stops at the API boundary.
+    preferences = Column(JSONB, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

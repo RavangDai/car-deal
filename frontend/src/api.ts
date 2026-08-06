@@ -189,6 +189,8 @@ export type Product = {
   title: string | null;
   image_url: string | null;
   currency: string | null;
+  /** Taxonomy slug, or null when nothing has classified it yet. */
+  category: string | null;
   status: string;
   latest_price: number | null;
   latest_price_at: string | null;
@@ -266,6 +268,9 @@ export async function fetchProducts(params: {
   sort?: "deal_score" | "newest";
   minScore?: number;
   q?: string;
+  category?: string;
+  /** Apply the signed-in user's stored onboarding profile server-side. */
+  personalized?: boolean;
   limit?: number;
   offset?: number;
 } = {}): Promise<Product[]> {
@@ -273,9 +278,44 @@ export async function fetchProducts(params: {
   if (params.sort) qs.set("sort", params.sort);
   if (params.minScore != null) qs.set("min_score", String(params.minScore));
   if (params.q) qs.set("q", params.q);
+  if (params.category) qs.set("category", params.category);
+  if (params.personalized) qs.set("personalized", "1");
   if (params.limit != null) qs.set("limit", String(params.limit));
   if (params.offset != null) qs.set("offset", String(params.offset));
   const res = await apiFetch(`/products?${qs}`);
+  await ensureOk(res);
+  return res.json();
+}
+
+// ── Onboarding preferences ──────────────────────────────────────────────────
+
+export type OnboardingPrefs = {
+  version: number;
+  completed_at: string | null;
+  categories: string[];
+  budget_min: number | null;
+  budget_max: number | null;
+  sensitivity: "any" | "strong" | "lowest";
+  alert_cadence: "instant" | "daily" | "weekly" | "off";
+};
+
+export type PreferencesOut = {
+  onboarding: OnboardingPrefs | null;
+  onboarded: boolean;
+};
+
+export async function fetchPreferences(): Promise<PreferencesOut> {
+  const res = await apiFetch("/me/preferences", {}, { auth: true });
+  await ensureOk(res);
+  return res.json();
+}
+
+export async function saveOnboarding(body: OnboardingPrefs): Promise<PreferencesOut> {
+  const res = await apiFetch(
+    "/me/preferences",
+    { method: "PUT", body: JSON.stringify({ onboarding: body }) },
+    { auth: true },
+  );
   await ensureOk(res);
   return res.json();
 }

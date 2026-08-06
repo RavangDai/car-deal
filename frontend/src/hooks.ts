@@ -11,6 +11,7 @@ import {
   fetchAlerts,
   fetchHistory,
   fetchProduct,
+  fetchPreferences,
   fetchProducts,
   fetchVerdict,
   fetchWatches,
@@ -20,11 +21,14 @@ import {
   login,
   logout,
   register,
+  saveOnboarding,
   trackUrl,
   updateWatch,
   type RuleType,
   type TrackJobAccepted,
   type TrackJobStatus,
+  type OnboardingPrefs,
+  type PreferencesOut,
   type UserOut,
   type VerdictOut,
   type Watch,
@@ -125,12 +129,50 @@ export function useTrackJob(jobId: string | null) {
 // ── Products ────────────────────────────────────────────────────────────
 
 export function useProducts(
-  params: { sort?: "deal_score" | "newest"; minScore?: number; q?: string; limit?: number } = {}
+  params: {
+    sort?: "deal_score" | "newest";
+    minScore?: number;
+    q?: string;
+    category?: string;
+    personalized?: boolean;
+    limit?: number;
+  } = {},
+  // Callers that only want the feed under some condition (e.g. suggestions
+  // once a user has onboarded) pass false rather than a limit of 0 — the API
+  // clamps limit to a minimum of 1, so a "disabled" query would still fetch.
+  enabled: boolean = true,
 ) {
   return useQuery({
     queryKey: queryKeys.products.list(params),
     queryFn: () => fetchProducts(params),
+    enabled,
     staleTime: 30_000,
+  });
+}
+
+// ── Onboarding preferences ────────────────────────────────────────────────
+
+export function usePreferences(enabled: boolean) {
+  return useQuery<PreferencesOut>({
+    queryKey: queryKeys.preferences.all,
+    queryFn: fetchPreferences,
+    // Guests and logged-out visitors have no row to read; calling this while
+    // unauthenticated would just 401 on every mount.
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useSaveOnboarding() {
+  const qc = useQueryClient();
+  return useMutation<PreferencesOut, Error, OnboardingPrefs>({
+    mutationFn: saveOnboarding,
+    onSuccess: (data) => {
+      qc.setQueryData(queryKeys.preferences.all, data);
+      // The feed's ordering depends on these answers, so every cached
+      // product list is now stale.
+      qc.invalidateQueries({ queryKey: queryKeys.products.all });
+    },
   });
 }
 

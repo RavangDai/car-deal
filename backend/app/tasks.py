@@ -13,6 +13,7 @@ import anthropic
 import httpx
 from sqlalchemy import delete, select
 
+from .ai.categorize import categorize_product
 from .ai.verdict import generate_verdict
 from .alerts import should_fire
 from .celery_app import celery_app
@@ -153,6 +154,15 @@ def track_url_task(self, url: str, user_id: str) -> Dict[str, Any]:
 
         self.update_state(state="PROGRESS", meta={"stage": "saving"})
 
+        # Category is a best-effort routing hint for the personalized feed.
+        # It runs inline because it is one short call against a title we
+        # already have, and it must never fail the track: categorize_product
+        # returns None for a missing API key, a rate limit, or a title it
+        # cannot place, and NULL is a permanently valid state for this column.
+        category = categorize_product(
+            result.product.title, domain, settings.ai_category_model
+        )
+
         now = datetime.now(timezone.utc)
         product = Product(
             url=normalized,
@@ -161,6 +171,7 @@ def track_url_task(self, url: str, user_id: str) -> Dict[str, Any]:
             title=result.product.title,
             image_url=result.product.image_url,
             currency=result.product.currency,
+            category=category,
             extraction_strategy=result.strategy,
             extraction_meta=result.meta,
             status="active",

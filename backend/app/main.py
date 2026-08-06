@@ -12,6 +12,7 @@ from .db import engine
 from .donations import router as donations_router
 from .limiter import limiter
 from .oauth import router as oauth_router
+from .preferences_api import router as preferences_router
 from .products_api import router as products_router
 from .settings import settings
 from .watches_api import router as watches_router
@@ -62,6 +63,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(oauth_router)
 app.include_router(donations_router)
+app.include_router(preferences_router)
 app.include_router(products_router)
 app.include_router(watches_router)
 

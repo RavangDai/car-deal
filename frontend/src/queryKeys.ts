@@ -8,8 +8,15 @@ export const queryKeys = {
   },
   products: {
     all: ["products"] as const,
-    list: (params: { sort?: string; minScore?: number; q?: string } = {}) =>
-      ["products", "list", params] as const,
+    list: (
+      params: {
+        sort?: string;
+        minScore?: number;
+        q?: string;
+        category?: string;
+        personalized?: boolean;
+      } = {},
+    ) => ["products", "list", params] as const,
     detail: (id: string) => ["products", "detail", id] as const,
     history: (id: string, window: string) => ["products", "history", id, window] as const,
     verdict: (id: string) => ["products", "verdict", id] as const,
@@ -22,5 +29,8 @@ export const queryKeys = {
   },
   alerts: {
     all: ["alerts"] as const,
+  },
+  preferences: {
+    all: ["preferences"] as const,
   },
 } as const;

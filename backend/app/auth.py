@@ -92,6 +92,46 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Resolve the session user, or None — never raises.
+
+    For endpoints that are public but behave better when they know who is
+    asking: the deals feed personalizes for a signed-in user and stays the
+    global ranking for everyone else. Guests hold no session at all (the
+    guest flag is client-side only, see frontend/src/api.ts), so they land
+    here as None, which is the correct anonymous case rather than an error.
+
+    Any malformed/expired token degrades to anonymous instead of 401 — an
+    expired cookie must not turn a public page into a failure.
+    """
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return None
+
+    try:
+        payload = decode_access_token(token)
+    except ValueError:
+        return None
+
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+
+    try:
+        user_uuid = UUID(user_id)
+    except ValueError:
+        return None
+
+    user = await db.get(User, user_uuid)
+    if user is None or not user.is_active:
+        return None
+
+    return user
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post(

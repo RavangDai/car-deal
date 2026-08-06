@@ -3,21 +3,33 @@
 @tailwind utilities;
 
 html {
-  background: #f4f3ef;
+  background-color: var(--paper);
 }
+/* NOTE: this file loads AFTER theme.css (main.tsx), so `background:`
+   shorthand here would silently wipe the canvas light source theme.css
+   sets on body. Colour and image are set separately on purpose — do not
+   collapse these back into the shorthand. */
 body {
   margin: 0;
-  font-family: 'Archivo', system-ui, -apple-system, sans-serif;
-  background: #f4f3ef;
-  color: #1b1a16;
+  font-family: var(--font-sans);
+  /* Archivo is served with a wdth axis of 62..125. Left unset, body copy
+     inherits whatever the axis default resolves to and reads condensed.
+     Pin it: only the wordmark and display voice opt out of normal width. */
+  font-stretch: 100%;
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Keyboard focus is visible everywhere, in ink, on the 2px radius the
-   rest of the system uses. Never removed, never a soft glow. */
+/* Keyboard focus is visible everywhere, in ink. Never removed, never a
+   soft glow. Radius follows the control it lands on rather than the flat
+   2px the old scale used everywhere. */
 :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--r-sm);
+}
+button:focus-visible,
+a.rv-btn:focus-visible {
+  border-radius: var(--r-pill);
 }

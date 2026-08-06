@@ -15,7 +15,7 @@ export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
   return (
     <footer className="rv-footer">
       <style>{FOOTER_STYLES}</style>
-      <div className="rv-section-inner rv-footer-inner">
+      <div className="rv-footer-inner">
         <div className="rv-footer-grid">
           <Reveal className="rv-footer-col rv-footer-brand">
             <a href="#" className="rv-footer-mark"><Wordmark size={22} /></a>
@@ -123,8 +123,16 @@ function DonatePill() {
 }
 
 const FOOTER_STYLES = `
-  .rv-footer { background: var(--paper-pale); border-top: 1px solid var(--rule-strong); padding: 56px 0 32px; }
-  .rv-footer-inner { position: relative; }
+  .rv-footer { background: var(--paper-pale); border-top: 1px solid var(--rule-strong); padding: 72px 0 36px; }
+  /* Owns its own container. It used to borrow .rv-section-inner, which is
+     declared in HomePage's stylesheet — so the footer laid out full-bleed
+     on every page that is not the homepage. Class names are global here
+     with no scoping mechanism; a shared component must not depend on a
+     class another page happens to define. */
+  .rv-footer-inner {
+    position: relative;
+    max-width: var(--measure); margin: 0 auto; padding: 0 var(--gutter);
+  }
   .rv-footer-mark { text-decoration: none; display: inline-flex; }
   .rv-footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.6fr; gap: 32px; padding-bottom: 32px; }
   @media (max-width: 760px) {

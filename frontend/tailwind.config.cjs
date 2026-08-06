@@ -8,8 +8,10 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Archivo carries every word; IBM Plex Mono carries every figure.
+        // Archivo carries every word of UI and body; Instrument Serif
+        // carries the display voice; IBM Plex Mono carries every figure.
         sans: ["Archivo", "system-ui", "sans-serif"],
+        display: ["Instrument Serif", "Archivo", "Georgia", "serif"],
         mono: ["IBM Plex Mono", "ui-monospace", "Consolas", "monospace"],
       },
     },

@@ -29,20 +29,32 @@
 
 :root {
   /* ── Typography ──────────────────────────────────────────────────────
-     Two faces, one rule. Archivo (variable, with a real width axis)
-     carries every word; its Expanded width at 700 is the display voice.
-     IBM Plex Mono carries every FIGURE — price, delta, score, date, axis
-     label. That split is not stylistic: prices have to align in columns
-     and on chart axes, and one numeric face across table + chart + hero
-     is what makes them read as the same instrument. */
+     THREE faces, one rule each. The previous pass ran display as Archivo
+     at 125% width / 700 weight / 0.98 leading, which is a POSTER voice:
+     squat, shouty, and the single biggest reason the page read as cheap.
+     Weight is not the same thing as authority.
+
+     Instrument Serif now carries the display voice alone. A high-contrast
+     editorial serif set against hairline rules and mono figures reads as
+     a research publication — which is what this product actually is. It
+     has real modulation (thin-to-thick) rather than uniform mass, so it
+     holds up at 60px+ where a heavy grotesk just gets louder.
+
+     Archivo keeps every word of UI and body copy. IBM Plex Mono keeps
+     every FIGURE — price, delta, score, date, axis label. That last split
+     is unchanged and non-negotiable: prices have to align in columns and
+     on chart axes, and one numeric face across table + chart + hero is
+     what makes them read as the same instrument. */
   --font-sans:    'Archivo', system-ui, -apple-system, sans-serif;
-  --font-display: 'Archivo', system-ui, -apple-system, sans-serif;
+  --font-display: 'Instrument Serif', 'Archivo', Georgia, serif;
   --font-mono:    'IBM Plex Mono', ui-monospace, 'Consolas', monospace;
 
-  /* Display is Archivo at its widest + heaviest, set tight. */
-  --display-stretch: 125%;
-  --display-weight:  700;
-  --display-track:  -0.035em;
+  /* Instrument Serif ships one weight (400) and no width axis, so the
+     display voice is now carried by SIZE and TRACKING, not by mass. */
+  --display-stretch: 100%;
+  --display-weight:  400;
+  --display-track:  -0.018em;
+  --display-leading: 0.94;
 
   /* ── Canvas — low-chroma warm neutral. Deliberately NOT a cream: the
      reference here is plotter/graph paper, which is why data regions get
@@ -151,32 +163,62 @@
      four categorical slots deliberately avoid green- and amber-family
      hues so neither can impersonate the other. */
 
-  /* ── Elevation — content surfaces carry NO shadow. These exist only
-     for genuinely floating UI (the mobile nav sheet, the donate popover). */
-  --shadow-sm: 0 1px 2px rgba(27,26,22,.06);
-  --shadow-md: 0 4px 16px rgba(27,26,22,.10);
-  --shadow-lg: 0 12px 32px rgba(27,26,22,.14);
-  --shadow-xl: 0 20px 48px rgba(27,26,22,.16);
+  /* ── Elevation — reading surfaces still carry no shadow; structure in
+     prose regions is still hairlines. What changed: the shadows that DO
+     exist are now wide, low-opacity, two-stop ambient diffusion rather
+     than the tight dark drops above. A single 0 12px 32px /.14 is what a
+     dropdown looks like; a real object sitting on paper casts a close
+     contact shadow AND a broad soft one. Both stops are warm-tinted to
+     the ink ramp, never neutral black. */
+  --shadow-sm: 0 1px 2px rgba(27,26,22,.04), 0 2px 8px rgba(27,26,22,.03);
+  --shadow-md: 0 2px 8px rgba(27,26,22,.04), 0 8px 24px rgba(27,26,22,.05);
+  --shadow-lg: 0 4px 16px rgba(27,26,22,.05), 0 18px 48px rgba(27,26,22,.07);
+  --shadow-xl: 0 8px 28px rgba(27,26,22,.06), 0 32px 80px rgba(27,26,22,.09);
+  /* Top-edge catchlight for an inner core sitting inside a bezel. */
+  --shadow-lip: inset 0 1px 0 rgba(255,255,255,.92);
 
-  /* ── Radius — 2px on things you touch, 0 on things you read.
-     Not the 0-everywhere of the retro pass, not rounded-2xl. */
-  --r-sm:   2px;
-  --r-md:   2px;
-  --r-lg:   2px;
-  --r-xl:   0px;
-  --r-card: 0px;
+  /* ── Radius — the previous pass ran 2px everywhere you touch and 0
+     everywhere you read. On the render that reads as "form control", not
+     "considered object": a 2px rectangle is what an unstyled <input> is.
+     Now: pill on things you ACT on, generous squircle on things that
+     ENCLOSE, hairline-square still on things you read (tables, prose). */
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   16px;
+  --r-xl:   24px;
+  --r-card: 20px;
   --r-pill: 999px;
 
-  /* ── Imagery — product photos are supporting evidence, not the subject. */
-  --img-radius:  2px;
-  --img-ring:    inset 0 0 0 1px rgba(27,26,22,.12);
+  /* ── Bezel — the nested enclosure. An outer shell holds an inner core
+     with a mathematically concentric radius, so the two curves stay
+     parallel instead of drifting. Consumed by .rv-bezel in primitives. */
+  --bezel-pad:   6px;
+  --bezel-outer: var(--r-xl);
+  --bezel-inner: calc(var(--r-xl) - var(--bezel-pad));
 
-  /* ── Motion — one orchestrated moment per page (the hero line drawing
-     itself), everything else quiet. */
+  /* ── Spatial rhythm — sections must breathe. The old page ran ~72px
+     band padding, which is why six sections felt like a wall. */
+  --space-section:       clamp(96px, 12vw, 176px);
+  --space-section-tight: clamp(64px, 8vw, 112px);
+  --gutter:              clamp(20px, 4vw, 48px);
+  --measure:             1180px;
+
+  /* ── Imagery — product photos are supporting evidence, not the subject. */
+  --img-radius:  12px;
+  --img-ring:    inset 0 0 0 1px rgba(27,26,22,.10);
+
+  /* ── Motion — the hero line still draws itself as the one orchestrated
+     moment ON LOAD; scroll choreography below the fold is GSAP's job.
+     Nothing in this system is allowed to use `linear` or `ease-in-out`:
+     both read as software easing, and the whole point is mass. */
   --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
+  --ease-spring:   cubic-bezier(.32, .72, 0, 1);   /* the premium one */
+  --ease-out-soft: cubic-bezier(.22, .61, .36, 1);
   --dur-fast:    .15s;
   --dur-mid:     .25s;
   --dur-slow:    .5s;
+  --dur-lux:     .7s;
+  --dur-reveal:  .9s;
   --dur-draw:    1.1s;
 
   /* ── Z-index scale — structural app-chrome layers only. */
@@ -185,6 +227,7 @@
   --z-sticky-nav: 40;
   --z-fixed-nav:  50;
   --z-banner:     80;
+  --z-grain:      90;   /* film grain sits over chrome, under modals */
   --z-modal:      100;
 
   /* ── Reveal — on-mount fade-up. Deliberately small: content must be
@@ -210,14 +253,64 @@
   font-feature-settings: 'tnum' 1, 'zero' 1;
 }
 
-/* Display voice: Archivo at full width + weight, set tight. */
+/* Display voice: Instrument Serif, set large and tight. Optical sizing is
+   manual here — the face has no opsz axis, so anything under ~28px must
+   fall back to the sans (see .rv-display-sm) rather than shrink this. */
 .rv-display {
   font-family: var(--font-display);
   font-stretch: var(--display-stretch);
   font-weight: var(--display-weight);
   letter-spacing: var(--display-track);
-  line-height: 0.98;
+  line-height: var(--display-leading);
   text-wrap: balance;
+  /* A high-contrast serif at display size needs its thin strokes to
+     survive rasterisation on a warm ground. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Emphasis inside a display line. Instrument Serif's italic is a true
+   cut, not a slant — one italicised phrase per headline, never more. */
+.rv-display em,
+.rv-display i {
+  font-style: italic;
+  letter-spacing: -0.005em;
+}
+
+/* Below display size the serif loses its argument and just looks small.
+   Anything under ~28px uses the sans at a tight, confident setting. */
+.rv-display-sm {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+/* ── The canvas ──────────────────────────────────────────────────────
+   A flat fill of --paper is what made the page read as a spreadsheet.
+   A single soft light source from above turns the same colour into a
+   sheet of paper on a desk. Fixed attachment so it does not travel with
+   the scroll — a light source that scrolls is a gradient, not a light. */
+body {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(112% 68% at 50% -8%, rgba(255,255,255,.88), rgba(255,255,255,0) 62%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* Film grain. Fixed and pointer-events-none so it never participates in
+   scrolling or hit-testing — attaching noise to a scrolling container is
+   a guaranteed mobile repaint stall. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-grain);
+  pointer-events: none;
+  opacity: .032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @media (prefers-reduced-motion: reduce) {
