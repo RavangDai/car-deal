@@ -8,11 +8,10 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-import anthropic
 from pydantic import BaseModel
 
 from ..dealmath import PriceStats
-from .client import get_client, is_enabled
+from .client import generate_structured, is_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -52,19 +51,10 @@ def generate_verdict(
         "days_tracked": stats.coverage_days,
     }
 
-    client = get_client()
-    try:
-        response = client.messages.parse(
-            model=model,
-            max_tokens=512,
-            system=VERDICT_SYSTEM,
-            messages=[{"role": "user", "content": str(facts)}],
-            output_format=VerdictResult,
-        )
-    except anthropic.RateLimitError:
-        raise
-    except anthropic.APIError as exc:
-        logger.warning("verdict generation failed: %s", exc)
-        return None
-
-    return response.parsed_output
+    return generate_structured(
+        model=model,
+        system=VERDICT_SYSTEM,
+        prompt=str(facts),
+        schema=VerdictResult,
+        max_output_tokens=512,
+    )

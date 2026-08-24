@@ -9,11 +9,11 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-import anthropic
 import httpx
 from sqlalchemy import delete, select
 
 from .ai.categorize import categorize_product
+from .ai.client import RateLimitedError, TransientAIError
 from .ai.verdict import generate_verdict
 from .alerts import should_fire
 from .celery_app import celery_app
@@ -344,7 +344,7 @@ def deliver_alert_task(self, alert_event_id: str) -> Dict[str, Any]:
 @celery_app.task(
     bind=True,
     name="ai.compute_verdict",
-    autoretry_for=(anthropic.RateLimitError,),
+    autoretry_for=(RateLimitedError, TransientAIError),
     retry_backoff=True,
     retry_backoff_max=30,
     max_retries=3,

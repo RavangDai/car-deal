@@ -156,6 +156,24 @@ export async function logout() {
   setGuestMode(false);
 }
 
+// ── Deployment capabilities ─────────────────────────────────────────────────
+// Which optional features this deployment actually has credentials for. The UI
+// renders a feature only when its flag is true, so we never show a control
+// whose only possible outcome is a 503 (donations without a Stripe key, social
+// login without a provider id/secret).
+
+export type ClientConfig = {
+  donations: boolean;
+  ai: boolean;
+  oauth: { google: boolean; github: boolean };
+};
+
+export async function fetchConfig(): Promise<ClientConfig> {
+  const res = await apiFetch("/config");
+  await ensureOk(res);
+  return res.json();
+}
+
 // ── Donations ───────────────────────────────────────────────────────────────
 
 export async function createDonationCheckout(

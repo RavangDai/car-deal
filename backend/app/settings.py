@@ -48,15 +48,23 @@ class Settings(BaseSettings):
     fetch_timeout: float = 15.0
     fetch_max_bytes: int = 2_000_000
 
-    # Claude API (extraction fallback + "Buy or Wait" verdicts). Leave the key
-    # blank to disable both features entirely — extraction falls back to
-    # structured-data-only, and the verdict endpoint reports "unavailable".
-    anthropic_api_key: str = ""
-    ai_extraction_model: str = "claude-opus-4-8"
-    ai_verdict_model: str = "claude-opus-4-8"
-    # Categorisation is a one-token classification over a product title, so
-    # it runs on the small fast model rather than the one that writes prose.
-    ai_category_model: str = "claude-haiku-4-5-20251001"
+    # Gemini API (extraction fallback + "Buy or Wait" verdicts + category
+    # classification). Leave the key blank to disable all three entirely —
+    # extraction falls back to structured-data-only, the verdict endpoint
+    # reports "unavailable", and category stays NULL.
+    #
+    # Model choice here is measured, not assumed (see app/ai/client.py):
+    # every model used must run with thinking disabled, or it spends the
+    # whole output budget deliberating and returns nothing at all.
+    gemini_api_key: str = ""
+    # Extraction is field-copying from cleaned HTML, not reasoning, and it is
+    # by far the highest-volume call — so it runs on the cheapest tier.
+    ai_extraction_model: str = "gemini-3.5-flash-lite"
+    # The verdict is the one AI output a user actually reads, so it gets the
+    # better model. Thinking is forced off in the client regardless.
+    ai_verdict_model: str = "gemini-3.5-flash"
+    # Categorisation is a one-token classification over a product title.
+    ai_category_model: str = "gemini-3.5-flash-lite"
 
     # Price-drop alert email. "console" (default) logs the rendered email —
     # safe zero-dependency local dev. Set email_backend="resend" + resend_api_key

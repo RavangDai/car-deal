@@ -7,11 +7,14 @@
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { createDonationCheckout } from "./api";
+import { useConfig } from "./hooks";
 import { Reveal, Wordmark } from "./primitives";
 
 const DONATE_PRESETS = [3, 5, 10] as const;
 
 export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
+  const donationsEnabled = useConfig().data?.donations ?? false;
+
   return (
     <footer className="rv-footer">
       <style>{FOOTER_STYLES}</style>
@@ -41,11 +44,15 @@ export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
             </ul>
           </Reveal>
 
-          <Reveal className="rv-footer-col rv-footer-donate-col" delay={0.18}>
-            <h3 className="rv-footer-heading">Keep it running</h3>
-            <p className="rv-footer-donate-copy">WasItCheaper is free to track. Donations are optional.</p>
-            <DonatePill />
-          </Reveal>
+          {/* Only when Stripe is actually configured. Without a key, /donate
+              answers 503 and the whole column is a control that cannot work. */}
+          {donationsEnabled && (
+            <Reveal className="rv-footer-col rv-footer-donate-col" delay={0.18}>
+              <h3 className="rv-footer-heading">Keep it running</h3>
+              <p className="rv-footer-donate-copy">WasItCheaper is free to track. Donations are optional.</p>
+              <DonatePill />
+            </Reveal>
+          )}
         </div>
 
         <Reveal className="rv-footer-bottom" delay={0.24}>

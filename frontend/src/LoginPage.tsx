@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { oauthLogin } from "./api";
-import { useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
+import { useConfig, useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
 import { Arrow, Button, TopBar, Wordmark } from "./primitives";
 import PasswordStrength from "./PasswordStrength";
@@ -42,6 +42,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   });
   const prefersReduced = useReducedMotion();
 
+  const oauth = useConfig().data?.oauth;
   const loginMut = useLoginMutation();
   const registerMut = useRegisterAndLoginMutation();
 
@@ -163,14 +164,26 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
                 : "Continue to your tracked products and alerts."}
             </motion.p>
 
-            <motion.div className="rv-login-social" variants={formItem}>
-              <SocialBtn icon={<GoogleIcon />} label="Continue with Google" onClick={() => oauthLogin("google")} />
-              <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" onClick={() => oauthLogin("github")} />
-            </motion.div>
+            {/* Rendered per provider, not unconditionally: a provider with no
+                id/secret configured returns 503 from /auth/oauth/{p}/login,
+                and because that is a full-page navigation the visitor lands on
+                raw JSON with no way back. Showing only what can succeed. */}
+            {(oauth?.google || oauth?.github) && (
+              <>
+                <motion.div className="rv-login-social" variants={formItem}>
+                  {oauth.google && (
+                    <SocialBtn icon={<GoogleIcon />} label="Continue with Google" onClick={() => oauthLogin("google")} />
+                  )}
+                  {oauth.github && (
+                    <SocialBtn icon={<GitHubIcon />} label="Continue with GitHub" onClick={() => oauthLogin("github")} />
+                  )}
+                </motion.div>
 
-            <motion.div className="rv-login-or" variants={formItem}>
-              <span>or use email</span>
-            </motion.div>
+                <motion.div className="rv-login-or" variants={formItem}>
+                  <span>or use email</span>
+                </motion.div>
+              </>
+            )}
 
             <form onSubmit={handleSubmit} noValidate className="rv-login-form">
               <motion.div variants={formItem}>

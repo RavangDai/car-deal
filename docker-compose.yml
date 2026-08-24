@@ -51,8 +51,8 @@ services:
       # Session cookie. In prod (cross-site) set COOKIE_SECURE=true + COOKIE_SAMESITE=none.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
-      # Claude API (extraction fallback + "Buy or Wait" verdicts). Blank = disabled.
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Gemini API (extraction fallback + "Buy or Wait" verdicts). Blank = disabled.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Price-drop alert email. "console" (default) logs the email; set to
       # "resend" + RESEND_API_KEY to send real email.
       EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
@@ -80,7 +80,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/cardeals
       REDIS_URL: redis://redis:6379
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
     depends_on:

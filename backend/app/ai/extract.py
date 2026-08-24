@@ -7,11 +7,10 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-import anthropic
 from pydantic import BaseModel
 
 from ..extraction.types import ExtractedProduct
-from .client import get_client, is_enabled
+from .client import generate_structured, is_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -36,29 +35,17 @@ def llm_extract_product(
     if not is_enabled():
         return None
 
-    client = get_client()
-    try:
-        response = client.messages.parse(
-            model=model,
-            max_tokens=1024,
-            system=EXTRACTION_SYSTEM,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"URL: {url}\n\nPage content:\n{cleaned_content}",
-                }
-            ],
-            output_format=LLMExtractedProduct,
-        )
-    except anthropic.RateLimitError:
-        # Transient — let the caller's Celery autoretry_for handle backoff
-        # rather than silently giving up on this attempt.
-        raise
-    except anthropic.APIError as exc:
-        logger.warning("LLM extraction failed for %s: %s", url, exc)
-        return None
+    parsed = generate_structured(
+        model=model,
+        system=EXTRACTION_SYSTEM,
+        prompt=f"URL: {url}\n\nPage content:\n{cleaned_content}",
+        schema=LLMExtractedProduct,
+        max_output_tokens=1024,
+    )
 
-    parsed = response.parsed_output
+    # A None here is either "the model found no product" or a transient
+    # non-retryable failure; both mean the same thing to the pipeline, which
+    # goes on to raise ExtractionFailedError.
     if parsed is None or parsed.price is None or parsed.price <= 0:
         return None
 

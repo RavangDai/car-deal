@@ -9,6 +9,7 @@ import {
   createWatch,
   deleteWatch,
   fetchAlerts,
+  fetchConfig,
   fetchHistory,
   fetchProduct,
   fetchPreferences,
@@ -25,6 +26,7 @@ import {
   trackUrl,
   updateWatch,
   type RuleType,
+  type ClientConfig,
   type TrackJobAccepted,
   type TrackJobStatus,
   type OnboardingPrefs,
@@ -35,6 +37,21 @@ import {
 } from "./api";
 import { queryClient } from "./queryClient";
 import { queryKeys } from "./queryKeys";
+
+// ── Deployment capabilities ───────────────────────────────────────────────
+
+// Process-static on the server, so this is fetched once and never refetched.
+// Failure is treated as "nothing optional is configured" rather than an error
+// state: the app is fully usable without donations, AI, or social login.
+export function useConfig() {
+  return useQuery<ClientConfig>({
+    queryKey: queryKeys.config.all,
+    queryFn: fetchConfig,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: 1,
+  });
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 

@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
+from .ai import is_enabled as ai_is_enabled
 from .auth import router as auth_router
 from .db import engine
 from .donations import router as donations_router
@@ -71,3 +72,29 @@ app.include_router(watches_router)
 @app.get("/health", tags=["meta"])
 async def health_check():
     return {"status": "ok", "service": "wasitcheaper-api"}
+
+
+@app.get("/config", tags=["meta"])
+async def client_config():
+    """What this deployment is actually configured to do.
+
+    The frontend uses this to decide what to render. Several features here are
+    optional and degrade to a 503 when their credential is absent — donations
+    without a Stripe key, social login without a provider id/secret. A button
+    that can only ever return 503 is worse than no button, so the client asks
+    first and omits those surfaces entirely.
+
+    Deliberately reports booleans only. No key, id, or partial credential is
+    exposed, and the endpoint stays public so a signed-out visitor gets the
+    same honest UI as a signed-in one.
+    """
+    return {
+        "donations": bool(settings.stripe_secret_key),
+        "ai": ai_is_enabled(),
+        "oauth": {
+            # Mirrors the registration guard in oauth.py: a provider exists
+            # only when BOTH halves of its credential pair are present.
+            "google": bool(settings.google_client_id and settings.google_client_secret),
+            "github": bool(settings.github_client_id and settings.github_client_secret),
+        },
+    }

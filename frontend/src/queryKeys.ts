@@ -33,4 +33,7 @@ export const queryKeys = {
   preferences: {
     all: ["preferences"] as const,
   },
+  config: {
+    all: ["config"] as const,
+  },
 } as const;

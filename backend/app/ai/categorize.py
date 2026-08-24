@@ -5,7 +5,7 @@ never price data. Category is a routing hint for a personalized feed, not a
 claim about the product, so a wrong answer costs a slightly-off recommendation
 and nothing more.
 
-Degrades to None whenever it cannot answer confidently, when no Anthropic key
+Degrades to None whenever it cannot answer confidently, when no Gemini key
 is configured, or when the API errors. None means "uncategorised", which every
 consumer already handles — there is no retry queue and no failure state.
 """
@@ -14,11 +14,10 @@ from __future__ import annotations
 import logging
 from typing import Literal, Optional
 
-import anthropic
 from pydantic import BaseModel
 
 from ..taxonomy import CATEGORIES, normalize
-from .client import get_client, is_enabled
+from .client import RateLimitedError, TransientAIError, generate_structured, is_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -63,27 +62,22 @@ def categorize_product(title: str | None, domain: str, model: str) -> Optional[s
     if not title or not title.strip():
         return None
 
-    client = get_client()
     try:
-        response = client.messages.parse(
+        parsed = generate_structured(
             model=model,
-            max_tokens=64,
             system=CATEGORIZE_SYSTEM,
-            messages=[
-                {"role": "user", "content": f"Title: {title}\nStore: {domain}"}
-            ],
-            output_format=CategoryResult,
+            prompt=f"Title: {title}\nStore: {domain}",
+            schema=CategoryResult,
+            max_output_tokens=64,
         )
-    except anthropic.RateLimitError:
-        # Categorisation is never worth retrying at the cost of blocking a
-        # track job — the product simply stays uncategorised.
-        logger.warning("categorization rate-limited for %s", domain)
-        return None
-    except anthropic.APIError as exc:
-        logger.warning("categorization failed: %s", exc)
+    except (RateLimitedError, TransientAIError) as exc:
+        # Categorisation runs inline inside the track job and is never worth
+        # retrying at the cost of blocking it — the product simply stays
+        # uncategorised. This is why it swallows the retryable errors that
+        # extraction and verdict deliberately let propagate.
+        logger.warning("categorization unavailable for %s: %s", domain, exc)
         return None
 
-    parsed = response.parsed_output
     if parsed is None or parsed.category == "unknown":
         return None
     # Re-validate against the taxonomy rather than trusting the Literal: the
