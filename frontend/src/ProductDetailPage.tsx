@@ -103,13 +103,22 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
                   )}
                 </div>
               </div>
-              <Button
-                as="a" href={product.url} target="_blank" rel="noreferrer"
-                variant="ghost" className="rv-detail-visit"
-              >
-                <span>Open on {product.domain}</span>
-                <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
-              </Button>
+              {/* Seeded demo rows live on the reserved .example TLD, which by
+                  definition never resolves — offering "Open on ..." there is a
+                  link that cannot work. Say what the row is instead. */}
+              {product.status === "demo" ? (
+                <span className="rv-detail-visit rv-detail-demo">
+                  <Stamp tone="caution">Demo product &middot; no live page</Stamp>
+                </span>
+              ) : (
+                <Button
+                  as="a" href={product.url} target="_blank" rel="noreferrer"
+                  variant="ghost" className="rv-detail-visit"
+                >
+                  <span>Open on {product.domain}</span>
+                  <ExternalLink size={13} strokeWidth={2.2} className="rv-btn-arrow" />
+                </Button>
+              )}
             </Reveal>
 
             {/* ── The headline figures ─────────────────────── */}
@@ -265,6 +274,14 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
   );
 }
 
+// The API returns "<status>: <detail>"; the status code is noise to a reader.
+function friendlyWatchError(message: string): string {
+  if (/429/.test(message)) return "You've reached the limit on tracked products.";
+  if (/401/.test(message)) return "Your session expired. Sign in again to save this alert.";
+  const detail = message.replace(/^\d{3}:\s*/, "").trim();
+  return detail || "Couldn't save that alert. Please try again.";
+}
+
 function WatchPanel({ productId, signedIn }: { productId: string; signedIn: boolean }) {
   const watchesQuery = useWatches(signedIn);
   const myWatch = watchesQuery.data?.find((w) => w.product_id === productId) ?? null;
@@ -283,16 +300,43 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
     }
   }, [myWatch?.id, myWatch?.rule_type, myWatch?.threshold]);
 
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // Mirrors _validate_rule in watches_api.py. Without this the server answers
+  // 422 and — because no mutation error was ever rendered — the button simply
+  // appeared to do nothing.
+  function validate(thresholdNum: number | null): string | null {
+    if (ruleType === "percent_drop") {
+      if (thresholdNum === null || Number.isNaN(thresholdNum)) return "Enter a percentage between 1 and 90.";
+      if (thresholdNum < 1 || thresholdNum > 90) return "Percentage must be between 1 and 90.";
+    }
+    if (ruleType === "target_price") {
+      if (thresholdNum === null || Number.isNaN(thresholdNum)) return "Enter the price you're waiting for.";
+      if (thresholdNum <= 0) return "Target price must be greater than 0.";
+    }
+    return null;
+  }
+
   function save() {
     const thresholdNum = threshold.trim() ? Number(threshold) : null;
+    const problem = validate(thresholdNum);
+    setSaved(false);
+    setLocalError(problem);
+    if (problem) return;
+
+    const onSettled = { onSuccess: () => setSaved(true) };
     if (myWatch) {
-      updateWatch.mutate({ id: myWatch.id, rule_type: ruleType, threshold: thresholdNum });
+      updateWatch.mutate({ id: myWatch.id, rule_type: ruleType, threshold: thresholdNum }, onSettled);
     } else {
-      createWatch.mutate({ product_id: productId, rule_type: ruleType, threshold: thresholdNum });
+      createWatch.mutate({ product_id: productId, rule_type: ruleType, threshold: thresholdNum }, onSettled);
     }
   }
 
   const pending = createWatch.isPending || updateWatch.isPending;
+  const serverError =
+    createWatch.error?.message ?? updateWatch.error?.message ?? deleteWatch.error?.message ?? null;
+  const errorText = localError ?? (serverError ? friendlyWatchError(serverError) : null);
 
   return (
     <Panel label={myWatch ? "Your alert" : "Set an alert"}>
@@ -339,9 +383,18 @@ function WatchPanel({ productId, signedIn }: { productId: string; signedIn: bool
             )}
           </div>
 
+          {errorText && (
+            <p className="rv-watch-error" role="alert">{errorText}</p>
+          )}
+          {saved && !errorText && !pending && (
+            <p className="rv-watch-ok" role="status">
+              Saved. We&rsquo;ll email you when this rule fires.
+            </p>
+          )}
+
           <div className="rv-watch-actions">
             <Button onClick={save} disabled={pending} variant="primary" size="sm">
-              {myWatch ? "Update alert" : "Alert me"}
+              {pending ? "Saving…" : myWatch ? "Update alert" : "Alert me"}
             </Button>
             {myWatch && (
               <Button
@@ -443,6 +496,7 @@ const DETAIL_STYLES = `
   }
   .rv-detail-stamps { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
   .rv-detail-visit { flex: none; }
+  .rv-detail-demo { display: inline-flex; align-items: center; }
 
   /* ── Headline figures ── */
   .rv-detail-figures {
@@ -484,6 +538,11 @@ const DETAIL_STYLES = `
   .rv-watch-form { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
   .rv-watch-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; min-width: 0; }
   .rv-watch-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .rv-watch-error {
+    margin: 16px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--red-deep);
+    background: var(--red-tint); padding: 10px 12px; border-left: 2px solid var(--red);
+  }
+  .rv-watch-ok { margin: 16px 0 0; font-size: 13.5px; color: var(--green-deep); }
 
   .rv-verdict-head { margin-bottom: 12px; }
   .rv-verdict-text { margin: 0; font-size: 15px; line-height: 1.65; }

@@ -50,8 +50,10 @@ class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    email: str
+    # None for an anonymous user, who has not given an address yet.
+    email: str | None = None
     is_active: bool
+    is_anonymous: bool = False
     created_at: datetime
 
 
@@ -132,6 +134,39 @@ async def get_current_user_optional(
     return user
 
 
+async def get_or_create_session_user(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """Resolve the session user, creating an anonymous one if there is none.
+
+    This is the dependency for actions that produce user-owned state --
+    tracking a product, setting an alert rule. Signing in is for *keeping*
+    things, not for unlocking them, so a visitor without an account still gets
+    a real owner row and the full feature set.
+
+    Deliberately NOT used for reads. A GET from a visitor with no session
+    resolves to None and returns an empty list, so a crawler hitting public
+    pages never mints rows -- an identity appears the first time someone
+    actually does something.
+
+    The row is claimed rather than duplicated when they later register (see
+    `register`), so nothing they did as a guest is lost.
+    """
+    existing = await get_current_user_optional(request, db)
+    if existing is not None:
+        return existing
+
+    user = User(email=None, hashed_password=None, is_anonymous=True)
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    set_session_cookies(response, create_access_token(subject=str(user.id)))
+    return user
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post(
@@ -153,11 +188,21 @@ async def register(
             detail="Email already registered",
         )
 
-    user = User(
-        email=body.email,
-        hashed_password=hash_password(body.password),
-    )
-    db.add(user)
+    # If this caller is already holding an anonymous session, claim that row
+    # instead of creating a second one. Their tracked products and alert rules
+    # are attached to it by user_id, so claiming carries everything over with
+    # no merge step -- and, crucially, no window where the rows are orphaned.
+    user = await get_current_user_optional(request, db)
+    if user is not None and user.is_anonymous:
+        user.email = body.email
+        user.hashed_password = hash_password(body.password)
+        user.is_anonymous = False
+    else:
+        user = User(
+            email=body.email,
+            hashed_password=hash_password(body.password),
+        )
+        db.add(user)
     try:
         await db.commit()
     except IntegrityError:

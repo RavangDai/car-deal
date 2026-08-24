@@ -179,23 +179,50 @@ def test_upsert_rejects_missing_email():
 
 # ── CSRF double-submit ─────────────────────────────────────────────────────────
 
+# Every case below carries a session cookie except the bootstrap one: the
+# guard protects an existing session, so "has a session" is the precondition
+# for it applying at all.
+SESSION = {SESSION_COOKIE: "any-session-jwt"}
+
+
 def test_require_csrf_accepts_matching_token():
-    req = _request(cookies={CSRF_COOKIE: "tok123"}, headers={"X-CSRF-Token": "tok123"})
+    req = _request(cookies={**SESSION, CSRF_COOKIE: "tok123"},
+                   headers={"X-CSRF-Token": "tok123"})
     _run(require_csrf(req))  # no exception
 
 
 def test_require_csrf_rejects_mismatch():
-    req = _request(cookies={CSRF_COOKIE: "tok123"}, headers={"X-CSRF-Token": "nope"})
+    req = _request(cookies={**SESSION, CSRF_COOKIE: "tok123"},
+                   headers={"X-CSRF-Token": "nope"})
     with pytest.raises(HTTPException) as exc:
         _run(require_csrf(req))
     assert exc.value.status_code == 403
 
 
 def test_require_csrf_rejects_missing_header():
-    req = _request(cookies={CSRF_COOKIE: "tok123"})
+    req = _request(cookies={**SESSION, CSRF_COOKIE: "tok123"})
     with pytest.raises(HTTPException) as exc:
         _run(require_csrf(req))
     assert exc.value.status_code == 403
+
+
+def test_require_csrf_rejects_missing_cookie_when_session_exists():
+    """A session with no CSRF cookie is the dangerous shape -- it must not be
+    mistaken for the bootstrap case below."""
+    req = _request(cookies=SESSION, headers={"X-CSRF-Token": "tok123"})
+    with pytest.raises(HTTPException) as exc:
+        _run(require_csrf(req))
+    assert exc.value.status_code == 403
+
+
+def test_require_csrf_allows_the_first_request_from_a_brand_new_visitor():
+    """Tracking no longer needs an account, so a visitor's first action arrives
+    before any session or CSRF cookie exists. There is no session to spend, so
+    the guard has nothing to protect and must not block the request that
+    creates one. Every request after this one carries a session and is checked.
+    """
+    req = _request(cookies={}, headers={})
+    _run(require_csrf(req))  # no exception
 
 
 # ── cookie-based session extraction ────────────────────────────────────────────

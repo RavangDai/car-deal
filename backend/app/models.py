@@ -168,9 +168,15 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String, nullable=False, unique=True, index=True)
+    # Nullable: an anonymous user tracks products before giving an address.
+    # Postgres allows unlimited NULLs under a UNIQUE index, so real addresses
+    # stay unique while many anonymous rows coexist.
+    email = Column(String, nullable=True, unique=True, index=True)
     # Nullable: OAuth-only users have no local password.
     hashed_password = Column(String, nullable=True)
+    # A visitor who has acted but not signed up. Signing up claims this same
+    # row rather than creating a second one, so their history carries over.
+    is_anonymous = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
 
     # OAuth / social login. `oauth_provider` is "google" | "github"; the pair

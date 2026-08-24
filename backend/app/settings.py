@@ -48,6 +48,29 @@ class Settings(BaseSettings):
     fetch_timeout: float = 15.0
     fetch_max_bytes: int = 2_000_000
 
+    # Unblocking proxy for retailers that refuse direct fetches. Blank
+    # provider = disabled, and the pipeline behaves exactly as it did before.
+    #
+    # Measured 2026-08-24 via scripts/probe_urls.py: all six probe retailers
+    # failed a direct fetch from a residential IP, so this is what makes
+    # paste-to-track work on real shopping sites rather than a nicety.
+    unblocker_provider: str = ""          # "" | "brightdata"
+    brightdata_api_token: str = ""
+    brightdata_zone: str = ""
+    # Unblocked fetches are billable, so escalation is bounded to these
+    # domains. Blank = every domain (convenient for probing, costly in prod).
+    unblocker_domains: Annotated[list[str], NoDecode] = []
+    # Unblocking renders the page, so it is legitimately slower than a direct
+    # GET -- the direct-fetch timeout would abort most successful unblocks.
+    unblocker_timeout: float = 90.0
+
+    @field_validator("unblocker_domains", mode="before")
+    @classmethod
+    def _parse_unblocker_domains(cls, v: object) -> object:
+        if isinstance(v, str):
+            return [d.strip() for d in v.split(",") if d.strip()]
+        return v
+
     # Gemini API (extraction fallback + "Buy or Wait" verdicts + category
     # classification). Leave the key blank to disable all three entirely —
     # extraction falls back to structured-data-only, the verdict endpoint

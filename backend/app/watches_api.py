@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .auth import get_current_user
+from .auth import get_current_user_optional, get_or_create_session_user
 from .cookies import require_csrf
 from .db import get_db
 from .limiter import limiter
@@ -97,9 +97,15 @@ def _validate_rule(rule_type: str, threshold: Optional[Decimal]) -> None:
 async def list_watches(
     request: Request,
     response: Response,
-    user: User = Depends(get_current_user),
+    user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
+    # No session at all means nobody has tracked anything yet on this browser.
+    # An empty list is the honest answer; minting an identity just to read is
+    # how a crawler ends up creating user rows.
+    if user is None:
+        return []
+
     rows = (
         await db.execute(
             select(Watch, Product)
@@ -130,7 +136,7 @@ async def create_watch(
     request: Request,
     response: Response,
     body: WatchIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_or_create_session_user),
     _csrf: None = Depends(require_csrf),
     db: AsyncSession = Depends(get_db),
 ):
@@ -182,7 +188,7 @@ async def update_watch(
     response: Response,
     watch_id: UUID,
     body: WatchUpdateIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_or_create_session_user),
     _csrf: None = Depends(require_csrf),
     db: AsyncSession = Depends(get_db),
 ):
@@ -211,7 +217,7 @@ async def delete_watch(
     request: Request,
     response: Response,
     watch_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_or_create_session_user),
     _csrf: None = Depends(require_csrf),
     db: AsyncSession = Depends(get_db),
 ):
@@ -229,9 +235,12 @@ async def delete_watch(
 async def list_alerts(
     request: Request,
     response: Response,
-    user: User = Depends(get_current_user),
+    user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
+    if user is None:
+        return []
+
     result = await db.execute(
         select(AlertEvent)
         .where(AlertEvent.user_id == user.id)

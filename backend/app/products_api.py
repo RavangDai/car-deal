@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .ai import is_enabled as ai_is_enabled
-from .auth import get_current_user, get_current_user_optional
+from .auth import get_current_user_optional, get_or_create_session_user
 from .celery_app import celery_app
 from .cookies import require_csrf
 from .dealmath import PricePointData, daily_series
@@ -88,6 +88,39 @@ class VerdictOut(BaseModel):
     computed_at: Optional[datetime] = None
 
 
+# How long a single verdict computation is assumed to be in flight. Long
+# enough to cover a slow model call, short enough that a task lost to a worker
+# restart is retried rather than wedged forever.
+VERDICT_CLAIM_TTL_SECONDS = 120
+
+
+def _claim_verdict_computation(product_id: str) -> bool:
+    """Claim the right to enqueue a verdict computation for this product.
+
+    Returns True for the caller that wins the claim and False for everyone
+    arriving while it is still in flight. Backed by Redis SET NX EX, which is
+    atomic across the API replicas — a per-process flag would not be.
+
+    Fails open: if Redis is unreachable we enqueue rather than silently never
+    computing a verdict. A duplicate task is wasteful; no task at all is a
+    permanently broken feature.
+    """
+    try:
+        import redis
+
+        client = redis.Redis.from_url(settings.redis_url)
+        return bool(
+            client.set(
+                f"verdict:claim:{product_id}",
+                "1",
+                nx=True,
+                ex=VERDICT_CLAIM_TTL_SECONDS,
+            )
+        )
+    except Exception:  # noqa: BLE001 — availability must not depend on Redis
+        return True
+
+
 # ── Track a URL ────────────────────────────────────────────────────────────
 
 @router.post(
@@ -100,7 +133,7 @@ async def track_url(
     request: Request,
     response: Response,
     body: TrackIn,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_or_create_session_user),
     _csrf: None = Depends(require_csrf),
     db: AsyncSession = Depends(get_db),
 ):
@@ -130,7 +163,7 @@ async def get_track_job(
     request: Request,
     response: Response,
     job_id: str,
-    user: User = Depends(get_current_user),
+    user: Optional[User] = Depends(get_current_user_optional),
 ):
     result = AsyncResult(job_id, app=celery_app)
     state = result.state
@@ -296,7 +329,7 @@ async def get_product_verdict(
     request: Request,
     response: Response,
     product_id: UUID,
-    user: User = Depends(get_current_user),
+    user: Optional[User] = Depends(get_current_user_optional),
     db: AsyncSession = Depends(get_db),
 ):
     product = await db.get(Product, product_id)
@@ -326,5 +359,10 @@ async def get_product_verdict(
     if product.deal_score is None:
         return VerdictOut(state="unavailable")
 
-    compute_verdict_task.delay(product_id=str(product_id))
+    # Enqueue at most one computation per product per window. The client polls
+    # this endpoint while state is "pending", and without this guard every poll
+    # would queue another identical ai.compute_verdict task — turning one
+    # verdict into a stream of duplicate paid API calls.
+    if _claim_verdict_computation(str(product_id)):
+        compute_verdict_task.delay(product_id=str(product_id))
     return VerdictOut(state="pending")

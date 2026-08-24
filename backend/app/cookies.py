@@ -62,7 +62,24 @@ async def require_csrf(request: Request) -> None:
     The cookie is auto-sent by the browser; the header must be set explicitly by
     our own JS (which read it from the readable CSRF cookie). A cross-site
     attacker can trigger the cookie but cannot read it to set the header.
+
+    **Bootstrap case: no session at all.** Since tracking no longer requires an
+    account, a first-time visitor's very first action arrives before any
+    session or CSRF cookie exists — there is nothing to double-submit yet. That
+    request is allowed through, because CSRF exists to stop a cross-site page
+    spending a session the victim already holds, and here there is no such
+    session: a forged request would only mint a brand-new anonymous identity,
+    whose cookies the attacker cannot read (the response is opaque cross-origin)
+    and which is attached to nothing the victim owns. Session fixation is not
+    reachable either, since the server generates the token rather than accepting
+    one from the request.
+
+    The moment a session cookie exists — anonymous or signed-in — the full
+    double-submit check applies again, which is every request after the first.
     """
+    if not request.cookies.get(SESSION_COOKIE):
+        return
+
     cookie_token = request.cookies.get(CSRF_COOKIE)
     header_token = request.headers.get(CSRF_HEADER)
     if (

@@ -3,7 +3,8 @@
 Uses FastAPI's `TestClient` (a real ASGI request/response cycle, so
 slowapi rate limiting and routing behave exactly as in production) with
 dependency overrides for `get_db` (a small scripted fake session),
-`get_current_user`, and `require_csrf`. The fake session returns
+`get_current_user` (and its anonymous/optional variants), and
+`require_csrf`. The fake session returns
 pre-queued results in call order rather than executing real SQL — this
 exercises the actual ownership checks, rule validation, upsert/dedup
 logic, and verdict-cache decision inside each route, but NOT genuine SQL
@@ -19,7 +20,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import products_api, watches_api
-from app.auth import get_current_user
+from app.auth import (
+    get_current_user,
+    get_current_user_optional,
+    get_or_create_session_user,
+)
 from app.cookies import require_csrf
 from app.db import get_db
 from app.main import app
@@ -152,7 +157,14 @@ def client(fake_session, current_user):
         return None
 
     app.dependency_overrides[get_db] = _get_db_override
+    # Endpoints now resolve identity three ways: `get_current_user` (strict,
+    # e.g. /auth/me), `get_or_create_session_user` (actions -- mints an
+    # anonymous owner when there is no session), and `get_current_user_optional`
+    # (reads). All three must resolve to the same fake user here, or a test
+    # that acts as one identity would read as another.
     app.dependency_overrides[get_current_user] = _current_user_override
+    app.dependency_overrides[get_or_create_session_user] = _current_user_override
+    app.dependency_overrides[get_current_user_optional] = _current_user_override
     app.dependency_overrides[require_csrf] = _csrf_override
 
     with TestClient(app) as c:

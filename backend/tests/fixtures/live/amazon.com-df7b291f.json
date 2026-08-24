@@ -1,9 +1,10 @@
 {
   "url": "https://www.amazon.com/dp/B0CHX1W1XY",
-  "expected_outcome": "no_product",
+  "expected_outcome": "bot_wall",
   "expected_strategy": null,
   "expected_title": null,
   "expected_price": null,
   "expected_currency": null,
-  "reviewed": false
+  "reviewed": true,
+  "review_note": "Verified by reading the captured bytes: 3781-byte page whose only form posts to /errors_page/validateCaptcha, containing an automated-access notice and no product markup, title, or price element. Recorded as bot_wall, not no_product -- the probe originally drafted the latter because detection missed this marker."
 }

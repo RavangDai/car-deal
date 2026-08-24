@@ -211,13 +211,20 @@ export function usePriceHistory(id: string | null, window: "90" | "180" | "all" 
   });
 }
 
+// GET /products/{id}/verdict is rate-limited to 10/minute server-side, so a
+// 2s poll (30/min) exhausted the budget in about twenty seconds and turned a
+// pending verdict into a 429. 8s keeps a polling client comfortably under the
+// limit while still feeling responsive.
+const VERDICT_POLL_MS = 8_000;
+
 export function useVerdict(id: string | null, enabled = true) {
   return useQuery<VerdictOut>({
     queryKey: queryKeys.products.verdict(id ?? ""),
     queryFn: () => fetchVerdict(id!),
     enabled: !!id && enabled,
     staleTime: 60_000,
-    refetchInterval: (query) => (query.state.data?.state === "pending" ? 2000 : false),
+    refetchInterval: (query) =>
+      query.state.data?.state === "pending" ? VERDICT_POLL_MS : false,
   });
 }
 

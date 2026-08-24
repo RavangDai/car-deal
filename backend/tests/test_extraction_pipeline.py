@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from app.extraction import pipeline
-from app.extraction.types import FetchResult
+from app.extraction.types import ExtractedProduct, FetchResult
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -153,3 +153,58 @@ def test_page_without_product_data_is_not_labelled_a_bot_wall(served):
     assert outcome.failed is True
     assert outcome.blocked is False
     assert outcome.blocked_reason is None
+
+
+def test_real_captured_amazon_captcha_is_detected():
+    """Regression against the actual bytes Amazon served the probe.
+
+    This page carried no <title> and none of the vendor markers we knew about,
+    so it was classified as 'no product found' rather than a block -- which
+    understates the failure and gives the user the wrong explanation.
+    """
+    captured = FIXTURES / "live" / "amazon.com-df7b291f.html"
+    if not captured.exists():
+        pytest.skip("live fixture not captured")
+
+    assert pipeline._looks_bot_walled(
+        captured.read_text(encoding="utf-8", errors="replace")
+    ) is True
+
+
+# --- Relative image URLs must be resolved against the page ---------------
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        # The real case: webscraper.io served a site-root-relative path, and
+        # storing it verbatim made every thumbnail 404 against localhost.
+        ("/images/items/cart2.png", "https://shop.example.com/images/items/cart2.png"),
+        ("../img/c.png", "https://shop.example.com/img/c.png"),
+        ("//cdn.example.net/b.png", "https://cdn.example.net/b.png"),
+        # Already absolute: untouched.
+        ("https://cdn.example.net/a.png", "https://cdn.example.net/a.png"),
+        # Inline data stays as-is rather than being mangled by urljoin.
+        ("data:image/png;base64,AAA", "data:image/png;base64,AAA"),
+        # Unfetchable: better to fall back to the UI placeholder than to
+        # render a broken <img>.
+        ("javascript:alert(1)", None),
+    ],
+)
+def test_image_urls_are_made_absolute(raw, expected):
+    product = ExtractedProduct(
+        title="Widget", price=Decimal("10"), currency="USD",
+        image_url=raw, in_stock=True,
+    )
+    resolved = pipeline._absolutize_image(
+        product, "https://shop.example.com/p/widget"
+    )
+    assert resolved.image_url == expected
+
+
+def test_absolutize_leaves_missing_image_alone():
+    product = ExtractedProduct(
+        title="Widget", price=Decimal("10"), currency="USD",
+        image_url=None, in_stock=True,
+    )
+    assert pipeline._absolutize_image(product, "https://shop.example.com/p/w").image_url is None

@@ -30,8 +30,6 @@ import {
   fromPayload,
   hasSeenOnboarding,
   markOnboardingSeen,
-  readLocalOnboarding,
-  SENSITIVITY_MIN_SCORE,
   toPayload,
   type OnboardingAnswers,
 } from "./onboarding";
@@ -57,10 +55,46 @@ const STAGE_LABELS: Record<string, string> = {
   fetching: "Opening the page",
   parsing: "Reading the price",
   llm_fallback: "Reading the price",
+  unblocking: "Getting past the store's bot check",
   saving: "Saving the first reading",
   retrying: "Retrying",
   running: "Working",
 };
+
+// Tracking fails in a handful of genuinely different ways, and the raw string
+// is either an HTTP status prefix or a Python exception message — neither of
+// which tells a shopper what to do next. Map the known shapes to a sentence
+// that names the cause and the next action; fall through to the raw detail
+// rather than swallowing an error we did not anticipate.
+function friendlyTrackError(message: string): string {
+  const m = message.toLowerCase();
+
+  if (m.includes("appears to block automated checks") || m.includes("bot_wall")) {
+    return "This store blocks automated price checks, so we can't track it. Try the product on another retailer.";
+  }
+  if (m.includes("could not extract a product")) {
+    return "We couldn't find a price on that page. Make sure the link points at a single product, not a search or category page.";
+  }
+  if (m.includes("non-public address") || m.includes("unsupported scheme") || m.includes("unsupported port")) {
+    return "That link doesn't point at a public product page.";
+  }
+  if (m.startsWith("422") || m.includes("invalid url") || m.includes("could not resolve host")) {
+    return "That doesn't look like a valid product URL. Paste the full link, starting with https://";
+  }
+  if (m.startsWith("429") || m.includes("max ")) {
+    return m.includes("tracked products")
+      ? "You've reached your limit of tracked products. Stop watching one to add another."
+      : "You're adding products faster than we can check them. Wait a minute and try again.";
+  }
+  if (m.startsWith("401")) {
+    return "Your session expired. Sign in again to track this product.";
+  }
+  if (m.includes("timeout") || m.includes("timed out")) {
+    return "That store took too long to respond. It may be temporarily unavailable — try again shortly.";
+  }
+
+  return message.replace(/^\d{3}:\s*/, "").trim() || "Something went wrong. Please try again.";
+}
 
 function readLegalHash(): LegalKind | null {
   const h = window.location.hash;
@@ -348,29 +382,8 @@ function Dashboard({
 
   const trackMutation = useTrackUrl();
   const trackJob = useTrackJob(jobId);
-  const watchesQuery = useWatches(!guest);
+  const watchesQuery = useWatches();
 
-  // Onboarding answers decide what the browse feed shows. A signed-in user's
-  // profile lives server-side, so the API applies it (personalized=1). A guest
-  // has no server row at all, so their localStorage answers are translated
-  // into the same query params here — same feed either way.
-  const guestPrefs = useMemo(() => (guest ? readLocalOnboarding() : null), [guest]);
-  const browseParams = useMemo(() => {
-    if (!guest) return { limit: 1 };
-    const base = { sort: "deal_score" as const, limit: 30 };
-    if (!guestPrefs || guestPrefs.completed_at === null) return base;
-    return {
-      ...base,
-      minScore: SENSITIVITY_MIN_SCORE[guestPrefs.sensitivity],
-      // The API takes one category per request; a multi-select guest gets
-      // their first pick rather than an unfiltered feed.
-      ...(guestPrefs.categories.length === 1
-        ? { category: guestPrefs.categories[0] }
-        : {}),
-    };
-  }, [guest, guestPrefs]);
-
-  const browseQuery = useProducts(browseParams);
 
   // Suggestions for a signed-in user, filtered server-side by their stored
   // onboarding profile. Only fetched once they have actually onboarded —
@@ -388,10 +401,9 @@ function Dashboard({
 
   function handleTrack(e: React.FormEvent) {
     e.preventDefault();
-    if (guest) {
-      onCreateAccount?.();
-      return;
-    }
+    // No account required. The server mints an anonymous owner on the first
+    // action and signing up later claims that same row, so nothing tracked
+    // here is lost by not having registered yet.
     const url = pasteUrl.trim();
     if (!url) return;
     trackMutation.mutate(url, {
@@ -413,21 +425,25 @@ function Dashboard({
 
   const loadingTrack = stage !== null;
 
-  const trackError =
+  const rawTrackError =
     trackMutation.error?.message ??
     (trackJob.data?.state === "FAILURE" ? trackJob.data.error : null) ??
     trackJob.error?.message ??
     null;
+  const trackError = rawTrackError ? friendlyTrackError(rawTrackError) : null;
 
   const trackResult = trackJob.data?.state === "SUCCESS" ? trackJob.data.result : null;
 
-  const watches = guest ? [] : (watchesQuery.data ?? []);
-  const guestProducts = guest ? (browseQuery.data ?? []) : [];
-  const watchlistLoading = guest ? browseQuery.isLoading : watchesQuery.isLoading;
+  // Signed in or not, this is the same view of the same rows -- the only
+  // thing an account changes is that the history outlives this browser and
+  // alerts have somewhere to be delivered.
+  const watches = watchesQuery.data ?? [];
+  const watchlistLoading = watchesQuery.isLoading;
 
-  const rows: { product: Product; watch: Watch | null }[] = guest
-    ? guestProducts.map((p) => ({ product: p, watch: null }))
-    : watches.map((w) => ({ product: w.product, watch: w }));
+  const rows: { product: Product; watch: Watch | null }[] = watches.map((w) => ({
+    product: w.product,
+    watch: w,
+  }));
 
   const scored = rows.filter((r) => r.product.deal_score != null);
   const atLowest = rows.filter((r) => r.product.is_lowest_ever).length;
@@ -439,10 +455,10 @@ function Dashboard({
       <TopBar
         links={[
           { href: "#", label: "Today's deals" },
-          ...(!guest ? [{ href: "#/alerts", label: "Alerts" }] : []),
+          { href: "#/alerts", label: "Alerts" },
         ]}
         activeHref="#"
-        status={guest ? `${guestProducts.length} products` : `${watches.length} tracked`}
+        status={`${watches.length} tracked`}
         actions={
           guest ? (
             <>
@@ -473,16 +489,7 @@ function Dashboard({
 
           {/* Guests get the real reason instead of a form they can't submit —
               a disabled field behind a translucent wash explains nothing. */}
-          {guest ? (
-            <Panel label="Tracking a product">
-              <p className="rv-panel-lead">Tracking needs an account.</p>
-              <p className="rv-dash-guest-body">
-                Create a free account to track your own products and get price-drop alerts.
-                Browsing today&rsquo;s deals stays free, and you can keep doing it without one.
-              </p>
-              <Button variant="primary" onClick={onCreateAccount}>Create a free account</Button>
-            </Panel>
-          ) : (
+          {(
           <Panel label="Add a product" className="rv-dash-form-panel">
             <form onSubmit={handleTrack} className="rv-dash-form">
               <label className="rv-dash-field">
@@ -509,6 +516,20 @@ function Dashboard({
                 <p className="rv-dash-error" role="alert">{trackError}</p>
               )}
 
+              {/* The one real difference an account makes. Stated where it
+                  matters -- next to the thing they just set up -- rather than
+                  as a wall in front of the feature. */}
+              {guest && (
+                <p className="rv-dash-note rv-dash-signup-note">
+                  You&rsquo;re tracking as a guest. Everything works, and it&rsquo;s saved to this
+                  browser &mdash;{" "}
+                  <button type="button" className="rv-link rv-link-btn" onClick={onCreateAccount}>
+                    create a free account
+                  </button>{" "}
+                  to get the price-drop emails and keep this list on your other devices.
+                </p>
+              )}
+
               {trackResult && !loadingTrack && (
                 <p className="rv-dash-ok">
                   {trackResult.created
@@ -527,7 +548,7 @@ function Dashboard({
           <section className="rv-dash-list">
             <div className="rv-dash-list-main">
               <Panel
-                label={guest ? "Today's deals" : "Your tracked products"}
+                label="Your tracked products"
                 aside={
                   rows.length > 0
                     ? `${rows.length} tracked · ${atLowest} at lowest ever`
@@ -537,7 +558,7 @@ function Dashboard({
                 {watchlistLoading ? (
                   <ResultsSkeleton />
                 ) : rows.length === 0 ? (
-                  <EmptyResults guest={guest} />
+                  <EmptyResults />
                 ) : (
                   <ol className="rv-watchlist">
                     {rows.map(({ product, watch }) => (
@@ -752,17 +773,16 @@ function ResultsSkeleton() {
 
 // An empty screen is an invitation to act, so it names the next action and
 // sets the expectation that follows from it.
-function EmptyResults({ guest }: { guest: boolean }) {
+function EmptyResults() {
   return (
     <div className="rv-empty">
       <EmptyAxis width={620} height={180} label="No readings recorded yet" />
       <p className="rv-empty-title">
-        {guest ? "No products are being tracked yet." : "You aren't tracking anything yet."}
+        You aren&rsquo;t tracking anything yet.
       </p>
       <p className="rv-empty-body">
-        {guest
-          ? "Once products are tracked, the best-scoring ones appear here, ranked by how well each drop stands up to its own price history."
-          : "Paste a product URL above. We record its price from today and recheck it every day — the score unlocks once there are fourteen days of history behind it."}
+        Paste a product URL above. We record its price from today and recheck it every day &mdash; the
+        score unlocks once there are fourteen days of history behind it.
       </p>
     </div>
   );
@@ -813,7 +833,8 @@ const REPORT_STYLES = `
     background: var(--red-tint); padding: 10px 12px; border-left: 2px solid var(--red);
   }
   .rv-dash-ok { margin: 18px 0 0; font-size: 13.5px; color: var(--green-deep); }
-  .rv-dash-guest-body { margin: 0 0 20px; font-size: 14px; line-height: 1.62; color: var(--ink-muted); max-width: 48ch; }
+  .rv-dash-signup-note { margin-top: 16px; max-width: 54ch; }
+  .rv-link-btn { background: none; cursor: pointer; font: inherit; padding: 0; }
 
   /* ── List ── */
   .rv-dash-list-band { border-top: 1px solid var(--rule); background: var(--paper-soft); }

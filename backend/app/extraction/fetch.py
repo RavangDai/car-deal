@@ -18,16 +18,20 @@ which requires a custom httpx transport.
 from __future__ import annotations
 
 import ipaddress
+import logging
 import socket
 
 import httpx
 
 from ..settings import settings
+from . import unblocker
 from .types import FetchResult
 
 _ALLOWED_SCHEMES = {"http", "https"}
 _ALLOWED_PORTS = {None, 80, 443}
 _MAX_REDIRECTS = 3
+
+logger = logging.getLogger(__name__)
 
 HEADERS = {
     "User-Agent": settings.scraper_user_agent,
@@ -112,16 +116,44 @@ def _fetch_one_hop(
         return status, headers, bytes(raw)
 
 
+def _escalate(url: str, host: str, max_bytes: int, reason: str) -> FetchResult | None:
+    """Retry a refused fetch through the unblocking proxy, or None if that is
+    not available for this URL.
+
+    Only ever called after `_validate_url` has passed for this exact URL --
+    the SSRF guard must run before anything is handed to a third-party proxy,
+    or we would be delegating host resolution to the vendor and losing the
+    protection entirely.
+    """
+    if not unblocker.is_configured() or not unblocker.handles_domain(host):
+        return None
+    try:
+        result = unblocker.fetch_unblocked(url, max_bytes=max_bytes)
+    except unblocker.UnblockerError as exc:
+        # Report the original, cheaper failure rather than masking it behind a
+        # proxy error the user can do nothing about.
+        logger.warning("unblocker escalation failed for %s: %s", url, exc)
+        return None
+    logger.info("unblocked %s after %s", url, reason)
+    return result
+
+
 def safe_fetch(
     url: str,
     *,
     max_bytes: int | None = None,
     timeout: float | None = None,
     transport: httpx.BaseTransport | None = None,
+    allow_unblocker: bool = True,
 ) -> FetchResult:
     """Fetch `url`, following redirects manually so every hop is
     re-validated (blocks 'public URL -> 302 -> http://169.254.169.254'
     laundering). Response body is streamed with a hard byte cap.
+
+    When the site refuses us outright -- 403/429, or a timeout, which is how
+    several retailers express refusal rather than answering -- and an
+    unblocking proxy is configured for that domain, the fetch is retried
+    through it once. Set `allow_unblocker=False` to force the direct path.
 
     `transport` is exposed only for tests (inject `httpx.MockTransport` to
     simulate redirect chains without real network access); production
@@ -136,7 +168,19 @@ def safe_fetch(
     ) as client:
         for _hop in range(_MAX_REDIRECTS + 1):
             parsed = _validate_url(current_url)
-            status, headers, raw = _fetch_one_hop(client, current_url, max_bytes)
+            try:
+                status, headers, raw = _fetch_one_hop(client, current_url, max_bytes)
+            except httpx.TimeoutException:
+                # Several large retailers simply never answer a plain client
+                # rather than returning a status. Measured: REI and Best Buy
+                # both read-timed-out at 15s on a direct fetch.
+                if allow_unblocker:
+                    escalated = _escalate(
+                        current_url, parsed.host, max_bytes, "timeout"
+                    )
+                    if escalated is not None:
+                        return escalated
+                raise
 
             if 300 <= status < 400:
                 location = headers.get("location")
@@ -148,6 +192,15 @@ def safe_fetch(
                 continue
 
             if status >= 400:
+                # 403/429 is how a bot defense usually answers. Everything
+                # else (404, 500) is a real error the proxy cannot fix, so we
+                # do not pay to retry it.
+                if allow_unblocker and status in (403, 429):
+                    escalated = _escalate(
+                        current_url, parsed.host, max_bytes, f"HTTP {status}"
+                    )
+                    if escalated is not None:
+                        return escalated
                 raise FetchError(
                     f"HTTP {status} fetching {current_url}", status_code=status
                 )
