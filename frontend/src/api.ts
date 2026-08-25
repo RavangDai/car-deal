@@ -423,7 +423,10 @@ export type AlertEvent = {
   rule_type: RuleType;
   previous_price: number | null;
   new_price: number;
-  status: "pending" | "sent" | "failed";
+  // Mirrors AlertEvent.status server-side. `no_recipient` means the alert
+  // fired but there was no address to send it to -- an anonymous user who has
+  // not signed up. Not a failure.
+  status: "pending" | "sent" | "failed" | "no_recipient";
   created_at: string;
 };
 

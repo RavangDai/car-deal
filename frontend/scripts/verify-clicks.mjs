@@ -29,6 +29,7 @@ const EXPECTED_FAILURES = [
 const ROUTES = [
   { hash: "", name: "home" },
   { hash: "#/login", name: "login" },
+  { hash: "#/browse", name: "browse" },
   { hash: "#/terms", name: "terms" },
   { hash: "#/privacy", name: "privacy" },
   { hash: "#/onboarding", name: "onboarding" },
@@ -41,6 +42,17 @@ const AUTHED_ROUTES = [
 
 function isExpectedFailure(url, status) {
   return EXPECTED_FAILURES.some((e) => e.url.test(url) && e.status === status);
+}
+
+// A failing request to someone else's image host is not a broken click in this
+// app. ProductImage already falls back to an inline placeholder on error, so
+// the user sees a clean box rather than a broken icon.
+//
+// These are still reported -- a product whose photo never loads is worth
+// knowing about -- but they do not fail the run. Letting a third party's
+// downtime turn this permanently red is how a check stops being read.
+function isThirdParty(url) {
+  return !url.startsWith(APP) && !url.startsWith(API);
 }
 
 async function registerUser(page) {
@@ -60,19 +72,26 @@ async function main() {
   page.setDefaultTimeout(5000);
   page.setDefaultNavigationTimeout(15000);
 
-  const findings = [];
+  const findings = [];   // fail the run
+  const thirdParty = [];  // report only
   let current = "(startup)";
 
   page.on("pageerror", (e) =>
     findings.push({ route: current, kind: "pageerror", detail: e.message }));
   page.on("console", (m) => {
-    if (m.type() === "error")
-      findings.push({ route: current, kind: "console", detail: m.text().slice(0, 200) });
+    if (m.type() !== "error") return;
+    const text = m.text().slice(0, 200);
+    // "Failed to load resource" with no first-party URL is the echo of a
+    // third-party asset failure already counted above.
+    const bucket = /Failed to load resource/i.test(text) ? thirdParty : findings;
+    bucket.push({ route: current, kind: "console", detail: text });
   });
   page.on("response", (r) => {
     const s = r.status();
-    if (s >= 400 && !isExpectedFailure(r.url(), s))
-      findings.push({ route: current, kind: `http ${s}`, detail: r.url() });
+    if (s >= 400 && !isExpectedFailure(r.url(), s)) {
+      const bucket = isThirdParty(r.url()) ? thirdParty : findings;
+      bucket.push({ route: current, kind: `http ${s}`, detail: r.url() });
+    }
   });
 
   const rows = [];

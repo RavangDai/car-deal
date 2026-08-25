@@ -24,6 +24,7 @@ import { categoryLabel } from "./taxonomy";
 import { formatMoney } from "./format";
 import ProductDetailPage from "./ProductDetailPage";
 import AlertsPage from "./AlertsPage";
+import BrowsePage from "./BrowsePage";
 import OnboardingFlow from "./OnboardingFlow";
 import {
   flushLocalOnboarding,
@@ -112,6 +113,10 @@ function readIsAlertsHash(): boolean {
   return window.location.hash === "#/alerts";
 }
 
+function readIsBrowseHash(): boolean {
+  return window.location.hash === "#/browse";
+}
+
 function readIsLoginHash(): boolean {
   return window.location.hash === "#/login";
 }
@@ -133,6 +138,7 @@ export default function App() {
   const [legal, setLegal] = useState<LegalKind | null>(readLegalHash);
   const [productId, setProductId] = useState<string | null>(readProductHash);
   const [onAlerts, setOnAlerts] = useState<boolean>(readIsAlertsHash);
+  const [onBrowse, setOnBrowse] = useState<boolean>(readIsBrowseHash);
   const [onOnboarding, setOnOnboarding] = useState<boolean>(readIsOnboardingHash);
   const [pendingUrl, setPendingUrl] = useState<string | undefined>(undefined);
   const logoutMut = useLogoutMutation();
@@ -149,6 +155,7 @@ export default function App() {
       setLegal(readLegalHash());
       setProductId(readProductHash());
       setOnAlerts(readIsAlertsHash());
+      setOnBrowse(readIsBrowseHash());
       setShowLogin(readIsLoginHash());
       setOnOnboarding(readIsOnboardingHash());
     };
@@ -181,6 +188,19 @@ export default function App() {
   function closeAlerts() {
     clearHash();
     setOnAlerts(false);
+  }
+
+  function closeBrowse() {
+    clearHash();
+    setOnBrowse(false);
+  }
+
+  // "Browse" used to mean enterGuest(), which showed a browse feed back when
+  // guests had no watchlist of their own. They do now, so that button was
+  // landing people on their own empty list. Browsing is its own route.
+  function goBrowse() {
+    window.location.hash = "#/browse";
+    setOnBrowse(true);
   }
 
   const bootstrapping = hasSessionHint() && me.isLoading;
@@ -285,6 +305,9 @@ export default function App() {
   } else if (productId) {
     routeKey = `product-${productId}`;
     routeEl = <ProductDetailPage id={productId} onBack={closeProduct} />;
+  } else if (onBrowse) {
+    routeKey = "browse";
+    routeEl = <BrowsePage onBack={closeBrowse} />;
   } else if (onAlerts && me.data) {
     routeKey = "alerts";
     routeEl = <AlertsPage onBack={closeAlerts} />;
@@ -322,7 +345,7 @@ export default function App() {
     routeEl = <Dashboard guest onCreateAccount={goCreateAccount} onExitGuest={exitGuest} />;
   } else {
     routeKey = "home";
-    routeEl = <HomePage onGetStarted={goToSignIn} onBrowse={enterGuest} />;
+    routeEl = <HomePage onGetStarted={goToSignIn} onBrowse={goBrowse} />;
   }
 
   // Simple opacity crossfade between routes.
@@ -455,6 +478,7 @@ function Dashboard({
       <TopBar
         links={[
           { href: "#", label: "Today's deals" },
+          { href: "#/browse", label: "Browse" },
           { href: "#/alerts", label: "Alerts" },
         ]}
         activeHref="#"

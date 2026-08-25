@@ -1,5 +1,10 @@
-// Alert history (#/alerts) — every price-drop email fired for the signed-in
-// user, audited from the real alert_events table (not a client-side log).
+// Alert history (#/alerts) — every price-drop alert that fired, audited from
+// the real alert_events table (not a client-side log).
+//
+// "Fired" and "emailed" are not the same thing, and the page must not conflate
+// them: tracking no longer requires an account, so an alert can legitimately
+// fire for someone who has given no address. Those are recorded server-side as
+// `no_recipient` and shown here plainly rather than as a failure.
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useAlerts, useProduct } from "./hooks";
@@ -7,6 +12,23 @@ import { formatMoney } from "./format";
 import { Spinner } from "./Spinner";
 import { Button, Delta, Panel, Stamp, TopBar } from "./primitives";
 import type { AlertEvent } from "./api";
+
+// Server-side statuses (see AlertEvent.status in models.py). Rendering the raw
+// slug leaks database vocabulary into the UI and, for `no_recipient`, reads as
+// an error when nothing went wrong.
+const STATUS_LABEL: Record<string, string> = {
+  sent: "emailed",
+  pending: "sending",
+  failed: "delivery failed",
+  no_recipient: "not emailed — no address on file",
+};
+
+const STATUS_TONE: Record<string, "signal" | "caution" | "quiet"> = {
+  sent: "signal",
+  pending: "caution",
+  failed: "caution",
+  no_recipient: "quiet",
+};
 
 const RULE_LABEL: Record<string, string> = {
   any_drop: "Any drop",
@@ -29,6 +51,10 @@ export default function AlertsPage({ onBack }: { onBack: () => void }) {
   const { data: alerts, isLoading } = useAlerts();
   const [menuOpen, setMenuOpen] = useState(false);
   const rows = alerts ?? [];
+  // Counting every row as "sent" was wrong the moment a row could be pending,
+  // failed, or undeliverable.
+  const sentCount = rows.filter((a) => a.status === "sent").length;
+  const undelivered = rows.filter((a) => a.status === "no_recipient").length;
 
   return (
     <div className="rv-alerts rv-page min-h-screen">
@@ -37,7 +63,7 @@ export default function AlertsPage({ onBack }: { onBack: () => void }) {
       <TopBar
         links={[{ href: "#", label: "Today's deals" }, { href: "#/alerts", label: "Alerts" }]}
         activeHref="#/alerts"
-        status={rows.length > 0 ? `${rows.length} sent` : undefined}
+        status={rows.length > 0 ? `${rows.length} fired · ${sentCount} emailed` : undefined}
         menuOpen={menuOpen}
         onToggleMenu={() => setMenuOpen((v) => !v)}
       />
@@ -50,9 +76,27 @@ export default function AlertsPage({ onBack }: { onBack: () => void }) {
 
         <h1 className="rv-alerts-title">Alert history</h1>
         <p className="rv-alerts-sub">
-          Every price-drop email we&rsquo;ve sent you, most recent first. An alert is only recorded
-          here when the rule you set actually fired.
+          Every alert that has fired, most recent first. An alert is only recorded here when the
+          rule you set actually fired.
         </p>
+
+        {/* Not a wall and not an error -- these alerts really did fire and are
+            listed below. There is just no address to send them to yet, which
+            makes this the one moment an account is genuinely worth something. */}
+        {undelivered > 0 && (
+          <Panel label="Add an email to receive these">
+            <p className="rv-alerts-undelivered">
+              {undelivered === 1
+                ? "One of these alerts fired but wasn't emailed"
+                : `${undelivered} of these alerts fired but weren't emailed`}{" "}
+              &mdash; you&rsquo;re tracking as a guest, so there&rsquo;s no address on file.
+              Everything still works and it&rsquo;s saved to this browser.
+            </p>
+            <Button as="a" href="#/login" variant="primary" size="sm">
+              Add an email to get these
+            </Button>
+          </Panel>
+        )}
 
         {isLoading && (
           <div className="rv-alerts-state">
@@ -97,7 +141,8 @@ function AlertRow({ alert }: { alert: AlertEvent }) {
       ? ((Number(alert.previous_price) - Number(alert.new_price)) / Number(alert.previous_price)) * 100
       : null;
 
-  const tone = alert.status === "sent" ? "signal" : alert.status === "pending" ? "caution" : "quiet";
+  const tone = STATUS_TONE[alert.status] ?? "quiet";
+  const statusLabel = STATUS_LABEL[alert.status] ?? alert.status;
 
   return (
     <li className="rv-alert-row">
@@ -121,13 +166,17 @@ function AlertRow({ alert }: { alert: AlertEvent }) {
         <Delta pct={dropPct} size="md" />
       </div>
 
-      <Stamp tone={tone}>{alert.status}</Stamp>
+      <Stamp tone={tone}>{statusLabel}</Stamp>
     </li>
   );
 }
 
 const ALERTS_STYLES = `
   .rv-alerts { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-alerts-undelivered {
+    margin: 0 0 16px; font-size: 14px; line-height: 1.6;
+    color: var(--ink-muted); max-width: 60ch;
+  }
   .rv-alerts-main { max-width: 860px; margin: 0 auto; padding: 26px 24px 72px; }
 
   .rv-alerts-back {

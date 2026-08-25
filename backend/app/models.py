@@ -137,7 +137,7 @@ class AlertEvent(Base):
     previous_price = Column(Numeric(12, 2), nullable=True)
     new_price = Column(Numeric(12, 2), nullable=False)
 
-    status = Column(String, nullable=False, default="pending")  # pending | sent | failed
+    status = Column(String, nullable=False, default="pending")  # pending | sent | failed | no_recipient
     sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
 

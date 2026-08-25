@@ -318,6 +318,22 @@ def deliver_alert_task(self, alert_event_id: str) -> Dict[str, Any]:
         product = session.get(Product, event.product_id)
         user = session.get(User, event.user_id)
 
+        # An anonymous user has no address yet (users.email is nullable since
+        # tracking stopped requiring an account). Nothing failed here -- the
+        # alert genuinely fired and is visible in-app on /alerts -- there is
+        # simply nowhere to send it. Record that and RETURN rather than raise:
+        # `autoretry_for=(Exception,)` above would otherwise retry a condition
+        # that cannot improve on its own, burning four sends per alert.
+        recipient = user.email if user is not None else None
+        if not recipient:
+            event.status = "no_recipient"
+            session.commit()
+            logger.info(
+                "alert %s fired for a user with no email; recorded, not sent",
+                alert_event_id,
+            )
+            return {"alert_event_id": alert_event_id, "status": "no_recipient"}
+
         sender = get_email_sender()
         subject, html = render_price_drop_email(
             product_title=(product.title if product else None) or event.product_id,
@@ -329,7 +345,7 @@ def deliver_alert_task(self, alert_event_id: str) -> Dict[str, Any]:
         )
 
         try:
-            sender.send(to=user.email, subject=subject, html=html)
+            sender.send(to=recipient, subject=subject, html=html)
         except Exception:
             event.status = "failed"
             session.commit()
