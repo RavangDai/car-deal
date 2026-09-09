@@ -6,6 +6,11 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "types": ["vite/client"],
+
+    /* Path alias. Mirrored in vite.config.ts — tsc resolves @/ for
+       typecheck, Vite resolves it for the bundle. */
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] },
     "skipLibCheck": true,
 
     /* Bundler mode */

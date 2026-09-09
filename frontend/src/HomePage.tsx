@@ -20,6 +20,7 @@ import { Arrow, Bezel, Button, Delta, Panel, Reveal, Stamp, TopBar } from "./pri
 import { PriceHistoryChart, EmptyAxis } from "./charts";
 import { ProductFan } from "./ProductFan";
 import { ScoreExplainer } from "./ScoreExplainer";
+import { Features } from "./components/blocks/features-8";
 import { useReveal } from "./motion";
 import Footer from "./Footer";
 import type { Product } from "./api";
@@ -27,6 +28,7 @@ import type { Product } from "./api";
 const NAV_LINKS: [string, string][] = [
   ["Today's deals", "deals"],
   ["How it works", "how"],
+  ["The machinery", "features"],
 ];
 
 export default function HomePage({
@@ -204,6 +206,14 @@ export default function HomePage({
 
       {/* ── METHOD ── */}
       <ScoreExplainer />
+
+      {/* ── MACHINERY ─ what feeds the score and what acts on it. The
+             sparkline draws the featured product's real recorded history;
+             with fewer than two checks it renders an empty rule instead. ── */}
+      <Features
+        points={featuredHistory.data?.points ?? []}
+        median={featured?.median_90d ?? null}
+      />
 
       {/* ── CTA — carries the surviving line from the old manifesto. ── */}
       <section className="rv-cta" data-rv-section="cta">
