@@ -103,13 +103,15 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 
 > Never `docker compose down -v` — it wipes the Postgres volume.
 
-### Optional: enable the Claude API features
+### Optional: enable the Gemini API features
 
-Both AI features (extraction fallback, "Buy or Wait" verdicts) degrade gracefully with no key set. To enable them, add to `.env`:
+All three AI features (extraction fallback, "Buy or Wait" verdicts, product categorisation) degrade gracefully with no key set. To enable them, add to `.env`:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=...
 ```
+
+Models are configurable and default to `gemini-3.5-flash-lite` for extraction and categorisation, `gemini-3.5-flash` for the verdict. Thinking is forced off in the client: a thinking model spends the whole output budget deliberating and returns `parsed=None`.
 
 ### Optional: enable real price-drop emails
 
@@ -161,7 +163,7 @@ pytest   # 177 tests, no network/DB required
 
 ## Tech Stack
 
-**Backend:** FastAPI, SQLAlchemy (async + sync), Alembic, Celery + Redis, BeautifulSoup4, Anthropic SDK
+**Backend:** FastAPI, SQLAlchemy (async + sync), Alembic, Celery + Redis, BeautifulSoup4, google-genai (Gemini)
 **Frontend:** React 19, Vite, TypeScript, TanStack Query
 **Database:** PostgreSQL 16
 **Auth:** Argon2id (pwdlib) + JWT cookies, Authlib OAuth
@@ -173,7 +175,7 @@ pytest   # 177 tests, no network/DB required
 ## Live snapshot
 
 <!-- SYNC:note:start -->
-_Live snapshot of the codebase — auto-generated, do not hand-edit the `SYNC` regions. Last commit `b52a613` (2026-07-09)._
+_Live snapshot of the codebase — auto-generated, do not hand-edit the `SYNC` regions. Last commit `6948631` (2026-09-08)._
 <!-- SYNC:note:end -->
 
 ### Stack
@@ -184,11 +186,14 @@ _Live snapshot of the codebase — auto-generated, do not hand-edit the `SYNC` r
 | Package | Version |
 | --- | --- |
 | @tanstack/react-query | ^5.62.0 |
+| clsx | ^2.1.1 |
 | framer-motion | ^12.39.0 |
+| gsap | ^3.15.0 |
 | html2canvas | ^1.4.1 |
 | lucide-react | ^1.23.0 |
 | react | ^19.2.0 |
 | react-dom | ^19.2.0 |
+| tailwind-merge | ^3.6.0 |
 
 _Build tooling: vite ^7.2.4 · typescript ~5.9.3 · tailwindcss ^3.4.18 · eslint ^9.39.1_
 
@@ -215,7 +220,7 @@ _Build tooling: vite ^7.2.4 · typescript ~5.9.3 · tailwindcss ^3.4.18 · eslin
 | stripe | 11.4.1 |
 | authlib | 1.6.5 |
 | itsdangerous | 2.2.0 |
-| anthropic | 0.116.0 |
+| google-genai | 2.19.0 |
 <!-- SYNC:stack:end -->
 
 ### API surface
@@ -230,8 +235,11 @@ _Build tooling: vite ^7.2.4 · typescript ~5.9.3 · tailwindcss ^3.4.18 · eslin
 | GET | `/auth/oauth/{provider}/callback` | `oauth.py` |
 | GET | `/auth/oauth/{provider}/login` | `oauth.py` |
 | POST | `/auth/register` | `auth.py` |
+| GET | `/config` | `main.py` |
 | POST | `/donate` | `donations.py` |
 | GET | `/health` | `main.py` |
+| GET | `/me/preferences` | `preferences_api.py` |
+| PUT | `/me/preferences` | `preferences_api.py` |
 | GET | `/products` | `products_api.py` |
 | GET | `/products/{product_id}` | `products_api.py` |
 | GET | `/products/{product_id}/history` | `products_api.py` |
@@ -256,7 +264,7 @@ _Build tooling: vite ^7.2.4 · typescript ~5.9.3 · tailwindcss ^3.4.18 · eslin
 | `ProductVerdict` | `product_verdicts` |
 | `User` | `users` |
 
-Migrations: **5** · head `005_wasitcheaper_pivot.py`
+Migrations: **7** · head `007_anonymous_users.py`
 <!-- SYNC:data:end -->
 
 ### Demo catalog
@@ -271,7 +279,7 @@ Migrations: **5** · head `005_wasitcheaper_pivot.py`
 - **App:** WasItCheaper — Track any price, see its past
 - **API:** WasItCheaper API v1.0.0
 - **Branch:** main
-- **Last commit:** `b52a613` (2026-07-09) — Add v-home-hero.png image for homepage hero section
+- **Last commit:** `6948631` (2026-09-08) — feat: add new Features component and enhance UI with Card components; update dependencies and configuration
 <!-- SYNC:state:end -->
 
 ---
