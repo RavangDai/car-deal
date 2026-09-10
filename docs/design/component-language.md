@@ -477,8 +477,13 @@ overlay, so the wishlist and CTA buttons stay real buttons.
 | `.rv-wrow` | `App.tsx` dashboard watchlist | horizontal row w/ sparkline — a list, not a grid; adopt type + colour only |
 | browse grid | `BrowsePage.tsx:212` | the natural home for this card verbatim |
 
-**Mapping:** wishlist heart → track/untrack · `$49.99` / `$80` → current vs
-previous · "Add to Cart" / "Buy Now" → "Set alert" / "View history".
+**Mapping:** wishlist heart → track/untrack · `$49.99` / `$80` →
+`latest_price` / `median_90d` · "Add to Cart" / "Buy Now" → "Set alert" /
+"View history".
+
+`Product` has no `current_price` or `previous_price` — see `src/api.ts:203`.
+The struck-through figure is the 90-day median, and only when it is *above*
+what you would pay now.
 
 ---
 

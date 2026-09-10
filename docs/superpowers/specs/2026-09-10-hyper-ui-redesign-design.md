@@ -166,7 +166,14 @@ that enclose) collapses to Tailwind's.
 
 **Deleted outright** — no consumer survives Phase 2:
 `--grid`, `--grid-size` (plotter substrate), `--bezel-pad/-outer/-inner`,
-`--shadow-lip`, `--img-ring`, `--z-grain`.
+`--shadow-lip`, `--z-grain`.
+
+> **Correction (found while planning):** this list originally included
+> `--img-ring`. That was wrong — it has five live consumers (`App.tsx:825`,
+> `App.tsx:885`, `BrowsePage.tsx:295`, `ProductDetailPage.tsx:491`, and
+> `ProductImage.tsx:15`). It is repointed to
+> `inset 0 0 0 1px rgb(0 0 0 / .05)`, not deleted. Likewise `--img-radius`
+> survives, repointed to `8px`.
 
 ### The dataviz palette is kept unchanged — verified
 
@@ -236,8 +243,14 @@ The reference card maps onto three existing and quite different surfaces:
 | `.rv-wrow` | `App.tsx` watchlist | a horizontal row with a sparkline, not a grid card — adopts type and colour only, keeps its layout |
 
 **Semantic mapping:** wishlist heart → track/untrack · `$49.99` beside
-struck-through `$80` → current vs previous price · "Add to Cart" / "Buy Now" →
-"Set alert" / "View history".
+struck-through `$80` → `latest_price` beside `median_90d` · "Add to Cart" /
+"Buy Now" → "Set alert" / "View history".
+
+> **Correction (found while planning):** `Product` (`src/api.ts:203`) has no
+> `current_price` / `previous_price`. The live figure is `latest_price`, and
+> the was-price analogue is `median_90d` — shown only when it exceeds
+> `latest_price`, since striking through a lower number would advertise a
+> discount that does not exist. `id` is a `string`, and `title` is nullable.
 
 **Markup correction:** the reference card nests `<button>` inside `<a>` — twice
 — which is invalid HTML; browsers recover unpredictably and the buttons swallow
