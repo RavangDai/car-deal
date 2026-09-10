@@ -18,7 +18,7 @@ Last updated 2026-09-10.
 | Typography | Plus Jakarta Sans (body/UI), Urbanist (display + figures) | **Done** — swapped in `theme.css`, `index.html`, `tailwind.config.cjs` |
 | Palette | **Full Hyper UI** — white cards, gray borders, blue/indigo/emerald accents | `theme.css`'s warm-paper system is replaced, not adapted |
 | New components | **Build and place** them in real screens | Not a detached component library |
-| Approach | Retoken, then rebuild the vocabulary (Approach C) | Pending confirmation |
+| Approach | Retoken, then rebuild the vocabulary (Approach C) | **Confirmed 2026-09-10** — see the spec |
 
 ### What the palette decision costs
 
@@ -484,11 +484,21 @@ previous · "Add to Cart" / "Buy Now" → "Set alert" / "View history".
 
 ## Open questions
 
-- **Approach C confirmation** — retoken `theme.css`, then rebuild the primitive
-  vocabulary, then build and place the six new components, then the GSAP motion
-  pass (cursor, inertial scroll, page transitions).
 - **Dark mode** — none of the pasted components define one. Assumed light-only
   unless stated otherwise.
-- **Charts** — `charts.tsx` colours lines from `--ink` / `--green`. Retokening
-  recolours them automatically; whether that is the *wanted* chart palette is
-  unaddressed.
+- **`--paper` / `--ground` rename** — the retoken inverts what `--paper` means
+  (it becomes the card surface; the page ground becomes gray-50). See the spec.
+- **`.rv-wrow` scope** — the dashboard watchlist row is proposed to take the new
+  type and colour but keep its horizontal sparkline layout rather than becoming
+  a grid card.
+
+## Resolved
+
+- **Approach** — C confirmed 2026-09-10: retoken `theme.css` → rebuild the
+  primitive vocabulary → build and place the six new components → GSAP motion
+  pass. Full design: `docs/superpowers/specs/2026-09-10-hyper-ui-redesign-design.md`.
+- **Charts** — the `--series-*` / `--ramp-*` dataviz palette was validated against
+  the old warm-paper surface, so moving to white was expected to invalidate it.
+  Measured: every ratio *improves*. `--series-2` 2.88 → 3.20 (now clears 3:1),
+  `--ramp-1` 2.25 → 2.50 (clears the light-end floor). The palette carries over
+  unchanged; `--series-4` (2.69) keeps its direct-label obligation.
