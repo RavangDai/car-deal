@@ -294,8 +294,8 @@ const STYLES = `
   }
 
   .rv-legal .rv-display {
-    font-family: var(--font-sans); font-stretch: 118%; font-weight: 700;
-    letter-spacing: -0.03em; text-wrap: balance;
+    font-family: var(--font-display); font-weight: 700;
+    letter-spacing: -0.032em; text-wrap: balance;
   }
 
   .rv-legal .rv-legal-back {

@@ -328,8 +328,8 @@ export const PRIMITIVE_STYLES = `
   .rv-wordmark { display: inline-flex; align-items: center; gap: 9px; }
   .rv-wordmark-mark { flex: none; display: block; }
   .rv-wordmark-text {
-    font-family: var(--font-sans); font-stretch: 112%; font-weight: 700;
-    letter-spacing: -0.02em; color: var(--ink); white-space: nowrap;
+    font-family: var(--font-display); font-weight: 800;
+    letter-spacing: -0.028em; color: var(--ink); white-space: nowrap;
   }
 
   /* ── Delta — the loud figure. ── */

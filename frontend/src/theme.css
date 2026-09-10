@@ -28,33 +28,35 @@
 */
 
 :root {
-  /* ── Typography ──────────────────────────────────────────────────────
-     THREE faces, one rule each. The previous pass ran display as Archivo
-     at 125% width / 700 weight / 0.98 leading, which is a POSTER voice:
-     squat, shouty, and the single biggest reason the page read as cheap.
-     Weight is not the same thing as authority.
+  /* ── Typography ──────────────────────────────────────────────────────────────────
+     TWO families, THREE roles. Plus Jakarta Sans carries every word of UI
+     and body copy: a humanist grotesk with open apertures and a tall
+     x-height, so it holds a 14px table row without closing up.
 
-     Instrument Serif now carries the display voice alone. A high-contrast
-     editorial serif set against hairline rules and mono figures reads as
-     a research publication — which is what this product actually is. It
-     has real modulation (thin-to-thick) rather than uniform mass, so it
-     holds up at 60px+ where a heavy grotesk just gets louder.
+     Urbanist carries BOTH the display voice and every figure. It is a
+     geometric built on near-circular bowls, which is what a display line
+     wants — the o/e/c hold their shape at 60px where a text face goes
+     flabby — and it runs 100..900, so the display voice has real range.
 
-     Archivo keeps every word of UI and body copy. IBM Plex Mono keeps
-     every FIGURE — price, delta, score, date, axis label. That last split
-     is unchanged and non-negotiable: prices have to align in columns and
-     on chart axes, and one numeric face across table + chart + hero is
-     what makes them read as the same instrument. */
-  --font-sans:    'Archivo', system-ui, -apple-system, sans-serif;
-  --font-display: 'Instrument Serif', 'Archivo', Georgia, serif;
-  --font-mono:    'IBM Plex Mono', ui-monospace, 'Consolas', monospace;
+     The figure role is a ROLE, not a family: --font-mono is the numeric
+     voice, and because Urbanist is PROPORTIONAL, everything wearing it
+     must also carry tabular-nums (see .rv-num). That is non-negotiable:
+     prices have to align in columns and on chart axes, and one numeric
+     face across table + chart + hero is what makes them read as the same
+     instrument.
 
-  /* Instrument Serif ships one weight (400) and no width axis, so the
-     display voice is now carried by SIZE and TRACKING, not by mass. */
-  --display-stretch: 100%;
-  --display-weight:  400;
-  --display-track:  -0.018em;
-  --display-leading: 0.94;
+     NEITHER face has a width axis. Nothing here may set font-stretch —
+     width is carried by weight and tracking instead. */
+  --font-sans:    'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Urbanist', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono:    'Urbanist', 'Plus Jakarta Sans', ui-monospace, monospace;
+
+  /* Urbanist runs 100..900. The display voice is carried by SIZE, WEIGHT
+     and TRACKING — a geometric at 700 tracked tight reads as structural
+     rather than shouty, which is the failure mode a heavy grotesk hits. */
+  --display-weight:  700;
+  --display-track:  -0.032em;
+  --display-leading: 0.96;
 
   /* ── Canvas — low-chroma warm neutral. Deliberately NOT a cream: the
      reference here is plotter/graph paper, which is why data regions get
@@ -246,35 +248,39 @@
 }
 
 /* Every figure in the product — price, delta, score, date, axis label —
-   is set in the mono face with lining tabular figures so columns align. */
+   is set in the figure face with lining tabular figures so columns align.
+   Urbanist is proportional, so tabular-nums is doing ALL of the alignment
+   work here: a figure that opts out of .rv-num WILL drift in a column. */
 .rv-num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: 'tnum' 1, 'zero' 1;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+  letter-spacing: -0.005em;
 }
 
-/* Display voice: Instrument Serif, set large and tight. Optical sizing is
+/* Display voice: Urbanist, set large, heavy and tight. Optical sizing is
    manual here — the face has no opsz axis, so anything under ~28px must
-   fall back to the sans (see .rv-display-sm) rather than shrink this. */
+   fall back to the sans (see .rv-display-sm) rather than shrink this.
+   The tracking is negative on purpose: a geometric at 700 leaves gaps
+   between round bowls that read as loose unless pulled back in. */
 .rv-display {
   font-family: var(--font-display);
-  font-stretch: var(--display-stretch);
   font-weight: var(--display-weight);
   letter-spacing: var(--display-track);
   line-height: var(--display-leading);
   text-wrap: balance;
-  /* A high-contrast serif at display size needs its thin strokes to
-     survive rasterisation on a warm ground. */
+  /* A geometric at display weight blocks up on a warm ground unless the
+     rasteriser is told to keep the counters open. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Emphasis inside a display line. Instrument Serif's italic is a true
-   cut, not a slant — one italicised phrase per headline, never more. */
+/* Emphasis inside a display line. Urbanist ships a true italic cut, and at
+   700 it slants hard — one italicised phrase per headline, never more. */
 .rv-display em,
 .rv-display i {
   font-style: italic;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.022em;
 }
 
 /* Below display size the serif loses its argument and just looks small.

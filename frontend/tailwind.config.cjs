@@ -8,11 +8,13 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // Archivo carries every word of UI and body; Instrument Serif
-        // carries the display voice; IBM Plex Mono carries every figure.
-        sans: ["Archivo", "system-ui", "sans-serif"],
-        display: ["Instrument Serif", "Archivo", "Georgia", "serif"],
-        mono: ["IBM Plex Mono", "ui-monospace", "Consolas", "monospace"],
+        // Plus Jakarta Sans carries every word of UI and body; Urbanist
+        // carries the display voice AND every figure. The figure role is a
+        // role, not a separate family — Urbanist is proportional, so
+        // anything set in `font-mono` must also carry tabular-nums.
+        sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+        display: ["Urbanist", "Plus Jakarta Sans", "system-ui", "sans-serif"],
+        mono: ["Urbanist", "Plus Jakarta Sans", "ui-monospace", "monospace"],
       },
 
       // ── shadcn token bridge ────────────────────────────────────────────

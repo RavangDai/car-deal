@@ -12,10 +12,16 @@ html {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  /* Archivo is served with a wdth axis of 62..125. Left unset, body copy
-     inherits whatever the axis default resolves to and reads condensed.
-     Pin it: only the wordmark and display voice opt out of normal width. */
-  font-stretch: 100%;
+  /* Plus Jakarta Sans has no width axis — there is nothing to pin, and a
+     font-stretch here would resolve to normal anyway. Body copy sits at
+     400; emphasis is carried by weight, never by width. */
+  font-weight: 400;
+  /* The figure face is now proportional (Urbanist), so tabular figures are
+     the only thing keeping prices, deltas and axis labels aligned in a
+     column. Set it once at the root rather than per-call-site: the system
+     already treats EVERY figure in the product as tabular, and a label
+     that forgets .rv-num would otherwise drift. */
+  font-variant-numeric: tabular-nums lining-nums;
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
