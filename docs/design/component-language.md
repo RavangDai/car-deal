@@ -487,6 +487,105 @@ what you would pay now.
 
 ---
 
+### 14. Logo marquee
+
+An edge-faded, infinitely scrolling brand strip. Two identical brand sets sit
+side by side inside one flex track; translating the track by exactly -50%
+makes the loop seamless.
+
+```html
+<div class="relative overflow-hidden
+     before:pointer-events-none before:absolute before:inset-y-0 before:start-0 before:z-2 before:w-20 before:h-full
+     before:bg-[linear-gradient(to_right,var(--color-background),transparent)]
+     after:pointer-events-none  after:absolute  after:inset-y-0  after:end-0   after:z-2  after:w-20  after:h-full
+     after:bg-[linear-gradient(to_left,var(--color-background),transparent)]">
+  <div class="flex items-center animate-marquee">
+    <div class="flex items-center justify-around">        <!-- set 1 -->
+      <div class="px-4 w-40 md:w-64 h-12 flex shrink-0 justify-center items-center">
+        <svg class="w-20 md:w-28 h-full object-contain text-foreground" viewBox="0 0 391 86">…</svg>
+      </div>
+      <!-- … 8 logos … -->
+    </div>
+    <div class="flex items-center justify-around">        <!-- set 2, identical -->
+      …
+    </div>
+  </div>
+</div>
+```
+
+The `before:`/`after:` pseudo-elements are 80px gradient masks that fade each
+edge into the page ground, so logos enter and leave instead of clipping. That
+is the detail that makes it read as considered rather than as a carousel.
+
+**In this app today:** does not exist.
+
+#### Four things in this snippet do not work here
+
+Verified against the project, not assumed:
+
+| As pasted | Problem | Fix |
+|---|---|---|
+| `animate-marquee` | **Not a Tailwind class.** No `marquee` keyframe or animation exists in `tailwind.config.cjs`. Silently does nothing. | Add `keyframes.marquee` + `animation.marquee` to the config |
+| `var(--color-background)` | **Tailwind v4 token name.** Does not exist here; the gradient would render transparent-to-transparent, i.e. no mask at all | `var(--ground)` |
+| `z-2` | **Not a v3 default** (v3 ships 0/10/20/30/40/50) | `z-[2]` |
+| `text-foreground` | ✅ **Works** — `tailwind.config.cjs:37` maps `foreground` → `var(--ink)` | keep |
+
+The config addition:
+
+```js
+// tailwind.config.cjs → theme.extend
+keyframes: {
+  marquee: {
+    // -50% exactly, because the track holds the brand set TWICE. Any other
+    // value makes the seam visible.
+    from: { transform: "translateX(0)" },
+    to:   { transform: "translateX(-50%)" },
+  },
+},
+animation: {
+  marquee: "marquee 40s linear infinite",
+},
+```
+
+> **`linear` is the one place this system allows it.** `theme.css` forbids
+> `linear` and `ease-in-out` because they "read as software easing". A marquee
+> is the exception that proves it: any eased curve makes the loop pulse at the
+> seam. Constant velocity is the point.
+
+#### Two more requirements the snippet omits
+
+- **Reduced motion.** An infinite animation must stop under
+  `prefers-reduced-motion: reduce` — this project treats that as a hard rule,
+  not a nicety. Add `motion-reduce:animate-none`, and let the strip become a
+  static, scrollable row.
+- **Accessibility.** The logo SVGs carry no `<title>` and no `aria-hidden`.
+  Decorative logos should be `aria-hidden="true"` with the container labelled
+  once (e.g. `aria-label="Stores we track"`); otherwise a screen reader
+  announces fourteen unnamed graphics.
+
+#### Where it lands — with a caveat
+
+The honest fit is a **"stores we track"** strip on the homepage, above or below
+the deals section. This app is a price tracker; naming the retailers it covers
+is real information, not decoration.
+
+**The caveat: there are no logo assets.** `public/` holds exactly two files
+(`vite.svg`, `wic-logo.svg`), and stores are rendered as plain text today —
+`product.domain`, e.g. `App.tsx:746`, `BrowsePage.tsx:221`. So this component
+needs one of:
+
+1. **Wordmark marquee** — set each `product.domain` in Urbanist rather than as
+   a logo. Works immediately with data the app already has, and stays honest.
+2. **Real logo assets** — someone sources and commits per-store SVGs. Best
+   looking, needs the files, and raises a trademark-usage question.
+3. **Favicon hotlinking** — rejected. It puts an external network dependency in
+   the page and leaks the visitor's URL to each store; the project already sets
+   `referrerPolicy="no-referrer"` on product images to avoid exactly that.
+
+Option 1 unless logo files appear.
+
+---
+
 ## Open questions
 
 - **Dark mode** — none of the pasted components define one. Assumed light-only

@@ -19,6 +19,15 @@
 - **Tailwind v3 values only** (project runs `tailwindcss ^3.4.18`). Do not use v4 syntax.
 - **Token names are stable.** `theme.css`'s convention is that names never change across redesigns; only values repoint. The single approved exception is `--paper` → adding `--ground` (Task 3).
 - **Light mode only.** No dark-mode blocks; none of the reference components define one.
+- **Never write `JSX.Element`.** `@types/react` 19 removed the global `JSX`
+  namespace — `tsc -b` fails with `TS2503`. Use `ComponentType<P>` for a
+  component value, `ReactElement` for an element. `React.ReactNode` and
+  `React.KeyboardEvent` remain valid (UMD global).
+- **`verbatimModuleSyntax` is on.** Every type-only import must use
+  `import type { X }` or an inline `type` modifier, or the build fails.
+- **`noUnusedLocals` and `noUnusedParameters` are on.** An unused import or
+  parameter is a build error, not a warning. Prefix deliberately-unused
+  parameters with `_`.
 - **Contrast floors:** 4.5:1 for text under 18px, 3:1 for text ≥18px bold or ≥24px, 3:1 for meaningful graphics. Verify with `src/__tests__/contrast.ts`, never by eye.
 - **Typography is already done.** Plus Jakarta Sans (`--font-sans`), Urbanist (`--font-display`, `--font-mono`). Do not re-swap fonts. Do not add `font-stretch` — neither face has a width axis.
 - **Figures need `tabular-nums`.** Urbanist is proportional. `body` sets `font-variant-numeric: tabular-nums lining-nums` globally; do not override it to `normal` anywhere a number renders.
@@ -566,7 +575,7 @@ Add to `src/theme.css`, beside `.rv-num`:
      indigo  → loading only
      primary → interactive/CTA, gray-900 fill; gray-100 for secondary
 
-   The --series-*/--ramp-* dataviz palette below is FROZEN — see its own
+   The --series-* / --ramp-* dataviz palette below is FROZEN — see its own
    note. It was re-validated against white and every ratio improved.
 */
 ```
@@ -715,7 +724,14 @@ Expected: both exit 0. The token test's "dead tokens are gone" block now has no 
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `CheckCircle`, `ReceiptRefund`, `ExclamationTriangle`, `ChevronDown`, `ChevronRight`, `Home`, `Heart`, `TrendUp`, `TrendDown`, `Cog`, `ChatBubble` — each `(props: { className?: string }) => JSX.Element`. Every later task imports from here.
+- Produces: `CheckCircle`, `ReceiptRefund`, `ExclamationTriangle`, `ChevronDown`, `ChevronRight`, `Home`, `Heart`, `TrendUp`, `TrendDown`, `Cog`, `ChatBubble` — each assignable to `ComponentType<{ className?: string }>`. Every later task imports from here.
+
+> **Do not write `JSX.Element` anywhere in this plan.** `@types/react` 19 removed
+> the global `JSX` namespace; `tsc -b` fails with `TS2503: Cannot find namespace
+> 'JSX'`. Verified against this project's `tsconfig.app.json`. Use
+> `ComponentType<{ className?: string }>` from `react` instead — it is what these
+> values actually are. (`React.ReactNode` and `React.KeyboardEvent` are fine: the
+> UMD global `React` namespace still exists.)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -917,7 +933,7 @@ Expected: FAIL — `Failed to resolve import "./Badge"`.
 - [ ] **Step 3: Implement `src/Badge.tsx`**
 
 ```tsx
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { CheckCircle, ExclamationTriangle, ReceiptRefund } from "./icons";
 
 export type BadgeTone = "signal" | "caution" | "quiet" | "danger";
@@ -925,7 +941,7 @@ export type BadgeTone = "signal" | "caution" | "quiet" | "danger";
 // Tone names are inherited from the retired Stamp so its 12 call sites port
 // without rewording. `quiet` is a neutral chip (a countdown, a coverage gap)
 // and deliberately carries no icon — an icon would imply a status it lacks.
-const ICONS: Record<BadgeTone, ((p: { className?: string }) => JSX.Element) | null> = {
+const ICONS: Record<BadgeTone, ComponentType<{ className?: string }> | null> = {
   signal: CheckCircle,
   caution: ReceiptRefund,
   danger: ExclamationTriangle,
@@ -1742,6 +1758,11 @@ Expected: both exit 0.
 > boolean`, `title: string | null`, and `id: string` — an id **string**, not a
 > number. `formatMoney(value: number, currency = "USD")` takes a non-null
 > number, so every price needs a null guard before it.
+>
+> **`formatMoney` drops the decimals on whole numbers** —
+> `maximumFractionDigits: Number.isInteger(value) ? 0 : 2` (`src/format.ts:1`).
+> So `formatMoney(80)` is `"$80"` and `formatMoney(49.99)` is `"$49.99"`. Write
+> test expectations against that, not against a fixed two-decimal format.
 - Produces: `ProductCard({ product, href, tracked, onToggleTrack, onSetAlert }: { product: Product; href: string; tracked: boolean; onToggleTrack: () => void; onSetAlert: () => void })`.
 
 **The reference card nests `<button>` inside `<a>` — twice. That is invalid HTML and the buttons swallow the link.** This task rebuilds it with a stretched-link overlay. The test enforces that.
@@ -1805,7 +1826,9 @@ describe("ProductCard", () => {
   it("shows the latest price and strikes through the 90-day median", () => {
     setup();
     expect(screen.getByText("$49.99")).toBeInTheDocument();
-    const was = screen.getByText("$80.00");
+    // formatMoney gives INTEGERS zero fraction digits, so 80 formats as
+    // "$80", not "$80.00". Verified against src/format.ts:1.
+    const was = screen.getByText("$80");
     expect(was.tagName).toBe("S");
   });
 
@@ -1814,7 +1837,7 @@ describe("ProductCard", () => {
       <ProductCard product={{ ...product, median_90d: null }} href="#/p/1"
                    tracked={false} onToggleTrack={() => {}} onSetAlert={() => {}} />,
     );
-    expect(screen.queryByText("$80.00")).toBeNull();
+    expect(screen.queryByText("$80")).toBeNull();
   });
 
   it("omits the was-price when the median is not above the latest price", () => {
@@ -1824,7 +1847,7 @@ describe("ProductCard", () => {
       <ProductCard product={{ ...product, median_90d: 40 }} href="#/p/1"
                    tracked={false} onToggleTrack={() => {}} onSetAlert={() => {}} />,
     );
-    expect(screen.queryByText("$40.00")).toBeNull();
+    expect(screen.queryByText("$40")).toBeNull();
   });
 
   it("renders a dash when the price is unknown rather than $NaN", () => {
@@ -2729,11 +2752,11 @@ Expected: FAIL — module not found.
 - [ ] **Step 3: Implement `src/Toast.tsx`**
 
 ```tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { CheckCircle, ExclamationTriangle, ChatBubble } from "./icons";
 import { toastStore, type Toast, type ToastTone } from "./toastStore";
 
-const ICON: Record<ToastTone, (p: { className?: string }) => JSX.Element> = {
+const ICON: Record<ToastTone, ComponentType<{ className?: string }>> = {
   success: CheckCircle,
   error: ExclamationTriangle,
   info: ChatBubble,

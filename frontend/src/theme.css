@@ -2,29 +2,30 @@
    Single source of truth for typography + design tokens — loaded once,
    globally, via main.tsx (:root), inherited by every page's own wrapper.
 
-   Direction: "instrument". WasItCheaper's only real material is a price
-   series over time plus a deterministic score, so the design is derived
-   from that rather than applied to it. Chrome is quiet — hairline rules,
-   no cards, no bevels, no shadows on content. The LOUD things are the
-   deal facts themselves: the delta, the score, the lowest-ever stamp.
-   That contrast is what makes a deal pop; uniform noise would not.
+   Direction: "Hyper UI". White cards on a gray-50 ground, gray borders,
+   an 8px card radius, blue and indigo accents, and emerald/amber/red
+   status badges. Derived from the thirteen reference components in
+   docs/design/component-language.md — match those when adding anything.
 
-   Every token NAME below is unchanged from the prior retro pass (the
-   established convention across every redesign here — a rename touches
-   dozens of call sites for nothing). Only values repoint. Tokens with no
-   consumer after the retro chrome was removed (--desktop*, --bevel-*)
-   are deleted outright rather than left dangling.
+   Token NAMES are stable across redesigns (the established convention
+   here — a rename touches dozens of call sites for nothing). Only values
+   repoint. The one exception this pass is --ground, added because --paper
+   inverted meaning: it is now the CARD surface, not the page.
 
    Semantic mapping:
-     ink     → near-black text ramp; paper → canvas + data surfaces
-     green   → A GENUINE DROP. The one loud color. Deltas below median,
-               lowest-ever stamps, strong scores. Never decorative — if
-               it is green, the deal math verified something.
+     ink     → gray text ramp; paper → card surface; ground → page
+     green   → emerald. Decorative as well as semantic — a green badge
+               does NOT certify that the deal math verified anything.
+               (This is a deliberate reversal of the instrument system.)
      amber   → caution: a price rise, thin margin, low coverage
      red     → error / danger ONLY (form validation, failed request) —
                never repurposed for "price went up", that is amber
-     primary → interactive/CTA. Ink-filled, NOT a brand hue: keeping the
-               CTA achromatic is what leaves green free to mean "deal".
+     blue    → informational chrome, icon wells, links, focus rings
+     indigo  → loading only
+     primary → interactive/CTA, gray-900 fill; gray-100 for secondary
+
+   The --series-* / --ramp-* dataviz palette below is FROZEN — see its own
+   note. It was re-validated against white and every ratio improved.
 */
 
 :root {
@@ -58,72 +59,79 @@
   --display-track:  -0.032em;
   --display-leading: 0.96;
 
-  /* ── Canvas — low-chroma warm neutral. Deliberately NOT a cream: the
-     reference here is plotter/graph paper, which is why data regions get
-     a faint measured grid (--grid) rather than a texture overlay. */
-  --paper:        #f4f3ef;
-  --paper-soft:   #ebeae4;
-  --paper-deep:   #e2e0d8;
-  --paper-pale:   #ffffff;
-  --bone:         #ffffff;
+  /* ── Surfaces ─────────────────────────────────────────────────────────
+     --paper is the CARD surface (white); --ground is the PAGE behind it
+     (gray-50). This is the inverse of the instrument system, where the
+     page was --paper and cards were --paper-pale. */
+  --paper:        #ffffff;   /* white     — card + control surface */
+  --ground:       #f9fafb;   /* gray-50   — page behind the cards */
+  --paper-soft:   #f9fafb;   /* gray-50   — hover ground, zebra rows */
+  --paper-deep:   #f3f4f6;   /* gray-100  — secondary button fill */
+  --paper-pale:   #ffffff;   /* white */
+  --bone:         #ffffff;   /* white */
 
-  /* ── Ink — warm near-black ramp. Measured against --paper:
-     --ink 15.7:1, --ink-soft 10.1:1, --ink-muted 4.98:1, --ink-fade 3.05:1.
-     --ink-muted is the FLOOR for body text; --ink-fade clears 3:1 only, so
-     it is for axis labels and decoration, never a sentence. */
-  --ink:          #1b1a16;
-  --ink-soft:     #3c3b34;
-  --ink-muted:    #6a695f;
-  --ink-fade:     #8d8c82;
+  /* ── Ink — the Tailwind gray ramp. Ratios on white:
+     --ink 17.74:1 · --ink-soft 10.31:1 · --ink-muted 7.56:1
+     · --ink-fade 4.83:1 (and 4.63:1 on --ground).
+     Note --ink-fade now clears AA. The instrument system's "never a
+     sentence" restriction on it is lifted: gray-500 is the reference
+     set's caption colour and is legible at body size. */
+  --ink:          #111827;   /* gray-900 */
+  --ink-soft:     #374151;   /* gray-700 */
+  --ink-muted:    #4b5563;   /* gray-600 */
+  --ink-fade:     #6b7280;   /* gray-500 */
 
-  /* ── Green — "a genuine drop". The only loud color in the system.
-     --green measures 3.97:1 on --paper, so it is for LARGE figures ONLY
-     (≥24px bold, where the 3:1 large-text rule applies). Anything smaller
-     must use --green-deep (6.37:1 on paper, 5.86:1 on --green-tint).
-     Enforced at the call site: .rv-delta-sm/-md step down to --green-deep. */
-  --green:        #0a8a4f;
-  --green-deep:   #07663a;
-  --green-tint:   #d9efe2;
-  --green-wash:   rgba(10,138,79,.09);
+  /* ── Green — emerald for badges. NO LONGER RESERVED. The instrument
+     system spent green exclusively on "the deal math verified this";
+     the reference set uses emerald decoratively, so a green badge no
+     longer certifies anything. Deal facts are carried by the figure and
+     its label, not by hue alone. */
+  --green:        #059669;   /* emerald-600 */
+  --green-deep:   #047857;   /* emerald-700 — 5.48:1 white, 4.84:1 on tint */
+  --green-tint:   #d1fae5;   /* emerald-100 */
+  --green-line:   #10b981;   /* emerald-500 — outline-badge border */
+  --green-wash:   #f0fdf4;   /* green-50    — toast ground */
 
-  /* ── Amber — caution: a real price rise, thin margin, low coverage. */
-  --amber:        #8a6410;
-  --amber-deep:   #66490b;
-  --amber-tint:   #f4e9cd;
+  /* ── Amber — caution: a price rise, thin margin, low coverage. */
+  --amber:        #f59e0b;   /* amber-500 */
+  --amber-deep:   #b45309;   /* amber-700 — 5.02:1 white, 4.51:1 on tint */
+  --amber-tint:   #fef3c7;   /* amber-100 */
 
-  /* ── Red — error/danger ONLY. A price rise is amber, not an error. */
-  --red:          #a3231a;
-  --red-deep:     #7a1a13;
-  --red-tint:     #f6dcd9;
-  --red-wash:     rgba(163,35,26,.08);
+  /* ── Red — error / danger. A price rise is amber, not an error. */
+  --red:          #ef4444;   /* red-500 */
+  --red-deep:     #b91c1c;   /* red-700 — 6.47:1 white, 5.30:1 on tint */
+  --red-tint:     #fee2e2;   /* red-100 */
+  --red-wash:     #fef2f2;   /* red-50 — destructive menu-item hover */
 
-  /* ── Primary — interactive/CTA. Achromatic on purpose (see header). */
-  --primary:      #1b1a16;
+  /* ── Primary — the reference set's primary button is gray-900 on white
+     and its secondary is gray-100. Still achromatic, but now because
+     that is what the reference set does, not to protect green. */
+  --primary:      #111827;   /* gray-900 */
   --primary-deep: #000000;
-  --primary-tint: #e2e0d8;
-  --primary-wash: rgba(27,26,22,.06);
+  --primary-tint: #f3f4f6;   /* gray-100 — secondary button fill */
+  --primary-wash: rgba(17,24,39,.06);
 
-  /* ── Link — inline text links. Underlined ink, not a blue: a second hue
-     would compete with green for attention and dilute what green means. */
-  --blue:         #3c3b34;
-  --blue-bright:  #1b1a16;
-  --blue-deep:    #1b1a16;
-  --blue-tint:    #e2e0d8;
-  --link:         #1b1a16;
-  --link-hover:   #0a8a4f;
+  /* ── Accent — blue for informational chrome and icon wells, indigo for
+     loading. --blue held #3c3b34 under the instrument system (a
+     placeholder, because "a second hue would compete with green"). It
+     finally holds a blue, so no rename is needed. */
+  --blue:         #2563eb;   /* blue-600 — 5.17:1 white, 4.24:1 on tint */
+  --blue-bright:  #3b82f6;   /* blue-500 — focus rings */
+  --blue-deep:    #1d4ed8;   /* blue-700 */
+  --blue-tint:    #dbeafe;   /* blue-100 — icon wells */
+  --indigo:       #4f46e5;   /* indigo-600 — 6.29:1, the spinner */
+  --link:         #2563eb;
+  --link-hover:   #1d4ed8;
 
-  /* ── Hairlines — all structure comes from these, not from cards. */
-  --rule:         #dcdad1;
-  --rule-strong:  #c2bfb2;
-  --border:       var(--rule);
+  /* ── Structure — borders, not hairlines. Three weights, matching the
+     reference set: gray-100 on cards, gray-200 on accordions and button
+     groups, gray-300 on popovers and inputs. */
+  --rule-faint:   #f3f4f6;   /* gray-100 */
+  --rule:         #e5e7eb;   /* gray-200 */
+  --rule-strong:  #d1d5db;   /* gray-300 */
+  --border:        var(--rule);
   --border-strong: var(--rule-strong);
-  --err:          var(--red);
-
-  /* ── Grid — the measured substrate behind DATA regions only (hero
-     chart, index table, detail chart). Aligned to the 8px rhythm so it
-     is structure, not texture; it is what says "this was measured". */
-  --grid:         rgba(27,26,22,.055);
-  --grid-size:    8px;
+  --err:           var(--red);
 
   /* ── Data-visualisation palette ──────────────────────────────────────
      The ONE place in this system where saturated colour is allowed. The
@@ -133,6 +141,16 @@
      validate_palette.js against THIS surface (--paper #f4f3ef) — not
      picked by eye, and not against the skill's lighter default surface
      (the ordinal ramp fails the light-end floor there; see below).
+
+     RE-VALIDATED 2026-09-10 against the new white surface. Every ratio
+     IMPROVED (white is lighter than the old paper, and all nine marks
+     are darker than both): series-2 2.88 → 3.20 (now clears 3:1),
+     series-4 2.42 → 2.69, ramp-1 2.25 → 2.50 (clears the 2:1 light-end
+     floor). Values are unchanged and must stay unchanged.
+
+     --series-4 remains under 3:1, so its direct-label obligation stands:
+     met by the ScoreBar legend readouts and the composition chart's
+     "Show as table" toggle.
 
      CATEGORICAL — series identity. Assigned to the four deal-score
      components in a FIXED order; never cycled, never reassigned by rank.
@@ -159,44 +177,30 @@
   --ramp-4: #184f95;
   --ramp-5: #0d366b;
 
-  /* STATUS is reserved and is NOT part of the palette above: --green
-     still means "the deal math verified this", --amber a price rise,
-     --red an error. A status colour never becomes "series 5", and the
-     four categorical slots deliberately avoid green- and amber-family
-     hues so neither can impersonate the other. */
+  /* STATUS is reserved and is NOT part of the palette above: --green is
+     still the status/badge colour (decorative now, not certifying — see
+     the header above), --amber a price rise, --red an error. A status
+     colour never becomes "series 5", and the four categorical slots
+     deliberately avoid green- and amber-family hues so neither can
+     impersonate the other. */
 
-  /* ── Elevation — reading surfaces still carry no shadow; structure in
-     prose regions is still hairlines. What changed: the shadows that DO
-     exist are now wide, low-opacity, two-stop ambient diffusion rather
-     than the tight dark drops above. A single 0 12px 32px /.14 is what a
-     dropdown looks like; a real object sitting on paper casts a close
-     contact shadow AND a broad soft one. Both stops are warm-tinted to
-     the ink ramp, never neutral black. */
-  --shadow-sm: 0 1px 2px rgba(27,26,22,.04), 0 2px 8px rgba(27,26,22,.03);
-  --shadow-md: 0 2px 8px rgba(27,26,22,.04), 0 8px 24px rgba(27,26,22,.05);
-  --shadow-lg: 0 4px 16px rgba(27,26,22,.05), 0 18px 48px rgba(27,26,22,.07);
-  --shadow-xl: 0 8px 28px rgba(27,26,22,.06), 0 32px 80px rgba(27,26,22,.09);
-  /* Top-edge catchlight for an inner core sitting inside a bezel. */
-  --shadow-lip: inset 0 1px 0 rgba(255,255,255,.92);
+  /* ── Elevation — Tailwind's neutral drops. The instrument system used
+     warm two-stop ambient diffusion tinted to the ink ramp; the
+     reference set uses flat neutral shadows, mostly shadow-sm. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / .05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / .1), 0 8px 10px -6px rgb(0 0 0 / .1);
 
-  /* ── Radius — the previous pass ran 2px everywhere you touch and 0
-     everywhere you read. On the render that reads as "form control", not
-     "considered object": a 2px rectangle is what an unstyled <input> is.
-     Now: pill on things you ACT on, generous squircle on things that
-     ENCLOSE, hairline-square still on things you read (tables, prose). */
-  --r-sm:   6px;
-  --r-md:   10px;
-  --r-lg:   16px;
-  --r-xl:   24px;
-  --r-card: 20px;
-  --r-pill: 999px;
-
-  /* ── Bezel — the nested enclosure. An outer shell holds an inner core
-     with a mathematically concentric radius, so the two curves stay
-     parallel instead of drifting. Consumed by .rv-bezel in primitives. */
-  --bezel-pad:   6px;
-  --bezel-outer: var(--r-xl);
-  --bezel-inner: calc(var(--r-xl) - var(--bezel-pad));
+  /* ── Radius — the Tailwind scale. The instrument system ran pill on
+     things you act on and a 20px squircle on things that enclose; the
+     reference set is flatter and more uniform. */
+  --r-sm:   2px;    /* rounded-sm   — button-group ends, card CTAs */
+  --r-md:   4px;    /* rounded      — dropdowns, popovers, inputs */
+  --r-lg:   8px;    /* rounded-lg   — accordions, stat cards */
+  --r-xl:   12px;   /* rounded-xl */
+  --r-card: 8px;    /* rounded-lg   — the card radius */
+  --r-pill: 999px;  /* rounded-full — badges, icon buttons, dots */
 
   /* ── Spatial rhythm — sections must breathe. The old page ran ~72px
      band padding, which is why six sections felt like a wall. */
@@ -206,8 +210,8 @@
   --measure:             1180px;
 
   /* ── Imagery — product photos are supporting evidence, not the subject. */
-  --img-radius:  12px;
-  --img-ring:    inset 0 0 0 1px rgba(27,26,22,.10);
+  --img-radius:  8px;
+  --img-ring:    inset 0 0 0 1px rgb(0 0 0 / .05);
 
   /* ── Motion — the hero line still draws itself as the one orchestrated
      moment ON LOAD; scroll choreography below the fold is GSAP's job.
@@ -229,7 +233,6 @@
   --z-sticky-nav: 40;
   --z-fixed-nav:  50;
   --z-banner:     80;
-  --z-grain:      90;   /* film grain sits over chrome, under modals */
   --z-modal:      100;
 
   /* ── Reveal — on-mount fade-up. Deliberately small: content must be
@@ -256,6 +259,13 @@
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: 'tnum' 1, 'lnum' 1;
   letter-spacing: -0.005em;
+}
+
+/* Screen-reader-only. Used wherever an icon carries meaning that sighted
+   users get from shape or colour — a trend arrow, an icon-only button. */
+.rv-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
 /* Display voice: Urbanist, set large, heavy and tight. Optical sizing is
