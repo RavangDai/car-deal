@@ -647,12 +647,19 @@ body {
 
 Each page root currently sets `background: var(--paper)`. They are pages, not cards, so they take `--ground`:
 
+> **Correction (found during execution):** an earlier draft of this table listed
+> `HomePage.tsx:369` / `.rv-catalog`. That rule sets only `color` and
+> `font-family` — it has never had a `background`, and it correctly inherits
+> `--ground` from `body`. `LegalPage.tsx:289` / `.rv-legal` DOES set a page
+> background and belongs here instead. Step 3's grep sweep is what catches this
+> class of error; run it even if the table looks complete.
+
 | File:line | Selector |
 |---|---|
 | `src/App.tsx:840` | `.rv-report` |
 | `src/BrowsePage.tsx:248` | `.rv-browse` |
 | `src/AlertsPage.tsx:175` | `.rv-alerts` |
-| `src/HomePage.tsx:369` | `.rv-catalog` |
+| `src/LegalPage.tsx:289` | `.rv-legal` |
 | `src/LoginPage.tsx:406` | `.rv-login` |
 | `src/ProductDetailPage.tsx:469` | `.rv-detail` |
 
