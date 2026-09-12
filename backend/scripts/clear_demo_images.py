@@ -22,14 +22,14 @@ import sys
 
 from sqlalchemy import select, update
 
-from app.db import SessionLocal
+from app.db import SyncSessionLocal
 from app.models import Product
 
 HOSTS = ("picsum.photos", "loremflickr.com")
 
 
 def run(apply: bool) -> None:
-    with SessionLocal() as db:
+    with SyncSessionLocal() as db:
         stmt = select(Product.id, Product.title, Product.image_url).where(
             Product.image_url.is_not(None)
         )

@@ -4,6 +4,25 @@
 
 html {
   background-color: var(--ground);
+  /* The header is sticky and two rows tall, so an anchor jump would land
+     the target underneath it. This offsets every in-page anchor by the
+     header's height plus a little air. Without it "Explore deals" scrolls
+     "Today's top finds" behind the nav. */
+  scroll-behavior: smooth;
+}
+
+:root {
+  --header-h: 116px;      /* 68px identity row + 48px nav row */
+}
+@media (max-width: 860px) {
+  :root { --header-h: 150px; }   /* identity + wrapped search + nav */
+}
+
+[id] { scroll-margin-top: calc(var(--header-h) + 16px); }
+
+/* Smooth scrolling is a preference, not a default. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 body {
   margin: 0;
