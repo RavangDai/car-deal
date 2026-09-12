@@ -1,98 +1,104 @@
 /* frontend/src/theme.css
-   Single source of truth for typography + design tokens — loaded once,
+   Single source of truth for typography + design tokens - loaded once,
    globally, via main.tsx (:root), inherited by every page's own wrapper.
 
-   Direction: "Hyper UI". White cards on a gray-50 ground, gray borders,
-   an 8px card radius, blue and indigo accents, and emerald/amber/red
-   status badges. Derived from the thirteen reference components in
-   docs/design/component-language.md — match those when adding anything.
+   Direction: "DealOwl". Midnight navy and mint on a near-white page.
+   White cards, soft slate borders, a 14px card radius, and one loud
+   accent (mint) reserved for things you ACT on.
 
    Token NAMES are stable across redesigns (the established convention
-   here — a rename touches dozens of call sites for nothing). Only values
-   repoint — nothing here is a rename. This pass ADDS names outright:
-   --ground, --rule-faint, --green-line, --indigo, and the --glass-* set.
-   --paper itself keeps its name but inverts meaning: it is now the CARD
-   surface, not the page.
+   here - a rename touches dozens of call sites for nothing). Only values
+   repoint. This pass ADDS the brand names outright: --navy, --mint,
+   --mint-deep, --mint-wash, --on-navy, --on-navy-muted, --plate.
 
    Semantic mapping:
-     ink     → gray text ramp; paper → card surface; ground → page
-     green   → emerald. Decorative as well as semantic — a green badge
-               does NOT certify that the deal math verified anything.
-               (This is a deliberate reversal of the instrument system.)
-     amber   → caution: a price rise, thin margin, low coverage
-     red     → error / danger ONLY (form validation, failed request) —
-               never repurposed for "price went up", that is amber
-     blue    → informational chrome, icon wells, links, focus rings
-     indigo  → loading only
-     primary → interactive/CTA, gray-900 fill; gray-100 for secondary
+     navy    -> the brand dark. Also --ink (primary text) and --primary
+                (the dark CTA fill). One colour, three roles.
+     mint    -> the accent you ACT on: primary buttons, active pills,
+                the hero ellipse. ALWAYS carries navy text, never white.
+     green   -> savings ONLY. The "Save $40" pill and real price drops.
+                Not decorative, not a generic success colour.
+     ink     -> the navy-family text ramp on light surfaces
+     amber   -> caution: a price rise, thin margin, low coverage
+     red     -> error / danger ONLY (form validation, failed request)
 
-   The --series-* / --ramp-* dataviz palette below is FROZEN — see its own
-   note. It was re-validated against white and every ratio improved.
+   THE ONE RULE THAT IS NOT NEGOTIABLE:
+     Mint is 1.31:1 on white and 1.23:1 on the page ground. It can NEVER
+     be text, an icon, or a hairline on a light surface - it is a FILL
+     there, and whatever sits on it is navy. Mint as text is legible only
+     on navy (13.53:1). Measured, not estimated; the gate in
+     src/__tests__/tokens.test.ts enforces it.
+
+   The --series-* / --ramp-* dataviz palette below is FROZEN.
 */
 
 :root {
-  /* ── Typography ──────────────────────────────────────────────────────────────────
-     TWO families, THREE roles. Plus Jakarta Sans carries every word of UI
-     and body copy: a humanist grotesk with open apertures and a tall
-     x-height, so it holds a 14px table row without closing up.
+  /* -- Typography ------------------------------------------------------
+     TWO families, THREE roles.
 
-     Urbanist carries BOTH the display voice and every figure. It is a
-     geometric built on near-circular bowls, which is what a display line
-     wants — the o/e/c hold their shape at 60px where a text face goes
-     flabby — and it runs 100..900, so the display voice has real range.
+     Inter carries every word of UI and body copy. It is the most
+     thoroughly hinted UI face there is, and - the reason it matters here
+     - it ships real tabular figures, which this product needs on every
+     price, delta and axis label.
 
-     The figure role is a ROLE, not a family: --font-mono is the numeric
-     voice, and because Urbanist is PROPORTIONAL, everything wearing it
-     must also carry tabular-nums (see .rv-num). That is non-negotiable:
-     prices have to align in columns and on chart axes, and one numeric
-     face across table + chart + hero is what makes them read as the same
-     instrument.
+     Manrope carries the display voice. Its slightly squared bowls and
+     tight default spacing give a headline structure at 56-64px without
+     needing extra weight, which is exactly the hero's job.
 
-     NEITHER face has a width axis. Nothing here may set font-stretch —
-     width is carried by weight and tracking instead. */
-  --font-sans:    'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Urbanist', 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono:    'Urbanist', 'Plus Jakarta Sans', ui-monospace, monospace;
+     --font-mono is a ROLE (the figure voice), not a monospaced family.
+     It resolves to Inter with tabular-nums, set once on body in
+     index.css and repeated by .rv-num. */
+  --font-sans:    'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Manrope', 'Inter', system-ui, sans-serif;
+  --font-mono:    'Inter', system-ui, ui-monospace, monospace;
 
-  /* Urbanist runs 100..900. The display voice is carried by SIZE, WEIGHT
-     and TRACKING — a geometric at 700 tracked tight reads as structural
-     rather than shouty, which is the failure mode a heavy grotesk hits. */
-  --display-weight:  700;
-  --display-track:  -0.032em;
-  --display-leading: 0.96;
+  /* Manrope at 800 is the hero setting. The negative tracking is doing
+     real work: at 56px+ Manrope's default spacing reads loose. */
+  --display-weight:  800;
+  --display-track:  -0.03em;
+  --display-leading: 1.02;
 
-  /* ── Surfaces ─────────────────────────────────────────────────────────
-     --paper is the CARD surface (white); --ground is the PAGE behind it
-     (gray-50). This is the inverse of the instrument system, where the
-     page was --paper and cards were --paper-pale. */
-  --paper:        #ffffff;   /* white     — card + control surface */
-  --ground:       #f9fafb;   /* gray-50   — page behind the cards */
-  --paper-soft:   #f9fafb;   /* gray-50   — hover ground, zebra rows */
-  --paper-deep:   #f3f4f6;   /* gray-100  — secondary button fill */
-  --paper-pale:   #ffffff;   /* white */
-  --bone:         #ffffff;   /* white */
+  /* -- Brand ------------------------------------------------------------
+     The two colours the identity is made of. Everything below either is
+     one of these or is derived to sit against one of them. */
+  --navy:          #101827;   /* midnight navy - brand dark, text, CTA fill */
+  --mint:          #a8f0cb;   /* mint - the accent you ACT on */
+  --mint-deep:     #8fe4b8;   /* mint, pressed/hover (navy on it: 11.81:1) */
+  --mint-wash:     #e8faf1;   /* faintest mint - badge grounds, hero ellipse */
+  --on-navy:       #ffffff;   /* text on navy - 17.77:1 */
+  --on-navy-muted: #cbd5e1;   /* muted text on navy - 11.97:1 */
 
-  /* ── Ink — the Tailwind gray ramp. Ratios on white:
-     --ink 17.74:1 · --ink-soft 10.31:1 · --ink-muted 7.56:1
-     · --ink-fade 4.83:1 (and 4.63:1 on --ground).
-     Note --ink-fade now clears AA. The instrument system's "never a
-     sentence" restriction on it is lifted: gray-500 is the reference
-     set's caption colour and is legible at body size. */
-  --ink:          #111827;   /* gray-900 */
-  --ink-soft:     #374151;   /* gray-700 */
-  --ink-muted:    #4b5563;   /* gray-600 */
-  --ink-fade:     #6b7280;   /* gray-500 */
+  /* -- Surfaces ---------------------------------------------------------
+     --paper is the CARD surface; --ground is the PAGE behind it.
+     --plate is the pale neutral a product photo sits on inside a card,
+     which is what keeps a grid of ragged transparent PNGs looking even. */
+  --paper:        #ffffff;   /* white   - card + control surface */
+  --ground:       #f6f8f7;   /* #F6F8F7 - the page */
+  --paper-soft:   #f6f8f7;   /* hover ground, zebra rows */
+  --paper-deep:   #f1f4f3;   /* secondary button fill */
+  --plate:        #f4f5f7;   /* product-image plate - sampled from the mockup */
+  --paper-pale:   #ffffff;
+  --bone:         #ffffff;
 
-  /* ── Green — emerald for badges. NO LONGER RESERVED. The instrument
-     system spent green exclusively on "the deal math verified this";
-     the reference set uses emerald decoratively, so a green badge no
-     longer certifies anything. Deal facts are carried by the figure and
-     its label, not by hue alone. */
-  --green:        #059669;   /* emerald-600 */
-  --green-deep:   #047857;   /* emerald-700 — 5.48:1 white, 4.84:1 on tint */
-  --green-tint:   #d1fae5;   /* emerald-100 */
-  --green-line:   #10b981;   /* emerald-500 — outline-badge border */
-  --green-wash:   #f0fdf4;   /* green-50    — toast ground */
+  /* -- Ink - the navy-family text ramp. Measured on card / page:
+     --ink 17.77 / 16.66 - --ink-soft 11.51 / 10.79
+     --ink-muted 6.20 / 5.81 - --ink-fade 5.41 / 5.07
+     Every step clears AA on BOTH surfaces, so no caption needs a
+     per-background exception. */
+  --ink:          #101827;   /* = --navy. Headings, prices, titles. */
+  --ink-soft:     #2c3a4f;   /* body copy on light */
+  --ink-muted:    #52627a;   /* secondary text - the spec's #52627A */
+  --ink-fade:     #5c6b82;   /* captions, meta, store lines */
+
+  /* -- Green - SAVINGS, and only savings. The "Save $40" pill, a real
+     price drop, a lowest-ever flag. White on it is 5.00:1; it is 5.00:1
+     as text on a card. It is NOT a generic success colour - mint is the
+     accent, green is money saved. */
+  --green:        #087f5b;   /* savings green */
+  --green-deep:   #066647;   /* pressed / small text on mint (5.33:1) */
+  --green-tint:   #e8faf1;   /* faint ground behind a savings figure */
+  --green-line:   #12a97a;   /* outline variant border */
+  --green-wash:   #f0fdf6;   /* faintest - toast ground */
 
   /* ── Amber — caution: a price rise, thin margin, low coverage. */
   --amber:        #f59e0b;   /* amber-500 */
@@ -105,32 +111,31 @@
   --red-tint:     #fee2e2;   /* red-100 */
   --red-wash:     #fef2f2;   /* red-50 — destructive menu-item hover */
 
-  /* ── Primary — the reference set's primary button is gray-900 on white
-     and its secondary is gray-100. Still achromatic, but now because
-     that is what the reference set does, not to protect green. */
-  --primary:      #111827;   /* gray-900 */
-  --primary-deep: #000000;
-  --primary-tint: #f3f4f6;   /* gray-100 — secondary button fill */
-  --primary-wash: rgba(17,24,39,.06);
+  /* -- Primary - the dark CTA. Navy fill, white text (17.77:1). Used for
+     "Sign in" and any action that must outrank a mint one. */
+  --primary:      #101827;
+  --primary-deep: #050b14;
+  --primary-tint: #f1f4f3;   /* secondary/ghost button fill */
+  --primary-wash: rgba(16,24,39,.06);
 
-  /* ── Accent — blue for informational chrome and icon wells, indigo for
-     loading. --blue held #3c3b34 under the instrument system (a
-     placeholder, because "a second hue would compete with green"). It
-     finally holds a blue, so no rename is needed. */
-  --blue:         #2563eb;   /* blue-600 — 5.17:1 white, 4.24:1 on tint */
-  --blue-bright:  #3b82f6;   /* blue-500 — focus rings */
-  --blue-deep:    #1d4ed8;   /* blue-700 */
-  --blue-tint:    #dbeafe;   /* blue-100 — icon wells */
-  --indigo:       #4f46e5;   /* indigo-600 — 6.29:1, the spinner */
-  --link:         #2563eb;
-  --link-hover:   #1d4ed8;
+  /* -- Accent - mint. See the header's non-negotiable rule: on a light
+     surface mint is a FILL with navy on it, never text.
+     The --blue-* names survive only because a handful of call sites read
+     them; they now resolve into the navy family so nothing renders blue. */
+  --blue:         #101827;
+  --blue-bright:  #2c3a4f;
+  --blue-deep:    #050b14;
+  --blue-tint:    #e8faf1;
+  --indigo:       #087f5b;   /* spinner - mint on navy, navy on light */
+  --link:         #101827;
+  --link-hover:   #087f5b;
 
   /* ── Structure — borders, not hairlines. Three weights, matching the
      reference set: gray-100 on cards, gray-200 on accordions and button
      groups, gray-300 on popovers and inputs. */
-  --rule-faint:   #f3f4f6;   /* gray-100 */
-  --rule:         #e5e7eb;   /* gray-200 */
-  --rule-strong:  #d1d5db;   /* gray-300 */
+  --rule-faint:   #eef2f6;   /* faintest - inside-card dividers */
+  --rule:         #e2e8f0;   /* the spec's border colour - cards, inputs */
+  --rule-strong:  #cbd5e1;   /* emphasised - popovers, focus outlines */
   --border:        var(--rule);
   --border-strong: var(--rule-strong);
   --err:           var(--red);
@@ -167,7 +172,7 @@
   --series-2: #eb6834;  /* Historical rarity   — 30% */
   --series-3: #4a3aa7;  /* Pre-drop stability  — 20% */
   --series-4: #e87ba4;  /* Drop freshness      — 10% */
-  --series-empty: #e2e0d8;  /* points a component did NOT earn */
+  --series-empty: #e2e8f0;  /* points a component did NOT earn */
 
   /* ORDINAL — score bands (0–20 … 80–100) are an ordered scale, so they
      take one hue stepping light→dark, never categorical hues: the reader
@@ -211,7 +216,7 @@
   /* The specular top edge. This is the single detail that reads as
      "glass" rather than "translucent div" — light catching a rim. */
   --glass-lip:         inset 0 1px 0 rgba(255,255,255,.9);
-  --glass-edge:        0 0 0 1px rgba(17,24,39,.06);
+  --glass-edge:        0 0 0 1px rgba(16,24,39,.06);
 
   /* ── Radius — the Tailwind scale. The instrument system ran pill on
      things you act on and a 20px squircle on things that enclose; the
@@ -219,14 +224,18 @@
   --r-sm:   2px;    /* rounded-sm   — button-group ends, card CTAs */
   --r-md:   4px;    /* rounded      — dropdowns, popovers, inputs */
   --r-lg:   8px;    /* rounded-lg   — accordions, stat cards */
-  --r-xl:   12px;   /* rounded-xl */
-  --r-card: 8px;    /* rounded-lg   — the card radius */
+  --r-xl:   16px;   /* the outer radius - hero banner */
+  --r-card: 12px;   /* the card radius - the spec's 12-16px band */
   --r-pill: 999px;  /* rounded-full — badges, icon buttons, dots */
 
   /* ── Spatial rhythm — sections must breathe. The old page ran ~72px
      band padding, which is why six sections felt like a wall. */
-  --space-section:       clamp(96px, 12vw, 176px);
-  --space-section-tight: clamp(64px, 8vw, 112px);
+  /* Cut hard from clamp(96px,12vw,176px) / clamp(64px,8vw,112px). Those
+     stacked between adjacent bands to give 160-288px of dead space before
+     any content, which is the "excessive whitespace" complaint. A shopping
+     feed wants density; an editorial page wanted air. */
+  --space-section:       clamp(48px, 6vw, 80px);
+  --space-section-tight: clamp(32px, 4vw, 56px);
   --gutter:              clamp(20px, 4vw, 48px);
   --measure:             1180px;
 

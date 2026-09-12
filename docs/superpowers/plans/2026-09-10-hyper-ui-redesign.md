@@ -690,13 +690,20 @@ Run: `npm run dev`, then open each of `/`, `#/login`, `#/browse`, `#/alerts`, a 
 
 **Interfaces:**
 - Consumes: `Panel` from `src/primitives.tsx` (existing signature unchanged in this task).
-- Produces: `Panel` gains no new props; the `gridded` prop is **removed** from `Panel`'s type. Task 7 rebuilds `Panel`'s internals.
+- Produces: `Panel` gains no new props; the `gridded` prop is **removed** from `Panel`'s type. **Task 8** rebuilds `Panel`'s internals (not Task 7 — that is Button/ButtonGroup).
+
+> **Known interim state this task creates.** Once `Bezel` retires, the hero proof
+> region at `HomePage.tsx` is wrapped in a `Panel` that currently draws *nothing*:
+> `.rv-panel` only sets `--panel-bg`, a custom property with no consumer, and with
+> no `label` passed it renders no rule line either. So between this task and Task 8
+> the hero proof panel has no visual boundary at all. That is expected and is fixed
+> by Task 8, which turns `.rv-panel` into `rounded-lg border border-gray-100 bg-white p-6`.
 
 `Bezel` has exactly one call site, so this is cheap.
 
 - [ ] **Step 1: Replace the single Bezel call site**
 
-`src/HomePage.tsx:151` reads `<Bezel gridded>`. Replace with `<Panel>` and drop `gridded`. Remove `Bezel` from the import on line 41 of `src/App.tsx` and anywhere else it is imported (`grep -rn "Bezel" src/`).
+`src/HomePage.tsx:151` reads `<Bezel gridded>`. Replace with `<Panel>` and drop `gridded`. Remove the `Bezel` import. **It lives at `src/HomePage.tsx:19`, not in `App.tsx`** — an earlier draft of this step named `App.tsx:41`, which never imported `Bezel` at all. Trust the grep, not the line reference: `grep -rn "Bezel" src/`.
 
 - [ ] **Step 2: Delete the `Bezel` component**
 
