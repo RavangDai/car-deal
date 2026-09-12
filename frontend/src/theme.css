@@ -342,16 +342,12 @@
 }
 
 /* ── The canvas ──────────────────────────────────────────────────────
-   A flat fill of --paper is what made the page read as a spreadsheet.
-   A single soft light source from above turns the same colour into a
-   sheet of paper on a desk. Fixed attachment so it does not travel with
-   the scroll — a light source that scrolls is a gradient, not a light. */
+   Flat gray-50. The instrument system painted a fixed radial light
+   source here to make paper read as a lit sheet; Hyper UI cards carry
+   their own separation via border + shadow-sm, so a light source would
+   just muddy them. */
 body {
-  background-color: var(--paper);
-  background-image:
-    radial-gradient(112% 68% at 50% -8%, rgba(255,255,255,.88), rgba(255,255,255,0) 62%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+  background-color: var(--ground);
 }
 
 /* Film grain. Fixed and pointer-events-none so it never participates in

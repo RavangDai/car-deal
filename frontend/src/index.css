@@ -3,12 +3,8 @@
 @tailwind utilities;
 
 html {
-  background-color: var(--paper);
+  background-color: var(--ground);
 }
-/* NOTE: this file loads AFTER theme.css (main.tsx), so `background:`
-   shorthand here would silently wipe the canvas light source theme.css
-   sets on body. Colour and image are set separately on purpose — do not
-   collapse these back into the shorthand. */
 body {
   margin: 0;
   font-family: var(--font-sans);

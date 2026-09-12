@@ -403,7 +403,7 @@ const WHY_SIGN_UP = [
 /* ── STYLES ───────────────────────────────────────────────── */
 
 const STYLES = `
-  .rv-login { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-login { background: var(--ground); color: var(--ink); font-family: var(--font-sans); }
   .rv-login-split {
     display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
     min-height: calc(100vh - 56px);

@@ -837,7 +837,7 @@ const REPORT_STYLES = `
     padding: 3px 8px; border-radius: var(--r-pill); background: var(--paper-deep);
   }
 
-  .rv-report { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-report { background: var(--ground); color: var(--ink); font-family: var(--font-sans); }
 
   /* ── Track ── */
   .rv-dash-track {

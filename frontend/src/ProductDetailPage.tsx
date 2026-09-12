@@ -466,7 +466,7 @@ function VerdictCard({
 }
 
 const DETAIL_STYLES = `
-  .rv-detail { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-detail { background: var(--ground); color: var(--ink); font-family: var(--font-sans); }
   .rv-detail-main { max-width: 1080px; margin: 0 auto; padding: 26px 24px 88px; }
 
   .rv-detail-back {

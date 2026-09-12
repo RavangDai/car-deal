@@ -286,7 +286,7 @@ const PRIVACY: Doc = {
 
 const STYLES = `
   .rv-legal {
-    background: var(--paper);
+    background: var(--ground);
     color: var(--ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;

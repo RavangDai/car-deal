@@ -1172,15 +1172,43 @@ export function ButtonGroup({
 In `PRIMITIVE_STYLES`, replace the `.rv-btn-primary` / `.rv-btn-ghost` colour rules and append the group:
 
 ```css
-  .rv-btn-primary {
-    background: var(--primary); color: #fff; border: 1px solid var(--primary);
-  }
-  .rv-btn-primary:hover:not(:disabled) { background: var(--primary-deep); }
+  /* Buttons are chrome — you act on them — so they wear glass. The pill
+     radius they already carry is what makes the treatment read as a glass
+     capsule rather than a translucent rectangle.
 
-  .rv-btn-ghost {
-    background: var(--primary-tint); color: var(--ink); border: 1px solid transparent;
+     Primary is TINTED glass, not clear: it stays a dark, dominant CTA, but
+     the backdrop blur and the specular lip give it the same material as the
+     nav island it sits under. A fully opaque primary beside glass secondary
+     buttons reads as two different systems. */
+  .rv-btn-primary {
+    background: rgba(17,24,39,.88);
+    color: #fff;
+    border: 1px solid transparent;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), var(--shadow-md);
+    isolation: isolate;
   }
-  .rv-btn-ghost:hover:not(:disabled) { background: var(--rule); }
+  .rv-btn-primary:hover:not(:disabled) { background: rgba(0,0,0,.94); }
+
+  /* Ghost is CLEAR glass — the standard capsule. */
+  .rv-btn-ghost {
+    background: var(--glass-fill);
+    color: var(--ink);
+    border: 1px solid transparent;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-lip), var(--glass-edge), var(--shadow-sm);
+    isolation: isolate;
+  }
+  .rv-btn-ghost:hover:not(:disabled) { background: var(--glass-fill-strong); }
+
+  /* Where the browser cannot blur, both variants go near-opaque rather than
+     thin-and-unreadable. */
+  @supports not (backdrop-filter: blur(1px)) {
+    .rv-btn-primary { background: var(--primary); }
+    .rv-btn-ghost   { background: var(--glass-fill-strong); }
+  }
 
   /* Focus is the reference set's offset ring, on every control. */
   .rv-btn:focus-visible, .rv-bgroup-btn:focus-visible {
@@ -2820,14 +2848,27 @@ export const TOAST_STYLES = `
     display: flex; flex-direction: column; gap: 8px;
     width: min(400px, calc(100vw - 32px));
   }
+  /* A toast floats over the page — chrome, so it wears glass. The tinted
+     status fills below sit ON TOP of the glass fill, which is why they use
+     rgba rather than the solid --*-wash tokens: an opaque status colour
+     would cancel the blur it is layered over. */
   .rv-toast {
     display: flex; align-items: flex-start; gap: 16px;
     border-radius: var(--r-md); border: 1px solid;
-    padding: 16px; box-shadow: var(--shadow-sm);
+    padding: 16px;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-lip), var(--shadow-lg);
+    isolation: isolate;
   }
-  .rv-toast-success { border-color: #22c55e; background: var(--green-wash); }
-  .rv-toast-error   { border-color: var(--red);  background: var(--red-wash); }
-  .rv-toast-info    { border-color: var(--rule-strong); background: var(--paper); }
+  @supports not (backdrop-filter: blur(1px)) {
+    .rv-toast-success { background: var(--green-wash); }
+    .rv-toast-error   { background: var(--red-wash); }
+    .rv-toast-info    { background: var(--paper); }
+  }
+  .rv-toast-success { border-color: #22c55e; background: rgba(240,253,244,.82); }
+  .rv-toast-error   { border-color: var(--red);  background: rgba(254,242,242,.82); }
+  .rv-toast-info    { border-color: var(--rule-strong); background: var(--glass-fill); }
 
   .rv-toast-icon { width: 24px; height: 24px; flex: none; margin-top: -2px; }
   .rv-toast-success .rv-toast-icon { color: #15803d; }
@@ -3111,7 +3152,11 @@ export const DROPDOWN_STYLES = `
   .rv-dd-trigger {
     display: inline-flex; align-items: center; gap: 8px;
     border: 1px solid var(--rule-strong); border-radius: var(--r-md);
-    background: var(--paper); box-shadow: var(--shadow-sm);
+    background: var(--glass-fill);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-lip), var(--shadow-sm);
+    isolation: isolate;
     padding: 8px 12px; cursor: pointer;
     font-family: var(--font-sans); font-size: 14px; font-weight: 500;
     color: var(--ink-soft);
@@ -3120,11 +3165,22 @@ export const DROPDOWN_STYLES = `
   .rv-dd-trigger:hover { background: var(--paper-soft); color: var(--ink); }
   .rv-dd-chev { width: 16px; height: 16px; }
 
+  /* The menu floats — glass. `overflow: hidden` plus `isolation: isolate`
+     matter together here: the first clips the item hovers to the rounded
+     corners, the second stops this glass layer from sampling the trigger's
+     glass underneath it and compounding the blur. */
   .rv-dd-menu {
     position: absolute; right: 0; top: calc(100% + 8px); z-index: var(--z-modal);
     width: 224px; overflow: hidden;
     border: 1px solid var(--rule-strong); border-radius: var(--r-md);
-    background: var(--paper); box-shadow: var(--shadow-sm);
+    background: var(--glass-fill-strong);
+    backdrop-filter: var(--glass-blur-deep);
+    -webkit-backdrop-filter: var(--glass-blur-deep);
+    box-shadow: var(--glass-lip), var(--shadow-lg);
+    isolation: isolate;
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .rv-dd-trigger, .rv-dd-menu { background: var(--paper); }
   }
   .rv-dd-group + .rv-dd-group { border-top: 1px solid var(--rule); }
   .rv-dd-heading { margin: 0; padding: 8px 12px; font-size: 14px; color: var(--ink-fade); }
@@ -3152,9 +3208,37 @@ Expected: PASS, 10 tests.
 
 In `src/App.tsx`, replace the `.rv-wrow-unwatch` control with a `Dropdown` carrying: **General** — View history, Re-check now; **Actions** — Stop tracking (`danger: true`).
 
-- [ ] **Step 6: Place on the TopBar**
+- [ ] **Step 6: Place on the TopBar, and repoint the nav island to the glass tokens**
 
 In `src/primitives.tsx`'s `TopBar`, render an account `Dropdown` when a signed-in status is present.
+
+Then fix the nav island itself. `.rv-topbar-inner` is **already** liquid glass,
+but its values are hardcoded literals from the retired warm-paper system, so the
+Task 2 retoken left them behind — it is currently a warm island floating on a
+gray-50 page. Repoint it onto the tokens:
+
+```css
+  .rv-topbar-inner {
+    /* …layout properties unchanged… */
+    border-radius: var(--r-pill);
+    background: var(--glass-fill);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--glass-lip), var(--glass-edge), var(--shadow-md);
+    isolation: isolate;
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .rv-topbar-inner { background: var(--glass-fill-strong); }
+  }
+```
+
+The old values were `rgba(248,247,244,.74)` with an inline
+`inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1px rgba(27,26,22,.06)` shadow stack —
+that warm fill and the warm `rgba(27,26,22,…)` hairline are what must go.
+
+Do the same for the mobile sheet (`primitives.tsx`, the rule carrying
+`blur(28px) saturate(1.4)`): it takes `--glass-blur-deep` and
+`--glass-fill-strong`.
 
 - [ ] **Step 7: Verify the build and tests**
 
@@ -3375,10 +3459,19 @@ export const FILTER_STYLES = `
   .rv-filter-chev { width: 16px; height: 16px; }
 
   .rv-filter-panel { width: 256px; }
+  /* Open, the panel floats over content — glass. Closed it is in normal
+     flow and carries no treatment at all. */
   .rv-filter[open] .rv-filter-panel {
     position: absolute; left: 0; top: 32px; z-index: var(--z-modal);
     border: 1px solid var(--rule-strong); border-radius: var(--r-md);
-    background: var(--paper); box-shadow: var(--shadow-sm);
+    background: var(--glass-fill-strong);
+    backdrop-filter: var(--glass-blur-deep);
+    -webkit-backdrop-filter: var(--glass-blur-deep);
+    box-shadow: var(--glass-lip), var(--shadow-lg);
+    isolation: isolate;
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .rv-filter[open] .rv-filter-panel { background: var(--paper); }
   }
   .rv-filter-head {
     display: flex; align-items: center; justify-content: space-between;

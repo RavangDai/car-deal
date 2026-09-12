@@ -172,7 +172,7 @@ function AlertRow({ alert }: { alert: AlertEvent }) {
 }
 
 const ALERTS_STYLES = `
-  .rv-alerts { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-alerts { background: var(--ground); color: var(--ink); font-family: var(--font-sans); }
   .rv-alerts-undelivered {
     margin: 0 0 16px; font-size: 14px; line-height: 1.6;
     color: var(--ink-muted); max-width: 60ch;

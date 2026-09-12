@@ -245,7 +245,7 @@ function BrowseRow({ product }: { product: Product }) {
 }
 
 const BROWSE_STYLES = `
-  .rv-browse { background: var(--paper); color: var(--ink); font-family: var(--font-sans); }
+  .rv-browse { background: var(--ground); color: var(--ink); font-family: var(--font-sans); }
   .rv-browse-main { max-width: 1080px; margin: 0 auto; padding: 26px 24px 88px; }
 
   .rv-browse-back {
