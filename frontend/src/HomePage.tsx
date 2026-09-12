@@ -16,19 +16,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { useProducts, usePriceHistory } from "./hooks";
 import { formatMoney } from "./format";
-import { Arrow, Button, Delta, Panel, Reveal, Stamp, TopBar } from "./primitives";
+import { Arrow, Button, Delta, Panel, Reveal, Stamp } from "./primitives";
 import { PriceHistoryChart, EmptyAxis } from "./charts";
-import { ProductFan } from "./ProductFan";
 import { ScoreExplainer } from "./ScoreExplainer";
-import { Features } from "./components/blocks/features-8";
+import { SiteHeader } from "./ui/SiteHeader";
+import { ProductCard } from "./ui/ProductCard";
+import { ProductImage } from "./ProductImage";
+import { productImage } from "./images";
+import { CATEGORIES } from "./taxonomy";
 import { useReveal } from "./motion";
 import Footer from "./Footer";
 import type { Product } from "./api";
 
-const NAV_LINKS: [string, string][] = [
-  ["Today's deals", "deals"],
-  ["How it works", "how"],
-  ["The machinery", "features"],
+/** Filter pills over the feed. "For you" is the unfiltered default. */
+const FEED_FILTERS: { key: string; label: string }[] = [
+  { key: "", label: "For you" },
+  // Only categories that actually have seeded data are offered. The taxonomy
+  // has eight slugs but four of them are empty on a fresh install, and a
+  // filter pill that always yields "nothing here" is worse than no pill.
+  ...CATEGORIES.filter((c) => ["electronics", "gaming", "home", "kitchen"].includes(c.slug))
+    .map((c) => ({ key: c.slug, label: c.label })),
 ];
 
 export default function HomePage({
@@ -39,13 +46,14 @@ export default function HomePage({
   /** Enter the browse-only dashboard without an account. */
   onBrowse: () => void;
 }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [pasteUrl, setPasteUrl] = useState("");
   const [featuredIdx, setFeaturedIdx] = useState(0);
+  const [filter, setFilter] = useState("");
+  const [sort, setSort] = useState<"deal_score" | "newest">("deal_score");
 
   // 12 is a showcase budget, not a feed budget: the fan shows at most a
   // handful at a time and only the featured product fetches its history.
-  const productsQuery = useProducts({ sort: "deal_score", limit: 12 });
+  const productsQuery = useProducts({ sort, category: filter || undefined, limit: 24 });
   const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
   const loading = productsQuery.isLoading;
 
@@ -71,12 +79,10 @@ export default function HomePage({
   const featuredHistory = usePriceHistory(featured?.id ?? null, "90");
   const lowestEverCount = products.filter((p) => p.is_lowest_ever).length;
 
-  // Fan cards need a score and a median to say anything; a card that reads
-  // "—" twice is worse than one fewer card.
-  const fanProducts = useMemo(
-    () => products.filter((p) => p.deal_score != null && p.median_90d != null).slice(0, 10),
-    [products],
-  );
+  // The feed does NOT filter to scored products. dealClaims.ts decides what
+  // each card may claim, and a young product honestly labelled "9 days to a
+  // score" is better than an empty grid on a fresh install.
+  const feedProducts = useMemo(() => products.slice(0, 12), [products]);
 
   const dealsRef = useReveal<HTMLDivElement>({ y: 40, stagger: 0.09 });
   const ctaRef = useReveal<HTMLDivElement>({ y: 46, stagger: 0.08, blur: 10 });
@@ -90,112 +96,128 @@ export default function HomePage({
     <div className="rv-catalog rv-page min-h-screen">
       <style>{STYLES}</style>
 
-      <TopBar
-        links={NAV_LINKS.map(([label, id]) => ({ href: `#${id}`, label }))}
-        status={products.length > 0 ? `${products.length} tracked` : undefined}
-        menuOpen={mobileOpen}
-        onToggleMenu={() => setMobileOpen((v) => !v)}
-        actions={
-          <>
-            <Button variant="quiet" size="sm" onClick={onBrowse}>
-              Browse
-            </Button>
-            <Button size="sm" onClick={() => onGetStarted()}>
-              Start tracking
-            </Button>
-          </>
-        }
+      <SiteHeader
+        active="discover"
+        onSignIn={() => onGetStarted()}
+        onCreateAlert={() => onGetStarted()}
+        onSaved={() => onGetStarted()}
       />
 
-      {/* ── HERO — the claim, then the receipt. On-mount reveal only:
-             a scroll-gated hero ships blank in headless renders. ── */}
-      <section className="rv-hero">
-        <div className="rv-hero-inner">
-          <Reveal className="rv-hero-copy">
-            <p className="rv-eyebrow rv-hero-eyebrow">
-              <span className="rv-dot" aria-hidden="true" />
-              {products.length > 0
-                ? `Live · ${products.length} tracked · ${lowestEverCount} at lowest ever`
-                : "Live · rechecking prices daily"}
-            </p>
-            <h1 className="rv-display rv-hero-headline">
-              Every deal is a <em>claim</em>.
-              <br />
-              We keep the receipts.
+      {/* ── HERO — a compact navy banner, not an editorial spread. On-mount
+             reveal only: a scroll-gated hero ships blank in headless
+             renders, which is why this never uses a ScrollTrigger. ── */}
+      <section className="rv-band">
+        <Reveal className="rv-hero2">
+          <div className="rv-hero2-copy">
+            <h1 className="rv-display rv-hero2-headline">
+              A sharper eye for better deals.
             </h1>
-            <p className="rv-hero-lede">
-              Paste any product link. We check its price every day and score the drop
-              against its own ninety-day history &mdash; so you can tell a real sale
-              from a sticker.
+            <p className="rv-hero2-sub">
+              Compare prices. Track drops. Shop confidently.
             </p>
 
-            <form onSubmit={handlePasteSubmit} className="rv-paste-form">
+            <div className="rv-hero2-actions">
+              <a href="#finds" className="rv-hero2-cta">
+                Explore deals
+                <span className="rv-hero2-cta-arrow" aria-hidden="true">&rsaquo;</span>
+              </a>
+              <button
+                type="button"
+                className="rv-hero2-secondary"
+                onClick={() => document.getElementById("track-url")?.focus()}
+              >
+                Track a product
+              </button>
+            </div>
+
+            {/* The paste box is the app's primary entry point, so it stays
+                above the fold rather than moving to a separate page. */}
+            <form onSubmit={handlePasteSubmit} className="rv-hero2-form">
               <input
+                id="track-url"
                 type="url"
                 required
                 value={pasteUrl}
                 onChange={(e) => setPasteUrl(e.target.value)}
                 placeholder="Paste a product URL"
-                className="rv-input rv-paste-input"
+                className="rv-hero2-input"
                 aria-label="Product URL to track"
               />
-              <Button type="submit" variant="primary" size="lg" className="rv-paste-submit">
-                <span>Track it</span>
-                <Arrow size={14} />
-              </Button>
+              <button type="submit" className="rv-hero2-submit">Track it</button>
             </form>
-            <p className="rv-paste-note">Free, and we never need your card.</p>
-          </Reveal>
-
-          <Reveal className="rv-proof" delay={0.1}>
-            <Panel>
-              <FeaturedProof
-                product={featured}
-                points={featuredHistory.data?.points ?? []}
-                loading={loading || featuredHistory.isLoading}
-                count={featuredPool.length}
-                activeIdx={featuredIdx % Math.max(featuredPool.length, 1)}
-                onPick={setFeaturedIdx}
-              />
-            </Panel>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ── EVIDENCE — real tracked products, fanned. ── */}
-      <section className="rv-deals" id="deals" data-rv-section="deals">
-        <div className="rv-deals-inner" ref={dealsRef}>
-          <header className="rv-deals-head">
-            <div className="rv-deals-head-copy">
-              <p className="rv-eyebrow" data-reveal>
-                Today&rsquo;s evidence
-              </p>
-              <h2 className="rv-display rv-deals-title" data-reveal>
-                Scored against their own past
-              </h2>
-            </div>
-            <p className="rv-deals-sub" data-reveal>
-              Every card is a product we are tracking right now. The figure on it is
-              measured, not advertised.
-            </p>
-          </header>
-
-          <div className="rv-deals-fan" data-reveal>
-            {loading ? (
-              <div className="rv-deals-loading">
-                <EmptyAxis width={900} height={260} label="Loading tracked products" />
-              </div>
-            ) : fanProducts.length > 0 ? (
-              <ProductFan products={fanProducts} />
-            ) : (
-              <p className="rv-deals-empty">
-                Nothing has enough history to score yet. Paste a product link and it
-                appears here once we have fourteen days on it.
-              </p>
-            )}
           </div>
 
-          <div className="rv-deals-foot" data-reveal>
+          <div className="rv-hero2-art" aria-hidden={featured ? undefined : true}>
+            <span className="rv-hero2-ellipse" />
+            {featured && (
+              <a className="rv-hero2-shot" href={`#/product/${featured.id}`}>
+                <ProductImage
+                  image={productImage(featured.image_url, featured.title ?? featured.domain)}
+                  ratio="1 / 1"
+                />
+              </a>
+            )}
+            <span className="rv-hero2-tag">Worth a closer look</span>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ── THE FEED — an aligned grid, replacing the tilted GSAP fan.
+             Cards are NOT pre-filtered to scored products; dealClaims.ts
+             decides per card what may honestly be claimed. ── */}
+      <section className="rv-band" id="finds" data-rv-section="deals">
+        <div className="rv-finds" ref={dealsRef}>
+          <header className="rv-finds-head">
+            <h2 className="rv-display rv-finds-title" data-reveal>Today&rsquo;s top finds</h2>
+
+            <div className="rv-finds-pills" data-reveal role="group" aria-label="Filter by category">
+              {FEED_FILTERS.map((f) => (
+                <button
+                  key={f.key || "all"}
+                  type="button"
+                  className={`rv-pill${filter === f.key ? " is-active" : ""}`}
+                  aria-pressed={filter === f.key}
+                  onClick={() => setFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="rv-finds-sort" data-reveal>
+              <span className="rv-sr-only">Sort products</span>
+              <select
+                className="rv-select"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as "deal_score" | "newest")}
+              >
+                {/* Only what the API actually offers. There is no view or
+                    click data, so a "Trending" option would be invented. */}
+                <option value="deal_score">Best scored</option>
+                <option value="newest">Newest</option>
+              </select>
+            </label>
+          </header>
+
+          {loading ? (
+            <div className="rv-finds-loading">
+              <EmptyAxis width={900} height={200} label="Loading tracked products" />
+            </div>
+          ) : feedProducts.length > 0 ? (
+            <div className="rv-pgrid" data-reveal>
+              {feedProducts.map((p) => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          ) : (
+            <p className="rv-finds-empty">
+              {filter
+                ? "Nothing tracked in this category yet. Try another, or paste a product link above."
+                : "Nothing tracked yet. Paste a product link above and it appears here."}
+            </p>
+          )}
+
+          <div className="rv-finds-foot" data-reveal>
             <Button variant="ghost" onClick={onBrowse}>
               <span>See every tracked deal</span>
               <Arrow size={14} />
@@ -204,16 +226,27 @@ export default function HomePage({
         </div>
       </section>
 
+      {/* ── PROOF — the featured product's real recorded history. Moved
+             below the feed: the grid now carries the top of the page, and
+             this is the evidence behind it. It is also the only surviving
+             consumer of usePriceHistory + PriceHistoryChart. ── */}
+      <section className="rv-band">
+        <Reveal className="rv-proof2">
+          <Panel label="Today's proof">
+            <FeaturedProof
+              product={featured}
+              points={featuredHistory.data?.points ?? []}
+              loading={loading || featuredHistory.isLoading}
+              count={featuredPool.length}
+              activeIdx={featuredIdx % Math.max(featuredPool.length, 1)}
+              onPick={setFeaturedIdx}
+            />
+          </Panel>
+        </Reveal>
+      </section>
+
       {/* ── METHOD ── */}
       <ScoreExplainer />
-
-      {/* ── MACHINERY ─ what feeds the score and what acts on it. The
-             sparkline draws the featured product's real recorded history;
-             with fewer than two checks it renders an empty rule instead. ── */}
-      <Features
-        points={featuredHistory.data?.points ?? []}
-        median={featured?.median_90d ?? null}
-      />
 
       {/* ── CTA — carries the surviving line from the old manifesto. ── */}
       <section className="rv-cta" data-rv-section="cta">
@@ -366,6 +399,177 @@ function FeaturedProof({
 }
 
 const STYLES = `
+  /* ── DealOwl bands ───────────────────────────────────────────────────
+     One wrapper for every section: the measure, the gutter, and the
+     rhythm in one place, so a band cannot quietly add its own padding on
+     top of --space-section the way the old sections did. That stacking is
+     what produced 160-288px of dead space between adjacent bands. */
+  .rv-band {
+    max-width: var(--measure);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+  .rv-band + .rv-band { margin-top: var(--space-section-tight); }
+  .rv-band:first-of-type { margin-top: 20px; }
+
+  /* ── Hero — a compact navy banner ──────────────────────────────────── */
+  .rv-hero2 {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: 24px;
+    min-height: 320px;
+    padding: 40px 44px;
+    border-radius: var(--r-xl);
+    background: var(--navy);
+    color: var(--on-navy);
+    overflow: hidden;
+  }
+  .rv-hero2-copy { min-width: 0; }
+  .rv-hero2-headline {
+    margin: 0;
+    font-size: clamp(34px, 5vw, 60px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    color: var(--on-navy);
+    max-width: 13ch;
+  }
+  .rv-hero2-sub {
+    margin: 14px 0 0;
+    font-size: clamp(15px, 1.6vw, 18px);
+    /* NOT --ink-muted: that is 2.87:1 on navy. This token exists for
+       exactly this surface and measures 11.97:1. */
+    color: var(--on-navy-muted);
+  }
+  .rv-hero2-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 24px; }
+  .rv-hero2-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    border-radius: var(--r-pill);
+    background: var(--mint); color: var(--navy);
+    padding: 13px 26px;
+    font-size: 15.5px; font-weight: 700; text-decoration: none;
+    transition: background-color var(--dur-fast) var(--ease-out-soft);
+  }
+  .rv-hero2-cta:hover { background: var(--mint-deep); }
+  .rv-hero2-cta-arrow { font-size: 20px; line-height: 1; }
+  .rv-hero2-secondary {
+    border: 1px solid rgba(255,255,255,.28);
+    border-radius: var(--r-pill);
+    background: transparent; color: var(--on-navy);
+    padding: 12px 22px;
+    font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out-soft),
+                border-color var(--dur-fast) var(--ease-out-soft);
+  }
+  .rv-hero2-secondary:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.48); }
+
+  .rv-hero2-form { display: flex; gap: 10px; margin-top: 20px; max-width: 460px; }
+  .rv-hero2-input {
+    flex: 1; min-width: 0;
+    height: 46px; padding: 0 16px;
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,.06);
+    color: var(--on-navy);
+    font-family: var(--font-sans); font-size: 14.5px;
+  }
+  .rv-hero2-input::placeholder { color: rgba(255,255,255,.55); }
+  .rv-hero2-input:focus { outline: none; border-color: var(--mint); background: rgba(255,255,255,.1); }
+  .rv-hero2-submit {
+    flex: none; height: 46px; padding: 0 22px;
+    border: 0; border-radius: var(--r-pill);
+    background: var(--paper); color: var(--navy);
+    font-family: var(--font-sans); font-size: 14.5px; font-weight: 700;
+    cursor: pointer;
+  }
+  .rv-hero2-submit:hover { background: var(--mint); }
+
+  .rv-hero2-art { position: relative; display: grid; place-items: center; min-height: 240px; }
+  .rv-hero2-ellipse {
+    position: absolute; inset: 12% 8%;
+    border-radius: 50%;
+    background: var(--mint);
+    opacity: .92;
+  }
+  .rv-hero2-shot { position: relative; display: block; width: min(74%, 300px); }
+  .rv-hero2-shot img { object-fit: contain; }
+  .rv-hero2-tag {
+    position: absolute; top: 4px; right: 0;
+    border-radius: var(--r-pill);
+    background: var(--mint); color: var(--navy);
+    padding: 6px 14px;
+    font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  }
+
+  /* ── The feed ──────────────────────────────────────────────────────── */
+  .rv-finds-head {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 14px;
+    margin-bottom: 20px;
+  }
+  .rv-finds-title { margin: 0; font-size: clamp(24px, 3vw, 32px); letter-spacing: -0.025em; }
+  .rv-finds-pills { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; min-width: 0; }
+  .rv-finds-sort { margin-left: auto; flex: none; }
+
+  .rv-pill {
+    border: 1px solid transparent; border-radius: var(--r-pill);
+    background: var(--paper-deep); color: var(--ink-muted);
+    padding: 7px 16px;
+    font-family: var(--font-sans); font-size: 13.5px; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease-out-soft),
+                color var(--dur-fast) var(--ease-out-soft);
+  }
+  .rv-pill:hover { color: var(--ink); }
+  /* Mint fill, navy label. Mint is 1.23:1 on this ground, so the fill alone
+     carries no signal — the 13.5:1 label is what makes the state readable. */
+  .rv-pill.is-active { background: var(--mint); color: var(--navy); }
+
+  .rv-select {
+    height: 40px; padding: 0 34px 0 14px;
+    border: 1px solid var(--rule); border-radius: 10px;
+    background: var(--paper); color: var(--ink);
+    font-family: var(--font-sans); font-size: 13.5px; font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2352627A' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+  }
+  .rv-select:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .rv-finds-loading, .rv-finds-empty {
+    border: 1px solid var(--rule); border-radius: var(--r-card);
+    background: var(--paper);
+    padding: 40px 24px; text-align: center;
+    color: var(--ink-muted); font-size: 14.5px;
+  }
+  .rv-finds-foot { display: flex; justify-content: center; margin-top: 24px; }
+
+  .rv-proof2 { display: block; }
+
+  @media (max-width: 900px) {
+    .rv-hero2 {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 28px 22px; min-height: 0; gap: 20px;
+    }
+    .rv-hero2-art { min-height: 200px; order: -1; }
+    .rv-hero2-tag { top: 0; right: 4px; }
+    .rv-hero2-form { max-width: none; }
+    .rv-finds-sort { margin-left: 0; }
+  }
+  @media (max-width: 560px) {
+    .rv-hero2-form { flex-direction: column; }
+    .rv-hero2-submit { width: 100%; }
+    .rv-finds-pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    .rv-finds-pills::-webkit-scrollbar { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rv-hero2-cta, .rv-hero2-secondary, .rv-pill { transition: none; }
+  }
+
   .rv-catalog { color: var(--ink); font-family: var(--font-sans); }
 
   /* ── Hero — thesis left, live proof right, both above the fold. ── */

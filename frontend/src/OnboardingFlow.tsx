@@ -117,7 +117,7 @@ export default function OnboardingFlow({
       <style>{ONBOARDING_STYLES}</style>
 
       <header className="rv-ob-bar">
-        <a href="#" className="rv-ob-brand" aria-label="WasItCheaper home">
+        <a href="#" className="rv-ob-brand" aria-label="DealOwl home">
           <Wordmark size={20} />
         </a>
         <button type="button" className="rv-ob-skip" onClick={onSkip}>

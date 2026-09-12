@@ -5,7 +5,7 @@ import { TopBar } from "./primitives";
 export type LegalKind = "terms" | "privacy";
 
 const LAST_UPDATED = "July 4, 2026";
-const CONTACT_EMAIL = "support@wasitcheaper.app";
+const CONTACT_EMAIL = "support@dealowl.app";
 
 interface Props {
   kind: LegalKind;
@@ -95,7 +95,7 @@ type Doc = { title: string; intro: string; sections: Section[] };
 const TERMS: Doc = {
   title: "Terms of Service",
   intro:
-    "These Terms of Service (the “Terms”) govern your access to and use of WasItCheaper (the “Service”). By creating an account, browsing as a guest, or otherwise using the Service, you agree to these Terms. If you do not agree, please do not use the Service.",
+    "These Terms of Service (the “Terms”) govern your access to and use of DealOwl (the “Service”). By creating an account, browsing as a guest, or otherwise using the Service, you agree to these Terms. If you do not agree, please do not use the Service.",
   sections: [
     {
       h: "Acceptance of the Terms",
@@ -104,9 +104,9 @@ const TERMS: Doc = {
       ],
     },
     {
-      h: "What WasItCheaper Is",
+      h: "What DealOwl Is",
       body: [
-        "WasItCheaper lets you track the price of a product at a URL you provide. We periodically re-check the page, record each observed price, and compute statistics — including a deal score — from that history. The Service is an informational tool only. We are not a retailer, marketplace, or party to any purchase you make.",
+        "DealOwl lets you track the price of a product at a URL you provide. We periodically re-check the page, record each observed price, and compute statistics — including a deal score — from that history. The Service is an informational tool only. We are not a retailer, marketplace, or party to any purchase you make.",
       ],
     },
     {
@@ -130,8 +130,8 @@ const TERMS: Doc = {
     {
       h: "Tracked Products and Third-Party Data",
       body: [
-        "Product titles, images, and prices are read from the page at the URL you submit, either from structured data the page publishes or, when that is unavailable, by an automated reader. That data is supplied by the third-party site and is not created, owned, or independently verified by WasItCheaper. Deal scores, medians, and “Buy or Wait” verdicts are generated from that price history by automated statistics and, for verdicts, a language model, and may be inaccurate, incomplete, or out of date — including when a store changes its page layout, blocks automated checks, or the underlying price data is itself misleading.",
-        "You are solely responsible for independently verifying the current price and availability of any product before purchasing it. WasItCheaper is not responsible for the accuracy of third-party pricing data or for any transaction you enter into with a retailer.",
+        "Product titles, images, and prices are read from the page at the URL you submit, either from structured data the page publishes or, when that is unavailable, by an automated reader. That data is supplied by the third-party site and is not created, owned, or independently verified by DealOwl. Deal scores, medians, and “Buy or Wait” verdicts are generated from that price history by automated statistics and, for verdicts, a language model, and may be inaccurate, incomplete, or out of date — including when a store changes its page layout, blocks automated checks, or the underlying price data is itself misleading.",
+        "You are solely responsible for independently verifying the current price and availability of any product before purchasing it. DealOwl is not responsible for the accuracy of third-party pricing data or for any transaction you enter into with a retailer.",
       ],
     },
     {
@@ -149,7 +149,7 @@ const TERMS: Doc = {
     {
       h: "Intellectual Property",
       body: [
-        "The Service, including its software, design, text, and the WasItCheaper name and logo, is owned by WasItCheaper or its licensors and is protected by intellectual-property laws. We grant you a limited, non-exclusive, non-transferable, revocable license to use the Service for your personal, non-commercial use, subject to these Terms.",
+        "The Service, including its software, design, text, and the DealOwl name and logo, is owned by DealOwl or its licensors and is protected by intellectual-property laws. We grant you a limited, non-exclusive, non-transferable, revocable license to use the Service for your personal, non-commercial use, subject to these Terms.",
       ],
     },
     {
@@ -161,13 +161,13 @@ const TERMS: Doc = {
     {
       h: "Limitation of Liability",
       body: [
-        "TO THE MAXIMUM EXTENT PERMITTED BY LAW, WASITCHEAPER AND ITS OPERATORS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS arising out of or relating to your use of the Service, even if advised of the possibility of such damages. Our total liability for any claim relating to the Service will not exceed one hundred U.S. dollars (US$100).",
+        "TO THE MAXIMUM EXTENT PERMITTED BY LAW, DEALOWL AND ITS OPERATORS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS arising out of or relating to your use of the Service, even if advised of the possibility of such damages. Our total liability for any claim relating to the Service will not exceed one hundred U.S. dollars (US$100).",
       ],
     },
     {
       h: "Indemnification",
       body: [
-        "You agree to indemnify and hold harmless WasItCheaper and its operators from any claims, damages, liabilities, and expenses (including reasonable legal fees) arising out of your use of the Service, your violation of these Terms, or your infringement of any rights of a third party.",
+        "You agree to indemnify and hold harmless DealOwl and its operators from any claims, damages, liabilities, and expenses (including reasonable legal fees) arising out of your use of the Service, your violation of these Terms, or your infringement of any rights of a third party.",
       ],
     },
     {
@@ -194,7 +194,7 @@ const TERMS: Doc = {
 const PRIVACY: Doc = {
   title: "Privacy Policy",
   intro:
-    "This Privacy Policy explains what information WasItCheaper (“we,” “us”) collects, how we use it, and the choices you have. It applies to your use of the WasItCheaper website and services.",
+    "This Privacy Policy explains what information DealOwl (“we,” “us”) collects, how we use it, and the choices you have. It applies to your use of the DealOwl website and services.",
   sections: [
     {
       h: "Information We Collect",
@@ -234,7 +234,7 @@ const PRIVACY: Doc = {
     {
       h: "How We Share Information",
       body: [
-        "We do not sell your personal information. We share information only with service providers who process it on our behalf under confidentiality obligations, when required by law or valid legal process, to protect the rights and safety of WasItCheaper and its users, or in connection with a merger, acquisition, or sale of assets.",
+        "We do not sell your personal information. We share information only with service providers who process it on our behalf under confidentiality obligations, when required by law or valid legal process, to protect the rights and safety of DealOwl and its users, or in connection with a merger, acquisition, or sale of assets.",
       ],
     },
     {

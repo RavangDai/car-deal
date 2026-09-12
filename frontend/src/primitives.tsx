@@ -5,11 +5,12 @@
 // (hero grid, index table, login split, legal typography) stays in each
 // page's own file and references these classes directly.
 //
-// Direction: "instrument". The chrome is deliberately quiet — hairline
-// rules, no cards, no shadows on content — so that the DEAL FACTS can be
-// loud. Delta, Score and Stamp are the loud primitives; everything else
-// gets out of their way. That contrast is the whole mechanic.
+// Direction: "DealOwl". Midnight navy and mint on a near-white page. Mint
+// is reserved for things you ACT on and always carries navy text; green is
+// reserved for money saved. The deal facts stay the loud part — Delta,
+// Score and Stamp — and the chrome stays quiet around them.
 import { type ReactNode } from "react";
+import { OwlMark } from "./ui/OwlMark";
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
@@ -51,21 +52,17 @@ export function Reveal({
   );
 }
 
-// ── Wordmark — the step-line mark plus the name. The mark is the product:
-// a price line stepping down onto the green datum.
+// ── Wordmark — the owl plus the name.
+//
+// The mark lives in ui/OwlMark.tsx rather than here. The previous mark was
+// duplicated between this file and public/wic-logo.svg, which meant two
+// places to change and two chances to diverge; the owl is authored once and
+// the favicon is its own file generated from the same trace.
 export function Wordmark({ size = 20 }: { size?: number }) {
   return (
-    <span className="rv-wordmark" style={{ fontSize: `${size * 0.78}px` }}>
-      <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true" className="rv-wordmark-mark">
-        <rect width="48" height="48" fill="var(--ink)" />
-        <path
-          d="M6 15 H16 V22 H24 V19 H32 V31 H42"
-          stroke="var(--paper)" strokeWidth="3.4" strokeLinecap="square" fill="none"
-        />
-        <path d="M32 31 H42" stroke="var(--green)" strokeWidth="3.4" strokeLinecap="square" fill="none" />
-        <circle cx="42" cy="31" r="4" fill="var(--green)" />
-      </svg>
-      <span className="rv-wordmark-text">WasItCheaper</span>
+    <span className="rv-wordmark" style={{ fontSize: `${size * 0.82}px` }}>
+      <OwlMark size={size * 1.15} className="rv-wordmark-mark" />
+      <span className="rv-wordmark-text">DealOwl</span>
     </span>
   );
 }
@@ -206,7 +203,7 @@ export function TopBar({
   return (
     <header className="rv-topbar">
       <div className="rv-topbar-inner">
-        <a href="#" className="rv-topbar-brand" aria-label="WasItCheaper home">
+        <a href="#" className="rv-topbar-brand" aria-label="DealOwl home">
           <Wordmark size={22} />
         </a>
 
@@ -283,7 +280,7 @@ export const PRIMITIVE_STYLES = `
   .rv-wordmark-mark { flex: none; display: block; }
   .rv-wordmark-text {
     font-family: var(--font-display); font-weight: 800;
-    letter-spacing: -0.028em; color: var(--ink); white-space: nowrap;
+    letter-spacing: -0.03em; color: var(--ink); white-space: nowrap;
   }
 
   /* ── Delta — the loud figure. ── */

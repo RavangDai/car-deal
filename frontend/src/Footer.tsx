@@ -49,14 +49,14 @@ export default function Footer({ onGetStarted }: { onGetStarted: () => void }) {
           {donationsEnabled && (
             <Reveal className="rv-footer-col rv-footer-donate-col" delay={0.18}>
               <h3 className="rv-footer-heading">Keep it running</h3>
-              <p className="rv-footer-donate-copy">WasItCheaper is free to track. Donations are optional.</p>
+              <p className="rv-footer-donate-copy">DealOwl is free to use. Donations are optional.</p>
               <DonatePill />
             </Reveal>
           )}
         </div>
 
         <Reveal className="rv-footer-bottom" delay={0.24}>
-          <span className="rv-footer-copy">© 2026 WasItCheaper · Built for shoppers, not sellers.</span>
+          <span className="rv-footer-copy">© 2026 DealOwl · Built for shoppers, not sellers.</span>
         </Reveal>
       </div>
     </footer>

@@ -40,7 +40,9 @@ import { SCORE_COMPOSITION_STYLES } from "./ScoreComposition";
 import { CHART_UI_STYLES } from "./chartUI";
 import { PRICE_VIEW_STYLES } from "./priceViews";
 import { Arrow, Button, Delta, Panel, PRIMITIVE_STYLES, Stamp, TopBar, Wordmark } from "./primitives";
-import { PRODUCT_FAN_STYLES } from "./ProductFan";
+import { OWL_STYLES } from "./ui/OwlMark";
+import { SITE_HEADER_STYLES } from "./ui/SiteHeader";
+import { PRODUCT_CARD_STYLES } from "./ui/ProductCard";
 import { SCORE_MODEL_STYLES } from "./ScoreExplainer";
 
 const TERMINAL_STATES: ReadonlySet<string> = new Set(["SUCCESS", "FAILURE"]);
@@ -361,8 +363,9 @@ export default function App() {
   return (
     <>
       <style>
-        {PRIMITIVE_STYLES + CHART_UI_STYLES + CHART_STYLES + PRICE_VIEW_STYLES +
-          SCOREBAR_STYLES + SCORE_COMPOSITION_STYLES + PRODUCT_FAN_STYLES +
+        {PRIMITIVE_STYLES + OWL_STYLES + SITE_HEADER_STYLES +
+          PRODUCT_CARD_STYLES + CHART_UI_STYLES + CHART_STYLES +
+          PRICE_VIEW_STYLES + SCOREBAR_STYLES + SCORE_COMPOSITION_STYLES +
           SCORE_MODEL_STYLES}
       </style>
       <AnimatePresence mode="wait">
