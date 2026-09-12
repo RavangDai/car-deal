@@ -77,7 +77,6 @@ export default function HomePage({
   }, [featuredPool.length]);
 
   const featuredHistory = usePriceHistory(featured?.id ?? null, "90");
-  const lowestEverCount = products.filter((p) => p.is_lowest_ever).length;
 
   // The feed does NOT filter to scored products. dealClaims.ts decides what
   // each card may claim, and a young product honestly labelled "9 days to a
