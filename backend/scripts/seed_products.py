@@ -259,24 +259,27 @@ def generate_general(rng: random.Random, base_price: Decimal) -> list[tuple[int,
     return points
 
 
-def _image_url(category: str, slug: str, lock: int) -> str:
-    """Deterministic demo photo for a seeded product.
+def _image_url(category: str, slug: str, lock: int) -> str | None:
+    """Demo products carry NO photo, on purpose.
 
-    Was loremflickr, whose keyword+lock scheme was meant to give each demo
-    product a category-relevant photo. That service now returns ONE identical
-    fallback image for every request regardless of keyword or lock (verified:
-    same response bytes and md5 across different tags), which made all 100
-    seeded products render the same picture — visible immediately on the
-    landing page's product showcase.
+    History: this was loremflickr (keyword+lock, meant to be category
+    relevant) until that service started returning one identical fallback
+    image for every request. It was then switched to
+    ``picsum.photos/seed/<slug>``, which does return a distinct image per
+    product — but an arbitrary one. A stock photo of a street cat on a
+    cookware card is not "a lesser problem"; it actively misrepresents the
+    product, and it was the single most obvious flaw on the landing page.
 
-    picsum.photos keys off an arbitrary seed and reliably returns a distinct
-    image per seed. The trade is that the photo is no longer topically related
-    to the product; for demo rows on a .example domain that is the lesser
-    problem. Real tracked products carry their own extracted image_url and
-    never reach this function.
+    Returning None instead lets the frontend render its own category-aware
+    placeholder (see frontend/src/images.ts), which says "kitchen" honestly
+    rather than showing a photograph of the wrong thing. It also removes a
+    hotlink to a third-party image host from every demo row.
+
+    Real tracked products carry their own extracted image_url and never
+    reach this function.
     """
-    del category, lock  # kept for signature stability; seed is the slug
-    return f"https://picsum.photos/seed/{slug}/640/480"
+    del category, slug, lock  # kept for signature stability
+    return None
 
 
 def run() -> None:

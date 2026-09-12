@@ -49,7 +49,7 @@ export function ProductCard({
     <article className="rv-pcard">
       <div className="rv-pcard-shot">
         <ProductImage
-          image={productImage(product.image_url, name)}
+          image={productImage(product.image_url, name, product.category)}
           ratio="4 / 3"
           className="rv-pcard-img"
         />

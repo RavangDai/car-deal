@@ -645,7 +645,7 @@ function Dashboard({
                       <li key={p.id}>
                         <a className="rv-suggest-row" href={`#/product/${p.id}`}>
                           <ProductImage
-                            image={productImage(p.image_url, p.title ?? "Product")}
+                            image={productImage(p.image_url, p.title ?? "Product", p.category)}
                             ratio="1 / 1"
                             className="rv-suggest-thumb"
                           />
@@ -740,7 +740,7 @@ function WatchRow({
     <div className="rv-wrow">
       <a href={`#/product/${product.id}`} className="rv-wrow-product">
         <ProductImage
-          image={productImage(product.image_url, product.title ?? product.domain)}
+          image={productImage(product.image_url, product.title ?? product.domain, product.category)}
           ratio="1 / 1"
           className="rv-wrow-thumb"
         />

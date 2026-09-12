@@ -210,7 +210,7 @@ function BrowseRow({ product }: { product: Product }) {
   return (
     <a href={`#/product/${product.id}`} className="rv-brow">
       <ProductImage
-        image={productImage(product.image_url, product.title ?? product.domain)}
+        image={productImage(product.image_url, product.title ?? product.domain, product.category)}
         ratio="1 / 1"
         className="rv-brow-thumb"
       />

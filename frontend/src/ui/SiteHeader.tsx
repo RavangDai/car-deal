@@ -110,7 +110,7 @@ export function SiteHeader({
               {hits.map((p) => (
                 <a key={p.id} className="rv-hdr-result" href={`#/product/${p.id}`} role="option">
                   <ProductImage
-                    image={productImage(p.image_url, p.title ?? p.domain)}
+                    image={productImage(p.image_url, p.title ?? p.domain, p.category)}
                     ratio="1 / 1"
                     className="rv-hdr-result-shot"
                   />

@@ -83,7 +83,7 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
             {/* ── Identity ─────────────────────────────────── */}
             <Reveal className="rv-detail-head">
               <ProductImage
-                image={productImage(product.image_url, product.title ?? product.domain)}
+                image={productImage(product.image_url, product.title ?? product.domain, product.category)}
                 ratio="1 / 1"
                 className="rv-detail-thumb"
                 position="center"

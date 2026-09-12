@@ -151,7 +151,7 @@ export default function HomePage({
             {featured && (
               <a className="rv-hero2-shot" href={`#/product/${featured.id}`}>
                 <ProductImage
-                  image={productImage(featured.image_url, featured.title ?? featured.domain)}
+                  image={productImage(featured.image_url, featured.title ?? featured.domain, featured.category)}
                   ratio="1 / 1"
                 />
               </a>
@@ -205,7 +205,14 @@ export default function HomePage({
           ) : feedProducts.length > 0 ? (
             <div className="rv-pgrid" data-reveal>
               {feedProducts.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  // Saving a product creates a Watch, which needs a session.
+                  // A visitor on the marketing page has none, so send them to
+                  // sign-in rather than firing a request that can only 401.
+                  onToggleSave={() => onGetStarted()}
+                />
               ))}
             </div>
           ) : (
@@ -493,6 +500,10 @@ const STYLES = `
     opacity: .92;
   }
   .rv-hero2-shot { position: relative; display: block; width: min(74%, 300px); }
+  /* ProductImage paints its own pale plate and inset ring so product photos
+     sit on something in a grid. Over the hero's mint ellipse that plate is a
+     white rectangle covering the artwork, so it is stripped here. */
+  .rv-hero2-shot .wicimg { background: transparent; box-shadow: none; }
   .rv-hero2-shot img { object-fit: contain; }
   .rv-hero2-tag {
     position: absolute; top: 4px; right: 0;
