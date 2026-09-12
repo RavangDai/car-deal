@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useProducts, usePriceHistory } from "./hooks";
 import { formatMoney } from "./format";
-import { Arrow, Bezel, Button, Delta, Panel, Reveal, Stamp, TopBar } from "./primitives";
+import { Arrow, Button, Delta, Panel, Reveal, Stamp, TopBar } from "./primitives";
 import { PriceHistoryChart, EmptyAxis } from "./charts";
 import { ProductFan } from "./ProductFan";
 import { ScoreExplainer } from "./ScoreExplainer";
@@ -148,7 +148,7 @@ export default function HomePage({
           </Reveal>
 
           <Reveal className="rv-proof" delay={0.1}>
-            <Bezel gridded>
+            <Panel>
               <FeaturedProof
                 product={featured}
                 points={featuredHistory.data?.points ?? []}
@@ -157,7 +157,7 @@ export default function HomePage({
                 activeIdx={featuredIdx % Math.max(featuredPool.length, 1)}
                 onPick={setFeaturedIdx}
               />
-            </Bezel>
+            </Panel>
           </Reveal>
         </div>
       </section>
@@ -352,7 +352,7 @@ function FeaturedProof({
         </div>
       </div>
 
-      <div className="rv-proof-chart rv-gridded">
+      <div className="rv-proof-chart">
         <PriceHistoryChart
           points={points}
           median90d={product.median_90d}
@@ -396,7 +396,10 @@ const STYLES = `
 
   /* ── Hero proof ── */
   .rv-proof { min-width: 0; }
-  .rv-proof .rv-bezel-core { padding: clamp(18px, 2vw, 26px); }
+  /* The hero proof nests a second, unlabelled Panel around FeaturedProof's
+     own labelled one — a plain descendant selector would hit both
+     .rv-panel-body divs, so this stays scoped to the outer one only. */
+  .rv-proof > .rv-panel > .rv-panel-body { padding: clamp(18px, 2vw, 26px); }
   .rv-proof-empty { margin: 14px 0 0; font-size: 14px; color: var(--ink-muted); max-width: 52ch; }
   .rv-proof-dots { display: inline-flex; gap: 6px; }
   .rv-proof-dot {
@@ -430,8 +433,6 @@ const STYLES = `
   .rv-proof-was { font-size: 14px; color: var(--ink-muted); }
   .rv-proof-was s { text-decoration-thickness: 1.5px; }
   .rv-proof-saving { font-size: 13px; color: var(--green-deep); font-weight: 500; }
-  /* The grid substrate rides the chart only — the panel around it is a
-     reading surface, and gridding both makes neither mean anything. */
   .rv-proof-chart {
     margin: 16px -10px -6px; padding: 8px 10px 0;
     border-radius: var(--r-md);

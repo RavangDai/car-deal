@@ -159,7 +159,6 @@ export function Panel({
   aside,
   className,
   bodyClassName,
-  gridded = false,
   children,
 }: {
   label?: string;
@@ -167,8 +166,6 @@ export function Panel({
   aside?: ReactNode;
   className?: string;
   bodyClassName?: string;
-  /** Measured grid substrate — for regions that hold data, not prose. */
-  gridded?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -179,53 +176,10 @@ export function Panel({
           {aside && <span className="rv-panel-aside">{aside}</span>}
         </div>
       )}
-      <div className={`rv-panel-body${gridded ? " rv-gridded" : ""}${bodyClassName ? ` ${bodyClassName}` : ""}`}>
+      <div className={`rv-panel-body${bodyClassName ? ` ${bodyClassName}` : ""}`}>
         {children}
       </div>
     </section>
-  );
-}
-
-// ── Bezel — a nested enclosure: an outer shell holding an inner core.
-//
-// The "no cards" rule still holds for everything you READ — tables, prose
-// and the index stay flat on paper with hairline structure. This is for
-// the few surfaces that have to read as OBJECTS: the hero proof panel and
-// the product cards. A single flat div on a flat ground is exactly what
-// made the old page look unfinished; two concentric radii plus a contact
-// shadow and a top lip is what makes a surface look machined.
-//
-// The inner radius is derived, never hand-picked — --bezel-inner is
-// calc(outer - pad), so the two curves stay parallel at any scale.
-export function Bezel({
-  className,
-  bodyClassName,
-  /** Data substrate on the inner core — same grid as Panel's `gridded`. */
-  gridded = false,
-  /** Lifts the shell on hover. For cards that are links; off by default. */
-  interactive = false,
-  children,
-}: {
-  className?: string;
-  bodyClassName?: string;
-  gridded?: boolean;
-  interactive?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      className={`rv-bezel${interactive ? " rv-bezel-interactive" : ""}${
-        className ? ` ${className}` : ""
-      }`}
-    >
-      <div
-        className={`rv-bezel-core${gridded ? " rv-gridded" : ""}${
-          bodyClassName ? ` ${bodyClassName}` : ""
-        }`}
-      >
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -493,38 +447,6 @@ export const PRIMITIVE_STYLES = `
     letter-spacing: .06em; color: var(--ink-muted);
   }
 
-  /* ── Bezel — nested enclosure. Outer shell + inner core, concentric. ── */
-  .rv-bezel {
-    padding: var(--bezel-pad);
-    border-radius: var(--bezel-outer);
-    background: linear-gradient(
-      180deg,
-      rgba(255,255,255,.72),
-      rgba(226,224,216,.42)
-    );
-    box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.85),
-      0 0 0 1px rgba(27,26,22,.055),
-      var(--shadow-lg);
-    transition: transform var(--dur-lux) var(--ease-spring),
-                box-shadow var(--dur-lux) var(--ease-spring);
-  }
-  .rv-bezel-core {
-    border-radius: var(--bezel-inner);
-    background: var(--paper-pale);
-    box-shadow: var(--shadow-lip), 0 0 0 1px rgba(27,26,22,.06);
-    overflow: hidden;
-  }
-  /* Only for shells that are themselves links. Lift, never bounce. */
-  .rv-bezel-interactive { cursor: pointer; }
-  .rv-bezel-interactive:hover {
-    transform: translateY(-4px);
-    box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.92),
-      0 0 0 1px rgba(27,26,22,.07),
-      var(--shadow-xl);
-  }
-
   /* ── Inputs ── */
   .rv-input, .rv-filter-input {
     font-family: var(--font-sans); font-size: 15px; color: var(--ink);
@@ -667,11 +589,10 @@ export const PRIMITIVE_STYLES = `
   .rv-page { background: transparent; }
 
   @media (prefers-reduced-motion: reduce) {
-    .rv-btn, .rv-btn-arrow, .rv-btn-well, .rv-bezel, .rv-topbar-bar {
+    .rv-btn, .rv-btn-arrow, .rv-btn-well, .rv-topbar-bar {
       transition: none !important;
     }
-    .rv-btn:active:not(:disabled),
-    .rv-bezel-interactive:hover { transform: none !important; }
+    .rv-btn:active:not(:disabled) { transform: none !important; }
     .rv-btn:hover:not(:disabled) .rv-btn-well,
     .rv-btn:hover:not(:disabled) .rv-btn-arrow { transform: none !important; }
     /* The sheet still needs to arrive — it just arrives without travel. */

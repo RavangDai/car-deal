@@ -428,9 +428,9 @@ export const PRODUCT_FAN_STYLES = `
     margin: 0 auto;
   }
 
-  /* ── The card. Outer shell + inner core, same nesting as .rv-bezel —
-     inlined here because the shell is also the GSAP transform target and
-     must not inherit a wrapper's transform. ── */
+  /* ── The card. The flat card lives entirely on -core; the outer element
+     only positions it — it is also the GSAP transform target and must not
+     carry its own visual layer for a wrapper's transform to disturb. ── */
   .rv-fan-card {
     position: absolute;
     left: 50%; top: 50%;
@@ -438,13 +438,6 @@ export const PRODUCT_FAN_STYLES = `
     /* Seated above centre so the fan descends INTO the box rather than
        out of the bottom of it. */
     margin-left: -9.5rem; margin-top: -15rem;
-    padding: var(--bezel-pad);
-    border-radius: var(--bezel-outer);
-    background: linear-gradient(180deg, rgba(255,255,255,.82), rgba(226,224,216,.5));
-    box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.9),
-      0 0 0 1px rgba(27,26,22,.06),
-      var(--shadow-lg);
     text-decoration: none;
     /* GSAP owns transform; declaring the origin here keeps the fan pivoting
        from the bottom of the stack rather than each card's own middle. */
@@ -453,9 +446,10 @@ export const PRODUCT_FAN_STYLES = `
   }
   .rv-fan-card-core {
     display: flex; flex-direction: column; height: 100%;
-    border-radius: var(--bezel-inner);
-    background: var(--paper-pale);
-    box-shadow: var(--shadow-lip), 0 0 0 1px rgba(27,26,22,.06);
+    border-radius: var(--r-card);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
   }
 
@@ -560,10 +554,6 @@ export const PRODUCT_FAN_STYLES = `
       scroll-snap-align: center;
       transform: none !important;
       will-change: auto;
-      box-shadow:
-        inset 0 0 0 1px rgba(255,255,255,.9),
-        0 0 0 1px rgba(27,26,22,.06),
-        var(--shadow-md);
     }
   }
 `;

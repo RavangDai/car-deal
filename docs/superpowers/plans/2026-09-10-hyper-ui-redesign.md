@@ -706,6 +706,32 @@ Remove the `Bezel` function from `src/primitives.tsx` (the block beginning `// �
 
 Delete `gridded` from `Panel`'s props type and destructuring, and drop `${gridded ? " rv-gridded" : ""}` from its body className. Update the two callers passing it: `src/ProductDetailPage.tsx:177` (remove the `gridded` line) and any other hit from `grep -rn "gridded" src/`.
 
+- [ ] **Step 3b: Remove the film grain, and clean every orphaned token reference**
+
+Task 2 deleted seven tokens; their consumers were deferred to this task. Three
+files still reference them, not just `primitives.tsx`:
+
+| Orphaned token | Files still referencing it |
+|---|---|
+| `--bezel-pad`, `--bezel-outer`, `--bezel-inner`, `--shadow-lip` | `src/primitives.tsx`, `src/OnboardingFlow.tsx`, `src/ProductFan.tsx` |
+| `--grid`, `--grid-size` | `src/theme.css` (the `.rv-gridded` rule, removed in Step 4) |
+| `--z-grain` | `src/theme.css:360` |
+
+**The film grain must go.** `body::after` paints a fixed, full-viewport
+`feTurbulence` noise layer at `opacity: .032` — an instrument-era texture from
+the same family as the plotter grid, and it is already broken: its
+`z-index: var(--z-grain)` resolves to nothing now that the token is deleted, so
+a full-screen fixed layer sits at an unpredictable stacking position. Delete the
+entire `body::after` rule.
+
+For `OnboardingFlow.tsx` and `ProductFan.tsx`, the orphaned `--shadow-lip` /
+`--bezel-*` references are on **content** surfaces (an onboarding card, product
+cards). Under the glass scope rule — glass on chrome, flat content — these lose
+their lip and bezel radii and become flat cards: drop the orphaned
+`box-shadow: var(--shadow-lip), …` and `border-radius: var(--bezel-*)`
+declarations, substituting `var(--r-card)` where a radius is still needed. Do
+**not** give them glass.
+
 - [ ] **Step 4: Remove the grid substrate**
 
 Delete the `.rv-gridded` rule from `src/theme.css` (the `background-image` double-linear-gradient block and its comment). Remove the `rv-gridded` class from `src/HomePage.tsx:355` (`<div className="rv-proof-chart rv-gridded">` → `<div className="rv-proof-chart">`).

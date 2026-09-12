@@ -323,25 +323,21 @@ const ONBOARDING_STYLES = `
     padding: 12px var(--gutter) clamp(40px, 8vh, 88px);
   }
 
-  /* Double-bezel: the card is the only object on the screen, so it has to
-     read as one rather than as a bordered div. */
+  /* The card is the only object on the screen: a flat white card, gray
+     border, flat shadow — same recipe as every other reading surface. */
   .rv-ob-card {
     width: 100%; max-width: 40rem;
-    padding: var(--bezel-pad);
-    border-radius: var(--bezel-outer);
-    background: linear-gradient(180deg, rgba(255,255,255,.8), rgba(226,224,216,.45));
-    box-shadow:
-      inset 0 0 0 1px rgba(255,255,255,.9),
-      0 0 0 1px rgba(27,26,22,.055),
-      var(--shadow-xl);
+    border-radius: var(--r-card);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
   }
   .rv-ob-card > * { position: relative; }
   .rv-ob-progress, .rv-ob-body, .rv-ob-nav {
     background: var(--paper-pale);
   }
   .rv-ob-progress {
-    border-radius: var(--bezel-inner) var(--bezel-inner) 0 0;
-    box-shadow: var(--shadow-lip);
     padding: 22px clamp(20px, 3.5vw, 34px) 18px;
   }
   .rv-ob-progress-meta {
@@ -456,7 +452,6 @@ const ONBOARDING_STYLES = `
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
     padding: 18px clamp(20px, 3.5vw, 34px);
     border-top: 1px solid var(--rule);
-    border-radius: 0 0 var(--bezel-inner) var(--bezel-inner);
   }
 
   @media (max-width: 560px) {

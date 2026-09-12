@@ -263,14 +263,6 @@
   --reveal-duration: .5s;
 }
 
-/* The measured substrate. Applied to data regions via .rv-gridded. */
-.rv-gridded {
-  background-image:
-    linear-gradient(to right, var(--grid) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
-  background-size: var(--grid-size) var(--grid-size);
-}
-
 /* Every figure in the product — price, delta, score, date, axis label —
    is set in the figure face with lining tabular figures so columns align.
    Urbanist is proportional, so tabular-nums is doing ALL of the alignment
@@ -348,19 +340,6 @@
    just muddy them. */
 body {
   background-color: var(--ground);
-}
-
-/* Film grain. Fixed and pointer-events-none so it never participates in
-   scrolling or hit-testing — attaching noise to a scrolling container is
-   a guaranteed mobile repaint stall. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-grain);
-  pointer-events: none;
-  opacity: .032;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 @media (prefers-reduced-motion: reduce) {

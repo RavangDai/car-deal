@@ -174,7 +174,6 @@ export default function ProductDetailPage({ id, onBack }: { id: string; onBack: 
                 </span>
               }
               className="rv-detail-chart"
-              gridded
             >
               <div className="rv-viewbar">
                 <SegmentedControl
