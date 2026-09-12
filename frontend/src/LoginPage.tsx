@@ -4,7 +4,8 @@ import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { oauthLogin } from "./api";
 import { useConfig, useLoginMutation, useRegisterAndLoginMutation } from "./hooks";
 import { Spinner } from "./Spinner";
-import { Arrow, Button, TopBar, Wordmark } from "./primitives";
+import { Arrow, Button, Wordmark } from "./primitives";
+import { SiteHeader } from "./ui/SiteHeader";
 import PasswordStrength from "./PasswordStrength";
 import { MIN_STRENGTH_SCORE, passwordScore } from "./passwordRules";
 
@@ -27,12 +28,10 @@ const formItem: Variants = {
 };
 
 export default function LoginPage({ onLogin, onGuest }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   // An OAuth failure bounces back as "/?auth_error=<code>" — surface it from
   // the initial render rather than a setState-in-effect.
@@ -107,12 +106,7 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
   return (
     <div className="rv-login rv-page min-h-screen">
       <style>{STYLES}</style>
-      <TopBar
-        links={[{ href: "#", label: "Today's deals" }]}
-        activeHref="#"
-        menuOpen={menuOpen}
-        onToggleMenu={() => setMenuOpen((v) => !v)}
-      />
+      <SiteHeader />
 
       <div className="rv-login-split">
         {/* ── LEFT — the argument, made with the product's own mark ── */}
@@ -224,24 +218,25 @@ export default function LoginPage({ onLogin, onGuest }: Props) {
                 </Field>
               </motion.div>
 
-              <motion.div className="rv-login-row" variants={formItem}>
-                <label
-                  className="rv-checkbox"
-                  onClick={(e) => { e.preventDefault(); setRememberMe((v) => !v); }}
-                >
-                  <span className={`rv-checkbox-box ${rememberMe ? "rv-checkbox-box-on" : ""}`}>
-                    {rememberMe && (
-                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                  <span>Remember me</span>
-                </label>
-                {!isRegister && (
-                  <button type="button" className="rv-login-forgot">Forgot password?</button>
-                )}
-              </motion.div>
+              {/* "Remember me" used to live here. It was never read by
+                  handleSubmit and there is no server-side session-duration
+                  control behind it, so it has been removed rather than
+                  restyled — a checkbox that does nothing is a lie the
+                  redesign would otherwise have made prettier.
+
+                  "Forgot password?" had no handler and no route, and there
+                  is no password-reset endpoint in the backend at all. It is
+                  a support mailto until one exists. */}
+              {!isRegister && (
+                <motion.div className="rv-login-row" variants={formItem}>
+                  <a
+                    className="rv-login-forgot"
+                    href="mailto:support@dealowl.app?subject=Password%20reset%20request"
+                  >
+                    Forgot password?
+                  </a>
+                </motion.div>
+              )}
 
               <motion.div variants={formItem}>
                 <Button type="submit" variant="primary" size="lg" disabled={loading} className="rv-login-submit">
@@ -313,13 +308,13 @@ function PriceLineBackdrop() {
     >
       <path
         d="M-20 210 H80 V300 H150 V265 H240 V420 H310 V395 H400 V560 H480 V530 H620"
-        fill="none" stroke="rgba(244,243,239,.16)" strokeWidth="2"
+        fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="2"
       />
       <path
         d="M-20 350 H60 V430 H170 V400 H250 V590 H340 V560 H430 V700 H520 V680 H620"
-        fill="none" stroke="rgba(244,243,239,.10)" strokeWidth="2"
+        fill="none" stroke="rgba(255,255,255,.09)" strokeWidth="2"
       />
-      <line x1="-20" y1="530" x2="620" y2="530" stroke="rgba(10,138,79,.55)" strokeWidth="1.5" strokeDasharray="7 6" />
+      <line x1="-20" y1="530" x2="620" y2="530" stroke="rgba(168,240,203,.55)" strokeWidth="1.5" strokeDasharray="7 6" />
     </svg>
   );
 }
@@ -411,30 +406,44 @@ const STYLES = `
 
   /* ── Brand panel ── */
   .rv-login-side {
-    position: relative; overflow: hidden; background: var(--ink); color: var(--paper);
+    position: relative; overflow: hidden;
+    background: var(--navy); color: var(--on-navy);
     padding: 56px 48px; display: flex; flex-direction: column; justify-content: space-between; gap: 48px;
+  }
+  /* A single soft mint bloom, the same shape language as the hero ellipse.
+     Restrained on purpose: the form is the job, this panel is the frame. */
+  .rv-login-side::after {
+    content: ""; position: absolute; z-index: 0;
+    width: 460px; height: 460px; right: -180px; bottom: -200px;
+    border-radius: 50%; background: var(--mint); opacity: .12;
   }
   .rv-login-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; }
   .rv-login-side-body, .rv-login-side-list { position: relative; z-index: 1; }
-  .rv-login-side-eyebrow { color: rgba(244,243,239,.62); }
+  .rv-login-side-eyebrow { color: var(--mint); }
   .rv-login-side-title {
-    margin: 22px 0 0; font-size: clamp(30px, 3.6vw, 46px); color: var(--paper); max-width: 16ch;
+    margin: 22px 0 0; font-size: clamp(30px, 3.6vw, 46px);
+    color: var(--on-navy); max-width: 16ch; letter-spacing: -0.03em;
   }
   .rv-login-side-sub {
-    margin: 20px 0 0; font-size: 15.5px; line-height: 1.6; color: rgba(244,243,239,.72); max-width: 40ch;
+    margin: 20px 0 0; font-size: 15.5px; line-height: 1.6;
+    /* --ink-muted is 2.87:1 on navy. This token exists for this surface. */
+    color: var(--on-navy-muted); max-width: 40ch;
   }
   .rv-login-side-list { list-style: none; margin: 0; padding: 0; }
   .rv-login-side-list li {
-    padding: 14px 0 14px 24px; border-top: 1px solid rgba(244,243,239,.16);
-    font-size: 14.5px; color: rgba(244,243,239,.86); position: relative;
+    padding: 14px 0 14px 24px; border-top: 1px solid rgba(255,255,255,.16);
+    font-size: 14.5px; color: rgba(255,255,255,.9); position: relative;
   }
   .rv-login-side-list li::before {
-    content: ""; position: absolute; left: 0; top: 22px; width: 12px; height: 2px; background: var(--green);
+    content: ""; position: absolute; left: 0; top: 22px; width: 12px; height: 2px; background: var(--mint);
   }
 
   /* ── Form side ── */
   .rv-login-main { display: flex; align-items: center; justify-content: center; padding: 48px 24px 72px; }
   .rv-login-main-inner { width: 100%; max-width: 420px; }
+  /* The spec asks for 48-52px inputs; the shared .rv-input is sized for
+     dense app surfaces, so the form column raises it locally. */
+  .rv-login .rv-input { height: 50px; border-radius: 12px; }
   .rv-login-back {
     display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500;
     color: var(--ink-muted); text-decoration: none; margin-bottom: 28px;
@@ -444,7 +453,7 @@ const STYLES = `
   .rv-login-mobile-mark { display: none; margin-bottom: 26px; }
 
   .rv-login-title { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.03em; }
-  .rv-login-sub { margin: 10px 0 0; font-size: 14.5px; color: var(--ink-muted); }
+  .rv-login-sub { margin: 10px 0 24px; font-size: 14.5px; color: var(--ink-muted); }
 
   .rv-login-social { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
   .rv-social-btn {

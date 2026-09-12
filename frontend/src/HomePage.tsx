@@ -503,8 +503,11 @@ const STYLES = `
   /* ProductImage paints its own pale plate and inset ring so product photos
      sit on something in a grid. Over the hero's mint ellipse that plate is a
      white rectangle covering the artwork, so it is stripped here. */
-  .rv-hero2-shot .wicimg { background: transparent; box-shadow: none; }
-  .rv-hero2-shot img { object-fit: contain; }
+  .rv-hero2-shot .wicimg { background: transparent; box-shadow: none; border-radius: 14px; }
+  /* Real product photos are rectangular; the mockup uses a cut-out PNG.
+     Rounding keeps a photograph from reading as a raw box dropped on the
+     ellipse. A transparent product PNG still sits on the mint cleanly. */
+  .rv-hero2-shot img { object-fit: contain; border-radius: 14px; }
   .rv-hero2-tag {
     position: absolute; top: 4px; right: 0;
     border-radius: var(--r-pill);

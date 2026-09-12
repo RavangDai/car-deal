@@ -307,19 +307,29 @@ export const SITE_HEADER_STYLES = `
 
   /* ---- Mobile: identity + actions on one row, search beneath, nav scrolls */
   @media (max-width: 860px) {
-    .rv-hdr-row { gap: 12px; flex-wrap: wrap; padding: 0 16px; }
-    .rv-hdr-row-1 { height: auto; padding-top: 10px; padding-bottom: 10px; }
+    .rv-hdr-row-1 {
+      height: auto; gap: 12px; padding: 10px 16px;
+      flex-wrap: wrap;
+    }
     .rv-hdr-search { order: 3; flex-basis: 100%; max-width: none; margin: 0; }
     .rv-hdr-end { margin-left: auto; }
-    .rv-hdr-row-2 {
-      height: 46px; gap: 18px;
+
+    /* Row 2 must NOT wrap. It wrapped at first, which put the mint button
+       on top of the nav links instead of beside them. The row stays a
+       single line; the NAV scrolls inside its own box and the button keeps
+       its place at the end. */
+    .rv-hdr-row-2 { height: 46px; gap: 12px; flex-wrap: nowrap; padding: 0 16px; }
+    .rv-hdr-nav {
+      gap: 18px;
       overflow-x: auto; overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
+      /* Room for the last pill's active underline to breathe past the edge. */
+      padding-right: 4px;
     }
-    .rv-hdr-row-2::-webkit-scrollbar { display: none; }
-    .rv-hdr-navlink { height: 45px; }
-    .rv-hdr-alert { padding: 8px 12px; }
+    .rv-hdr-nav::-webkit-scrollbar { display: none; }
+    .rv-hdr-navlink { height: 45px; flex: none; }
+    .rv-hdr-alert { padding: 8px 12px; font-size: 13px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
