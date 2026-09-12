@@ -120,3 +120,19 @@ describe("dead tokens are gone", () => {
     }
   });
 });
+
+describe("the glass token set (chrome layer)", () => {
+  it("defines all six --glass-* tokens", () => {
+    for (const k of [
+      "--glass-fill", "--glass-fill-strong", "--glass-blur",
+      "--glass-blur-deep", "--glass-lip", "--glass-edge",
+    ]) {
+      expect(t[k]).toBeDefined();
+    }
+  });
+
+  it("fills are white-based rgba, not the old warm island tint", () => {
+    expect(t["--glass-fill"]).toMatch(/^rgba\(255,\s*255,\s*255,/);
+    expect(t["--glass-fill-strong"]).toMatch(/^rgba\(255,\s*255,\s*255,/);
+  });
+});

@@ -19,6 +19,11 @@
 - **Tailwind v3 values only** (project runs `tailwindcss ^3.4.18`). Do not use v4 syntax.
 - **Token names are stable.** `theme.css`'s convention is that names never change across redesigns; only values repoint. The single approved exception is `--paper` → adding `--ground` (Task 3).
 - **Light mode only.** No dark-mode blocks; none of the reference components define one.
+- **Glass is for CHROME ONLY.** Bibek's 2026-09-11 direction: liquid glass on
+  surfaces that float or that you act on (navbar, buttons, dropdowns, toasts,
+  filter popovers, mobile sheet); reading surfaces (cards, panels, tables,
+  prose, charts) stay flat and opaque. Never set a price, a figure, or a table
+  on a blurred ground.
 - **Never write `JSX.Element`.** `@types/react` 19 removed the global `JSX`
   namespace — `tsc -b` fails with `TS2503`. Use `ComponentType<P>` for a
   component value, `ReactElement` for an element. `React.ReactNode` and

@@ -9,8 +9,10 @@
 
    Token NAMES are stable across redesigns (the established convention
    here — a rename touches dozens of call sites for nothing). Only values
-   repoint. The one exception this pass is --ground, added because --paper
-   inverted meaning: it is now the CARD surface, not the page.
+   repoint — nothing here is a rename. This pass ADDS names outright:
+   --ground, --rule-faint, --green-line, --indigo, and the --glass-* set.
+   --paper itself keeps its name but inverts meaning: it is now the CARD
+   surface, not the page.
 
    Semantic mapping:
      ink     → gray text ramp; paper → card surface; ground → page
@@ -192,6 +194,25 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / .1), 0 8px 10px -6px rgb(0 0 0 / .1);
 
+  /* ── Glass — the CHROME layer ─────────────────────────────────────────
+     Liquid glass, scoped deliberately: surfaces that FLOAT or that you
+     ACT on wear it — the nav island, buttons, dropdowns, toasts, filter
+     popovers, the mobile sheet. Surfaces you READ from — cards, panels,
+     tables, prose, charts — stay flat and opaque.
+
+     That split is not taste, it is legibility. A price or a table set on
+     a blurred, moving ground cannot be held to a measured contrast
+     ratio, and this system measures every one of them. Glass goes where
+     the text is a label, never where the text is the data. */
+  --glass-fill:        rgba(255,255,255,.72);
+  --glass-fill-strong: rgba(255,255,255,.86);
+  --glass-blur:        blur(20px) saturate(1.5);
+  --glass-blur-deep:   blur(28px) saturate(1.4);
+  /* The specular top edge. This is the single detail that reads as
+     "glass" rather than "translucent div" — light catching a rim. */
+  --glass-lip:         inset 0 1px 0 rgba(255,255,255,.9);
+  --glass-edge:        0 0 0 1px rgba(17,24,39,.06);
+
   /* ── Radius — the Tailwind scale. The instrument system ran pill on
      things you act on and a 20px squircle on things that enclose; the
      reference set is flatter and more uniform. */
@@ -266,6 +287,23 @@
 .rv-sr {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* The glass treatment, as one class. Chrome components compose this
+   rather than each re-deriving the blur/lip/edge stack. `isolation`
+   keeps the backdrop sample from leaking through stacked glass layers. */
+.rv-glass {
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-lip), var(--glass-edge), var(--shadow-md);
+  isolation: isolate;
+}
+
+/* backdrop-filter is GPU work. Where the browser cannot do it, fall back
+   to a near-opaque fill rather than an unreadably thin one. */
+@supports not (backdrop-filter: blur(1px)) {
+  .rv-glass { background: var(--glass-fill-strong); }
 }
 
 /* Display voice: Urbanist, set large, heavy and tight. Optical sizing is
